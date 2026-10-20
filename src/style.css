@@ -48,12 +48,20 @@ main { max-width: 1336px; margin: auto; padding: 0 28px; }
 .demo-note { font-size: .76rem; color: var(--muted); white-space: nowrap; padding-bottom: 5px; }
 .admin-intro { border-bottom: 1px solid var(--line); }
 .advisor-intro { background: #e8efe8; margin: 24px -28px 26px; padding: 34px 28px; border-radius: 12px; }
-.metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-bottom: 1px solid var(--line); margin-bottom: 34px; }
+.metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); border-bottom: 1px solid var(--line); margin-bottom: 34px; }
 .metric { display: grid; gap: 6px; padding: 26px 18px 26px 0; min-width: 0; }
 .metric + .metric { border-left: 1px solid var(--line); padding-left: 26px; }
 .metric-label { font-size: .8rem; font-weight: 600; color: var(--muted); }
 .metric-value { font-size: clamp(1.8rem, 3vw, 2.45rem); letter-spacing: -.035em; font-variant-numeric: tabular-nums; line-height: 1.1; }
 .metric-note { font-size: .75rem; color: var(--muted); }
+.ranking-section { margin-bottom: 34px; }
+.ranking-section > .muted { margin-top: -12px; margin-bottom: 17px; }
+.ranking-list { list-style: none; padding: 0; margin: 0; border-top: 1px solid var(--line); }
+.ranking-row { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+.ranking-row.current { background: #e8efe8; border-radius: 6px; }
+.ranking-identity { display: grid; gap: 3px; min-width: 0; }
+.ranking-identity strong { overflow-wrap: anywhere; }
+.ranking-xp { color: var(--accent); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .admin-columns { display: grid; grid-template-columns: minmax(0, 1fr) 310px; gap: 38px; align-items: start; }
 .section-title { margin-bottom: 20px; font-size: 1.15rem; }
 .advisor-row { border-top: 1px solid var(--line); padding: 22px 0 26px; }

@@ -123,3 +123,13 @@ Este documento registra las decisiones que cambiaron el alcance o la implementac
 **Decisión elegida:** mantener **Borrar tareas** como acción independiente y agregar **Borrar clientes**. El segundo elimina los clientes asignados al asesor y sus tareas relacionadas.
 
 **Conclusión:** el administrador puede limpiar tareas sin perder clientes, o eliminar explícitamente clientes y sus tareas cuando ya no deben existir.
+
+## Decisión 13: XP y ranking sencillo
+
+**Propuesta de la persona usuaria:** dar XP por cada tarea completada y mostrar un ranking de asesores. Si se elimina un cliente, también deben desaparecer los puntos ganados con sus tareas; los puntos de otros clientes se conservan.
+
+**Propuesta de ChatGPT:** calcular el XP desde las tareas completadas y consultar un ranking agregado desde Supabase, sin crear un sistema complejo de historial.
+
+**Decisión elegida:** cada tarea completada vale 10 XP. El ranking se calcula en una función segura de Supabase contando las tareas actuales por asesor. Borrar tareas o clientes elimina sus registros y por eso sus puntos dejan de contar automáticamente.
+
+**Conclusión:** el XP siempre refleja el estado real de las tareas en la base de datos, tanto para el asesor como para el administrador.
