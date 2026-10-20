@@ -241,6 +241,7 @@ async function requestRecommendation(client, control) {
       total_tasks: progress.total,
       pending_tasks: progress.total - progress.completed,
       progress: progress.rounded,
+      tasks: client.tasks.filter(task => !task.completed).map(task => ({ title: task.title, description: task.description })),
     },
   });
   if (result.error || result.data?.error) {
