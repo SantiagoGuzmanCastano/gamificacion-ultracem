@@ -112,6 +112,9 @@ input::placeholder { color: #65766b; }
 .customer-option span { font-size: .75rem; }
 .customer-detail { min-width: 0; }
 .clear-tasks-button { margin-top: 14px; }
+.ai-recommendation { margin-top: 30px; padding: 20px 22px; background: #eef4ee; border: 1px solid #d4e2d5; border-radius: 10px; }
+.ai-recommendation .section-title { margin-bottom: 8px; }
+.ai-recommendation p { margin-bottom: 15px; font-size: .88rem; line-height: 1.55; }
 .progress-section { display: grid; grid-template-columns: minmax(0, 1fr) 170px; gap: 26px; padding: 25px 28px; background: #fff; border: 1px solid var(--line); border-radius: 12px; }
 .customer-type { font-size: .73rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-bottom: 6px; }
 .participant-name { font-size: 1.5rem; letter-spacing: -.02em; overflow-wrap: anywhere; }

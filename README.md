@@ -11,6 +11,7 @@ MVP de seguimiento comercial con tres recorridos conectados a Supabase:
 7. El administrador puede ver el correo de cada asesor y borrar su cuenta. La acción elimina también sus clientes, tareas y XP.
 8. Al completar las cuatro tareas de un cliente se registra una venta simulada única y el administrador puede consultar sus métricas generales.
 9. Cuando una misión está completa, el asesor puede limpiar sus tareas completadas sin perder la venta simulada ni las métricas.
+10. El asesor puede pedir una recomendación breve para el siguiente paso comercial. La función usa OpenRouter y puede usar Gemini como respaldo.
 
 ## Ejecutar
 
@@ -50,3 +51,14 @@ npm run build
 El administrador necesita al menos un asesor registrado para crear clientes. Las tareas son una simulación comercial; no verifican ventas reales. Las imágenes de mascota son opcionales y sus rutas se configuran en `src/mascot.js`.
 
 Esta rama no despliega la aplicación. El plan inicial se conserva en `PLAN-MVP-ESTATICO.md`.
+
+### Recomendaciones de IA
+
+La función `supabase/functions/recommend-client` no contiene claves en el frontend. Para activarla, configura los secretos en Supabase:
+
+```bash
+supabase secrets set OPENROUTER_API_KEY=... GEMINI_API_KEY=...
+supabase functions deploy recommend-client
+```
+
+Solo hace falta una de las dos claves; OpenRouter se intenta primero y Gemini se usa como respaldo si está configurado. Las pruebas y el build del frontend no requieren claves.

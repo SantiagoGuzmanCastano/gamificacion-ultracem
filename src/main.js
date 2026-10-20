@@ -6,7 +6,7 @@ import { mascotImages, mascotLabels } from './mascot.js';
 const db = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
   ? createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY) : null;
 const root = document.querySelector('#app');
-let user = null, profile = null, advisors = [], clients = [], sales = [], ranking = [], selectedId = null;
+let user = null, profile = null, advisors = [], clients = [], sales = [], ranking = [], selectedId = null, aiRecommendation = '';
 
 function el(tag, className = '', value = '') {
   const node = document.createElement(tag);
@@ -55,7 +55,7 @@ function shell() {
     actions.append(button('Cerrar sesión', 'text-button', async () => {
       const result = await db.auth.signOut();
       if (result.error) { notice('No se pudo cerrar la sesión. Intenta de nuevo.', true); return; }
-      user = profile = null; advisors = clients = sales = ranking = [];
+      user = profile = null; advisors = clients = sales = ranking = []; aiRecommendation = '';
       render();
     }));
   }
@@ -228,6 +228,30 @@ async function clearCompletedTasks(client) {
   }
   await refresh('Tareas completadas de ' + client.name + ' limpiadas. Las métricas se conservaron.');
 }
+async function requestRecommendation(client, control) {
+  control.disabled = true;
+  control.textContent = 'Analizando…';
+  aiRecommendation = '';
+  const progress = getProgress(client.tasks);
+  const result = await db.functions.invoke('recommend-client', {
+    body: {
+      name: client.name,
+      type: client.type,
+      completed_tasks: progress.completed,
+      total_tasks: progress.total,
+      pending_tasks: progress.total - progress.completed,
+      progress: progress.rounded,
+    },
+  });
+  if (result.error || result.data?.error) {
+    notice(result.data?.error || result.error.message, true);
+  } else {
+    aiRecommendation = result.data.recommendation;
+    render();
+  }
+  control.disabled = false;
+  control.textContent = 'Sugerir siguiente acción';
+}
 function adminPage(page) {
   const tasks = clients.flatMap(client => client.tasks);
   page.className = 'admin-page';
@@ -296,7 +320,7 @@ function advisorPage(page) {
   const list = el('ul', 'customer-list');
   for (const client of clients) {
     const item = el('li');
-    const control = button('', `customer-option${client.id === selectedId ? ' selected' : ''}`, () => { selectedId = client.id; render(); });
+    const control = button('', `customer-option${client.id === selectedId ? ' selected' : ''}`, () => { selectedId = client.id; aiRecommendation = ''; render(); });
     control.setAttribute('aria-pressed', String(client.id === selectedId));
     control.append(el('strong', '', client.name), el('span', 'muted', `${client.type} · ${client.tasks.filter(task => !task.completed).length} pendientes`));
     item.append(control); list.append(item);
@@ -320,6 +344,11 @@ function advisorPage(page) {
   if (progress.total === 4 && progress.completed === 4) {
     detail.append(button('Limpiar tareas completadas', 'secondary clear-tasks-button', () => clearCompletedTasks(client)));
   }
+  const aiSection = el('section', 'ai-recommendation');
+  aiSection.append(el('h2', 'section-title', 'Asistente comercial'));
+  if (aiRecommendation) aiSection.append(el('p', '', aiRecommendation));
+  aiSection.append(button('Sugerir siguiente acción', 'secondary', event => requestRecommendation(client, event.currentTarget)));
+  detail.append(aiSection);
   const taskSection = el('section', 'tasks-section'); taskSection.append(el('h2', 'section-title', 'Tareas de este cliente'));
   const taskList = el('ol', 'task-list');
   for (const task of client.tasks) {
