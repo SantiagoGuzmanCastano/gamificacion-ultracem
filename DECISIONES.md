@@ -153,3 +153,13 @@ Este documento registra las decisiones que cambiaron el alcance o la implementac
 **Decisión elegida:** crear `mvp_sales`. Una función de Supabase registra un valor aleatorio una sola vez al completar la cuarta tarea. El administrador consulta misiones y valor acumulado en su panel.
 
 **Conclusión:** las métricas permanecen después de recargar y se eliminan junto con el cliente, sin introducir un módulo de ventas real.
+
+## Decisión 16: limpiar tareas sin perder métricas
+
+**Propuesta de la persona usuaria:** permitir que el asesor borre las tareas una vez terminada la misión, conservando las métricas.
+
+**Propuesta de ChatGPT:** separar las tareas operativas de la venta simulada y borrar solo las tareas completadas mediante una función protegida.
+
+**Decisión elegida:** mostrar **Limpiar tareas completadas** al llegar a 4/4. La venta en `mvp_sales` permanece guardada y solo se eliminan las cuatro tareas.
+
+**Conclusión:** el asesor puede dejar lista su cartera para nuevas tareas sin alterar el historial de métricas.

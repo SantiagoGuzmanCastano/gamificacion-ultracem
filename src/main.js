@@ -218,6 +218,16 @@ async function deleteAdvisor(advisor) {
   }
   await refresh('Asesor ' + advisor.full_name + ' eliminado.');
 }
+async function clearCompletedTasks(client) {
+  const confirmed = window.confirm('¿Limpiar las tareas completadas de ' + client.name + '? La venta y las métricas se conservarán.');
+  if (!confirmed) return;
+  const result = await db.rpc('clear_mvp_completed_tasks', { target_client: client.id });
+  if (result.error) {
+    notice(result.error.message, true);
+    return;
+  }
+  await refresh('Tareas completadas de ' + client.name + ' limpiadas. Las métricas se conservaron.');
+}
 function adminPage(page) {
   const tasks = clients.flatMap(client => client.tasks);
   page.className = 'admin-page';
@@ -307,6 +317,9 @@ function advisorPage(page) {
     mascot.append(image);
   } else mascot.append(el('div', 'mascot-placeholder', 'Mascota pendiente'));
   mascot.append(el('p', 'mascot-state', mascotLabels[progress.mascot])); section.append(info, mascot); detail.append(section);
+  if (progress.total === 4 && progress.completed === 4) {
+    detail.append(button('Limpiar tareas completadas', 'secondary clear-tasks-button', () => clearCompletedTasks(client)));
+  }
   const taskSection = el('section', 'tasks-section'); taskSection.append(el('h2', 'section-title', 'Tareas de este cliente'));
   const taskList = el('ol', 'task-list');
   for (const task of client.tasks) {

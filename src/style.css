@@ -111,6 +111,7 @@ input::placeholder { color: #65766b; }
 .customer-option strong { font-size: .85rem; font-weight: 600; }
 .customer-option span { font-size: .75rem; }
 .customer-detail { min-width: 0; }
+.clear-tasks-button { margin-top: 14px; }
 .progress-section { display: grid; grid-template-columns: minmax(0, 1fr) 170px; gap: 26px; padding: 25px 28px; background: #fff; border: 1px solid var(--line); border-radius: 12px; }
 .customer-type { font-size: .73rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-bottom: 6px; }
 .participant-name { font-size: 1.5rem; letter-spacing: -.02em; overflow-wrap: anywhere; }
