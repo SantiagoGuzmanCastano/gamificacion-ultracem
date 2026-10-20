@@ -1,12 +1,12 @@
 import './style.css';
 import { createClient } from '@supabase/supabase-js';
-import { getProgress } from './game.js';
+import { getProgress, getXp } from './game.js';
 import { mascotImages, mascotLabels } from './mascot.js';
 
 const db = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
   ? createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY) : null;
 const root = document.querySelector('#app');
-let user = null, profile = null, advisors = [], clients = [], selectedId = null;
+let user = null, profile = null, advisors = [], clients = [], sales = [], ranking = [], selectedId = null;
 
 function el(tag, className = '', value = '') {
   const node = document.createElement(tag);
@@ -42,6 +42,9 @@ function authError(cause) {
   if (cause.code === 'invalid_credentials') return 'Correo o contraseña incorrectos.';
   if (cause.code === 'email_not_confirmed') return 'Confirma tu correo antes de entrar.';
   if (cause.code === 'user_already_exists') return 'Ya existe una cuenta con este correo.';
+  if (cause.code === 'over_email_send_rate_limit' || /rate limit exceeded/i.test(cause.message || '')) {
+    return 'Supabase alcanzó el límite de correos de confirmación. Espera unos minutos y revisa si ya recibiste el correo antes de intentarlo de nuevo.';
+  }
   return cause.message || 'No se pudo acceder.';
 }
 function shell() {
@@ -52,7 +55,7 @@ function shell() {
     actions.append(button('Cerrar sesión', 'text-button', async () => {
       const result = await db.auth.signOut();
       if (result.error) { notice('No se pudo cerrar la sesión. Intenta de nuevo.', true); return; }
-      user = profile = null; advisors = clients = [];
+      user = profile = null; advisors = clients = sales = ranking = [];
       render();
     }));
   }
@@ -108,13 +111,19 @@ async function loadData() {
   if (own.error) throw own.error;
   profile = own.data;
   if (profile.role === 'admin') {
-    const list = await db.from('mvp_profiles').select('user_id,full_name,role').eq('role', 'advisor').order('full_name');
+    const list = await db.rpc('get_mvp_advisors');
     if (list.error) throw list.error;
-    advisors = list.data;
+    advisors = (list.data ?? []).sort((a, b) => a.full_name.localeCompare(b.full_name));
   } else advisors = [];
   const result = await db.from('mvp_clients').select('id,name,type,advisor_id,mvp_tasks(id,title,description,completed_at)').order('created_at', { ascending: false });
   if (result.error) throw result.error;
   clients = result.data.map(client => ({ ...client, tasks: client.mvp_tasks.map(task => ({ ...task, completed: Boolean(task.completed_at) })) }));
+  const salesResult = await db.from('mvp_sales').select('id,client_id,advisor_id,amount,completed_at');
+  if (salesResult.error) throw salesResult.error;
+  sales = salesResult.data ?? [];
+  const rankingResult = await db.rpc('get_mvp_advisor_ranking');
+  if (rankingResult.error) throw rankingResult.error;
+  ranking = rankingResult.data ?? [];
   if (!clients.some(client => client.id === selectedId)) selectedId = clients[0]?.id ?? null;
 }
 async function boot() {
@@ -137,6 +146,40 @@ function metrics(items) {
     row.append(item);
   }
   return row;
+}
+function rankingSection() {
+  const section = el('section', 'ranking-section');
+  section.append(el('h2', 'section-title', 'Ranking de asesores'), el('p', 'muted', 'Cada tarea completada suma 10 XP.'));
+  if (!ranking.length) {
+    section.append(el('p', 'empty-state', 'Aún no hay asesores con actividad registrada.'));
+    return section;
+  }
+  const list = el('ol', 'ranking-list');
+  for (const row of ranking) {
+    const item = el('li', 'ranking-row' + (row.advisor_id === user?.id ? ' current' : ''));
+    const identity = el('div', 'ranking-identity');
+    identity.append(el('strong', '', `${row.position}. ${row.full_name}`), el('span', 'muted', `${row.completed_tasks} tareas completadas`));
+    item.append(identity, el('strong', 'ranking-xp', `${row.xp} XP`));
+    list.append(item);
+  }
+  section.append(list);
+  return section;
+}
+function adminMetricsSection() {
+  const totalAmount = sales.reduce((total, sale) => total + Number(sale.amount || 0), 0);
+  const section = el('section', 'metrics-dashboard');
+  section.append(el('h2', 'section-title', 'Métricas generales'), el('p', 'muted', 'Resultados simulados a partir de misiones completadas.'));
+  section.append(metrics([['Misiones completadas', sales.length, 'ventas simuladas'], ['Valor acumulado', `$${totalAmount.toLocaleString('es-CO')}`, 'valor de prueba']]));
+  const list = el('ul', 'metrics-breakdown');
+  for (const advisor of advisors) {
+    const advisorSales = sales.filter(sale => sale.advisor_id === advisor.user_id);
+    const amount = advisorSales.reduce((total, sale) => total + Number(sale.amount || 0), 0);
+    const item = el('li', 'metrics-breakdown-row');
+    item.append(el('span', '', advisor.full_name), el('strong', '', `${advisorSales.length} · $${amount.toLocaleString('es-CO')}`));
+    list.append(item);
+  }
+  if (advisors.length) section.append(list);
+  return section;
 }
 function intro(title, description, className) {
   const head = el('div', `page-intro ${className}`), copy = el('div');
@@ -165,11 +208,34 @@ async function deleteAdvisorClients(advisor, clientCount) {
   }
   await refresh('Clientes de ' + advisor.full_name + ' eliminados.');
 }
+async function deleteAdvisor(advisor) {
+  const confirmed = window.confirm('¿Borrar la cuenta de ' + advisor.full_name + '? Se eliminarán también sus clientes, tareas y puntos del ranking. Esta acción no se puede deshacer.');
+  if (!confirmed) return;
+  const result = await db.rpc('delete_mvp_advisor', { target_advisor: advisor.user_id });
+  if (result.error) {
+    notice(result.error.message, true);
+    return;
+  }
+  await refresh('Asesor ' + advisor.full_name + ' eliminado.');
+}
+async function clearCompletedTasks(client) {
+  const confirmed = window.confirm('¿Limpiar las tareas completadas de ' + client.name + '? La venta y las métricas se conservarán.');
+  if (!confirmed) return;
+  const result = await db.rpc('clear_mvp_completed_tasks', { target_client: client.id });
+  if (result.error) {
+    notice(result.error.message, true);
+    return;
+  }
+  await refresh('Tareas completadas de ' + client.name + ' limpiadas. Las métricas se conservaron.');
+}
 function adminPage(page) {
   const tasks = clients.flatMap(client => client.tasks);
   page.className = 'admin-page';
   page.append(intro('Panorama comercial', 'Clientes y tareas pendientes por asesor.', 'admin-intro'));
-  page.append(metrics([['Asesores', advisors.length, 'cuentas registradas'], ['Clientes comerciales', clients.length, 'negocios asignados'], ['Tareas pendientes', tasks.filter(task => !task.completed).length, 'acciones por completar']]));
+  const totalXp = ranking.reduce((total, row) => total + Number(row.xp || 0), 0);
+  page.append(metrics([['Asesores', advisors.length, 'cuentas registradas'], ['Clientes comerciales', clients.length, 'negocios asignados'], ['Tareas pendientes', tasks.filter(task => !task.completed).length, 'acciones por completar'], ['XP acumulado', totalXp, 'de todos los asesores']]));
+  page.append(rankingSection());
+  page.append(adminMetricsSection());
   const layout = el('div', 'admin-columns'), overview = el('section', 'admin-overview');
   overview.append(el('h2', 'section-title', 'Pendientes por asesor'));
   if (!advisors.length) overview.append(el('p', 'empty-state', 'Todavía no hay asesores. Pídeles que creen una cuenta.'));
@@ -177,11 +243,12 @@ function adminPage(page) {
     const assigned = clients.filter(client => client.advisor_id === advisor.user_id);
     const pending = assigned.flatMap(client => client.tasks).filter(task => !task.completed).length;
     const section = el('article', 'advisor-row'), head = el('div', 'advisor-row-head'), copy = el('div');
-    copy.append(el('h3', '', advisor.full_name), el('p', 'muted', `${assigned.length} clientes asignados`));
+    copy.append(el('h3', '', advisor.full_name), el('p', 'advisor-email', advisor.email || 'Correo no disponible'), el('p', 'muted', `${assigned.length} clientes asignados`));
     const actions = el('div', 'advisor-row-actions');
     actions.append(el('strong', 'pending-count', `${pending} pendientes`));
     if (assigned.length) actions.append(button('Borrar tareas', 'danger-button', () => resetAdvisorTasks(advisor, assigned.length)));
     if (assigned.length) actions.append(button('Borrar clientes', 'danger-button', () => deleteAdvisorClients(advisor, assigned.length)));
+    actions.append(button('Borrar asesor', 'danger-button', () => deleteAdvisor(advisor)));
     head.append(copy, actions); section.append(head);
     if (!assigned.length) section.append(el('p', 'empty-inline', 'Aún no tiene clientes.'));
     const list = el('ul', 'pending-list');
@@ -219,7 +286,10 @@ function advisorPage(page) {
   page.className = 'advisor-page';
   page.append(intro('Mi cartera de clientes', 'Tareas comerciales de los negocios que tienes asignados.', 'advisor-intro'));
   const tasks = clients.flatMap(client => client.tasks);
-  page.append(metrics([['Mis clientes', clients.length, 'negocios asignados'], ['Por completar', tasks.filter(task => !task.completed).length, 'tareas pendientes'], ['Completadas', tasks.filter(task => task.completed).length, 'acciones realizadas']]));
+  const completed = tasks.filter(task => task.completed).length;
+  const ownRanking = ranking.find(row => row.advisor_id === user?.id);
+  page.append(metrics([['Mis clientes', clients.length, 'negocios asignados'], ['Por completar', tasks.filter(task => !task.completed).length, 'tareas pendientes'], ['Completadas', completed, 'acciones realizadas'], ['XP', ownRanking ? getXp(completed) : 0, '10 XP por tarea'], ['Posición', ownRanking ? `#${ownRanking.position}` : '—', 'ranking global']]));
+  page.append(rankingSection());
   if (!clients.length) { page.append(el('p', 'empty-state', 'Todavía no tienes clientes. El administrador puede asignarte uno.')); return; }
   const layout = el('div', 'advisor-columns'), rail = el('aside', 'customer-rail');
   rail.append(el('h2', '', 'Mis clientes'));
@@ -247,6 +317,9 @@ function advisorPage(page) {
     mascot.append(image);
   } else mascot.append(el('div', 'mascot-placeholder', 'Mascota pendiente'));
   mascot.append(el('p', 'mascot-state', mascotLabels[progress.mascot])); section.append(info, mascot); detail.append(section);
+  if (progress.total === 4 && progress.completed === 4) {
+    detail.append(button('Limpiar tareas completadas', 'secondary clear-tasks-button', () => clearCompletedTasks(client)));
+  }
   const taskSection = el('section', 'tasks-section'); taskSection.append(el('h2', 'section-title', 'Tareas de este cliente'));
   const taskList = el('ol', 'task-list');
   for (const task of client.tasks) {
@@ -255,8 +328,8 @@ function advisorPage(page) {
     actions.append(el('span', `task-status${task.completed ? ' completed' : ''}`, task.completed ? 'Completada' : 'Pendiente'));
     if (!task.completed) actions.append(button('Completar tarea', 'secondary', async event => {
       const control = event.currentTarget; control.disabled = true; control.textContent = 'Guardando…';
-      const result = await db.from('mvp_tasks').update({ completed_at: new Date().toISOString() }).eq('id', task.id).is('completed_at', null).select('id');
-      if (result.error || result.data.length !== 1) {
+      const result = await db.rpc('complete_mvp_task', { target_task: task.id });
+      if (result.error || result.data !== true) {
         control.disabled = false; control.textContent = 'Completar tarea';
         notice(result.error?.message || 'La tarea ya fue actualizada. Recarga los datos.', true); return;
       }

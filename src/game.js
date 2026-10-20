@@ -11,3 +11,7 @@ export function getProgress(tasks) {
   const percentage = total ? completed / total * 100 : 0;
   return { completed, total, percentage, rounded: Math.round(percentage), mascot: getMascotState(percentage) };
 }
+
+export function getXp(completedTasks) {
+  return Math.max(0, completedTasks) * 10;
+}

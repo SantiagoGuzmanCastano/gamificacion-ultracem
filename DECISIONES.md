@@ -123,3 +123,43 @@ Este documento registra las decisiones que cambiaron el alcance o la implementac
 **Decisión elegida:** mantener **Borrar tareas** como acción independiente y agregar **Borrar clientes**. El segundo elimina los clientes asignados al asesor y sus tareas relacionadas.
 
 **Conclusión:** el administrador puede limpiar tareas sin perder clientes, o eliminar explícitamente clientes y sus tareas cuando ya no deben existir.
+
+## Decisión 13: XP y ranking sencillo
+
+**Propuesta de la persona usuaria:** dar XP por cada tarea completada y mostrar un ranking de asesores. Si se elimina un cliente, también deben desaparecer los puntos ganados con sus tareas; los puntos de otros clientes se conservan.
+
+**Propuesta de ChatGPT:** calcular el XP desde las tareas completadas y consultar un ranking agregado desde Supabase, sin crear un sistema complejo de historial.
+
+**Decisión elegida:** cada tarea completada vale 10 XP. El ranking se calcula en una función segura de Supabase contando las tareas actuales por asesor. Borrar tareas o clientes elimina sus registros y por eso sus puntos dejan de contar automáticamente.
+
+**Conclusión:** el XP siempre refleja el estado real de las tareas en la base de datos, tanto para el asesor como para el administrador.
+
+## Decisión 14: administrar cuentas de asesores
+
+**Propuesta de la persona usuaria:** mostrar el correo de cada asesor y permitir que el administrador borre una cuenta desde su panel.
+
+**Propuesta de ChatGPT:** resolverlo con funciones protegidas de Supabase que eliminen primero sus clientes y tareas y después la cuenta de autenticación.
+
+**Decisión elegida:** añadir el correo bajo cada nombre y un botón separado **Borrar asesor**, con confirmación. El borrado también elimina clientes, tareas y XP asociado.
+
+**Conclusión:** el administrador puede retirar una cuenta completa desde una acción explícita y consistente.
+
+## Decisión 15: registrar una venta simulada al completar una misión
+
+**Propuesta de la persona usuaria:** tratar las cuatro tareas de cada cliente como una misión comercial y registrar métricas cuando el asesor complete las cuatro.
+
+**Propuesta de ChatGPT:** guardar una venta simulada única por cliente y calcular las métricas del administrador a partir de esos registros.
+
+**Decisión elegida:** crear `mvp_sales`. Una función de Supabase registra un valor aleatorio una sola vez al completar la cuarta tarea. El administrador consulta misiones y valor acumulado en su panel.
+
+**Conclusión:** las métricas permanecen después de recargar y se eliminan junto con el cliente, sin introducir un módulo de ventas real.
+
+## Decisión 16: limpiar tareas sin perder métricas
+
+**Propuesta de la persona usuaria:** permitir que el asesor borre las tareas una vez terminada la misión, conservando las métricas.
+
+**Propuesta de ChatGPT:** separar las tareas operativas de la venta simulada y borrar solo las tareas completadas mediante una función protegida.
+
+**Decisión elegida:** mostrar **Limpiar tareas completadas** al llegar a 4/4. La venta en `mvp_sales` permanece guardada y solo se eliminan las cuatro tareas.
+
+**Conclusión:** el asesor puede dejar lista su cartera para nuevas tareas sin alterar el historial de métricas.
