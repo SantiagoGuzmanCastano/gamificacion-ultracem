@@ -6,6 +6,7 @@ MVP de seguimiento comercial con tres recorridos conectados a Supabase:
 2. El administrador crea un cliente comercial, lo asigna a un asesor y la base crea cuatro tareas.
 3. El asesor ve únicamente sus clientes, completa tareas y su progreso aparece también en el panel del administrador.
 4. El administrador puede borrar todas las tareas de un asesor. La acción elimina las tareas actuales, incluidas las completadas, y deja sus clientes sin tareas.
+5. El administrador puede borrar todos los clientes asignados a un asesor. Sus tareas se eliminan automáticamente junto con ellos.
 
 ## Ejecutar
 

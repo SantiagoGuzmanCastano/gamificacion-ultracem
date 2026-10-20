@@ -113,3 +113,13 @@ Este documento registra las decisiones que cambiaron el alcance o la implementac
 **Decisión elegida:** mantener la aplicación en local por ahora.
 
 **Conclusión:** antes del despliegue faltan validar el recorrido completo con cuentas reales y definir la versión visual final.
+
+## Decisión 12: separar el borrado de tareas del borrado de clientes
+
+**Propuesta de la persona usuaria:** agregar una opción para borrar los clientes de un asesor y sus tareas.
+
+**Propuesta de ChatGPT:** separar la acción en dos botones: uno para borrar solo tareas y otro para borrar clientes, evitando que una limpieza de tareas elimine negocios por accidente.
+
+**Decisión elegida:** mantener **Borrar tareas** como acción independiente y agregar **Borrar clientes**. El segundo elimina los clientes asignados al asesor y sus tareas relacionadas.
+
+**Conclusión:** el administrador puede limpiar tareas sin perder clientes, o eliminar explícitamente clientes y sus tareas cuando ya no deben existir.
