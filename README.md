@@ -5,6 +5,7 @@ MVP de seguimiento comercial con tres recorridos conectados a Supabase:
 1. Un asesor crea su cuenta e inicia sesión. El administrador y el asesor ven paneles distintos según su rol real.
 2. El administrador crea un cliente comercial, lo asigna a un asesor y la base crea cuatro tareas.
 3. El asesor ve únicamente sus clientes, completa tareas y su progreso aparece también en el panel del administrador.
+4. El administrador puede reiniciar las tareas de un asesor. La acción elimina las tareas actuales, incluidas las completadas, y crea cuatro nuevas pendientes por cada cliente asignado.
 
 ## Ejecutar
 

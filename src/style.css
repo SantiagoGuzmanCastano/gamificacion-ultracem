@@ -60,6 +60,9 @@ main { max-width: 1336px; margin: auto; padding: 0 28px; }
 .advisor-row-head { display: flex; align-items: start; justify-content: space-between; gap: 16px; }
 .advisor-row-head .muted { margin-top: 4px; }
 .pending-count { font-size: .77rem; font-weight: 600; background: #e9ece0; color: #4c5945; border-radius: 4px; padding: 6px 9px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.advisor-row-actions { display: flex; align-items: center; justify-content: end; gap: 10px; flex-wrap: wrap; }
+.danger-button { border: 1px solid #b55245; background: #fff; color: #8c3026; border-radius: 6px; padding: 7px 9px; font-size: .73rem; font-weight: 600; white-space: nowrap; }
+.danger-button:hover { background: #fbe9e7; }
 .pending-list, .pending-titles { margin: 0; }
 .pending-list { list-style: none; padding: 0; margin-top: 18px; }
 .pending-list > li { padding: 12px 0; border-top: 1px solid #e5eae5; font-size: .87rem; line-height: 1.5; overflow-wrap: anywhere; }
