@@ -1,13 +1,13 @@
 export const mascotImages = {
-  sad: null,
-  neutral: null,
-  happy: null,
-  energetic: null,
+  sad: '/mascot/pinguino-states.png',
+  neutral: '/mascot/pinguino-states.png',
+  happy: '/mascot/pinguino-states.png',
+  energetic: '/mascot/pinguino-states.png',
 };
 
 export const mascotLabels = {
   sad: 'Triste',
-  neutral: 'Neutral',
+  neutral: 'Serio',
   happy: 'Feliz',
-  energetic: 'Muy feliz',
+  energetic: 'Feliz',
 };

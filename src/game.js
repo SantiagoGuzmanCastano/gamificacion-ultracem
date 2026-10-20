@@ -1,8 +1,7 @@
 export function getMascotState(percentage) {
   if (percentage <= 25) return 'sad';
-  if (percentage <= 50) return 'neutral';
-  if (percentage <= 75) return 'happy';
-  return 'energetic';
+  if (percentage < 100) return 'neutral';
+  return 'happy';
 }
 
 export function getProgress(tasks) {
