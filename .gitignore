@@ -3,3 +3,5 @@ dist/
 .vercel/
 output/
 .playwright-cli/
+.env.local
+.env.*.local

@@ -1,81 +1,45 @@
-# Demo de gamificación Ultracem
+# Gamificación Ultracem
 
-Prototipo estático en español con dos vistas. Administrador crea asesores, registra clientes comerciales y los asigna a un asesor. Cada cliente recibe cuatro tareas ficticias. Asesor consulta sus clientes y simula la finalización de sus tareas.
+MVP de seguimiento comercial con tres recorridos conectados a Supabase:
+
+1. Un asesor crea su cuenta e inicia sesión. El administrador y el asesor ven paneles distintos según su rol real.
+2. El administrador crea un cliente comercial, lo asigna a un asesor y la base crea cuatro tareas.
+3. El asesor ve únicamente sus clientes, completa tareas y su progreso aparece también en el panel del administrador.
+4. El administrador puede borrar todas las tareas de un asesor. La acción elimina las tareas actuales, incluidas las completadas, y deja sus clientes sin tareas.
 
 ## Ejecutar
 
-Requiere Node.js 20.19+ dentro de la versión 20, o 22.12+ (se verificó con Node.js 24.15.0), y npm.
+Requiere Node.js 20.19+ o 22.12+ y npm.
 
 ```bash
 npm ci
+cp .env.example .env.local
 npm run dev
 ```
 
-Abre la URL que imprime Vite. Para verificar y preparar la versión estática:
+Sustituye `VITE_SUPABASE_PUBLISHABLE_KEY` por la clave **publishable** del proyecto. `.env.local` está excluido de Git. El URL y la clave publishable son públicos por diseño; nunca uses una clave secreta o `service_role` en Vite.
+
+La migración en [supabase/migrations/20261020000000_mvp_core.sql](supabase/migrations/20261020000000_mvp_core.sql) crea las tablas `mvp_*` y sus políticas RLS. No modifica las tablas anteriores. Las cuentas nuevas se registran como asesores. Para activar al primer administrador, este debe registrarse y confirmar el correo; después ejecuta en el SQL Editor de Supabase:
+
+```sql
+update public.mvp_profiles
+set role = 'admin'
+where user_id = (
+  select id from auth.users
+  where email = '<correo-del-administrador>'
+    and email_confirmed_at is not null
+);
+```
+
+Confirma que el resultado actualizó una fila. Cierra sesión y vuelve a entrar para cargar el panel administrador. No se pide ni se guarda la contraseña fuera de Supabase Auth.
+
+## Comprobación
 
 ```bash
 npm test
 npm run build
-npm run preview
 ```
 
-El build se genera en `dist/`. `npm run preview` permite revisar ese build localmente; no se usa como servidor de producción.
+El administrador necesita al menos un asesor registrado para crear clientes. Las tareas son una simulación comercial; no verifican ventas reales. Las imágenes de mascota son opcionales y sus rutas se configuran en `src/mascot.js`.
 
-## Probar el recorrido
-
-1. En Administrador, crea los asesores Ana y Luis. Registra dos negocios ficticios, por ejemplo una ferretería para Ana y una constructora para Luis.
-2. Pulsa **Cambiar a Asesor** en la barra superior. Elige a Ana y un cliente de su cartera. Completa tareas y observa el progreso de ese cliente.
-3. Selecciona a Luis: el cliente y las tareas de Ana permanecen independientes. Regresa a Administrador para ver los pendientes agrupados por asesor. Recarga para comprobar la persistencia.
-4. Reiniciar demo pide confirmación. Cancelar conserva todo; aceptar elimina únicamente la clave de esta aplicación.
-
-| Tareas completadas | Progreso | Estado |
-| --- | --- | --- |
-| 0/4 y 1/4 | 0 % y 25 % | Triste |
-| 2/4 | 50 % | Neutral |
-| 3/4 | 75 % | Feliz |
-| 4/4 | 100 % | Muy feliz |
-
-## Datos y límites
-
-Se utiliza la clave `ultracem-gamificacion-demo-v1` de localStorage. Su formato actual es la versión 2, con asesores y clientes comerciales separados. Los datos de la primera versión se migran conservando las tareas; cada participante anterior pasa a ser asesor y sus tareas se vinculan a un cliente rotulado «Cliente anterior de …». El progreso y estado de mascota se calculan desde las tareas de cada cliente. Los datos permanecen únicamente en ese navegador y origen: cambiar de dispositivo, puerto o URL de despliegue crea un almacenamiento distinto.
-
-Si el contenido guardado es inválido, aparece un aviso y la demo inicia vacía. Si guardar falla, la interacción continúa y un aviso indica que los cambios no se conservarán al recargar. Usa nombres ficticios.
-
-Cambiar de vista simula roles; no ofrece autenticación ni seguridad de acceso. No hay backend, servicios de datos, IA, CRM, puntos, rankings ni ventas verificadas.
-
-## Incorporar la mascota
-
-No se incluyen imágenes. Cuando estén disponibles, crea `public/mascota/`, añade los SVG o PNG entregados y actualiza `src/mascot.js`:
-
-```javascript
-export const mascotImages = {
-  sad: '/mascota/triste.svg',
-  neutral: '/mascota/neutral.svg',
-  happy: '/mascota/feliz.svg',
-  energetic: '/mascota/muy-feliz.svg',
-};
-```
-
-Esas rutas son ejemplos: configúralas únicamente cuando existan los archivos. Los valores iniciales son `null`. Si una imagen falla, se muestra «Mascota pendiente» y se conserva la etiqueta del estado actual.
-
-## Vercel
-
-La configuración está en `vercel.json`: framework Vite, raíz `.`, build `npm run build`, salida `dist`. No requiere variables de entorno ni secretos.
-
-Con una cuenta de Vercel conectada, importa el repositorio o ejecuta desde esta carpeta:
-
-```bash
-npx vercel
-```
-
-La publicación y su URL deben verificarse en la cuenta de destino. No hay un despliegue registrado todavía.
-
-## Verificación realizada
-
-- Siete pruebas con `node:test`: asignación por cliente, IDs únicos, independencia, idempotencia, porcentajes, estados, migración, validación de referencias, fallos de almacenamiento y reinicio selectivo.
-- `npm run build`: correcto con Vite 8.3.4.
-- Navegador Chromium: creación de dos asesores y dos clientes asignados, cambio de vista desde la barra superior, avance de tareas, aislamiento entre asesores y persistencia al recargar.
-- Revisión visual actualizada a 1440 × 1000 y 375 × 812; sin desbordamiento horizontal ni errores de ejecución JavaScript.
-- Revisión estática de código: sin hallazgos importantes.
-
-El plan inicial se conserva en `PLAN-MVP-ESTATICO.md` como registro de la primera versión. Esta rama incorpora la separación posterior entre asesores y clientes comerciales.
+Esta rama no despliega la aplicación. El plan inicial se conserva en `PLAN-MVP-ESTATICO.md`.
