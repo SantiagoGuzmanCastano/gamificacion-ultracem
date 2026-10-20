@@ -93,25 +93,26 @@ En la raíz del proyecto: index.html, package.json, lockfile, src/main.js (inter
 
 ## Tasks de implementación
 
-- [ ] 1. Base y lógica: preparar Vite, catálogo y modelo; probar asignación de cuatro tareas únicas, independencia entre clientes, finalización idempotente y límites de porcentaje/estado con node:test.
-- [ ] 2. Flujo Admin: crear/listar/seleccionar clientes y ver sus tareas. Guardar/recuperar estado con localStorage y manejar datos corruptos/errores de almacenamiento.
-- [ ] 3. Flujo Cliente: selector, tareas, botón Completar, contador/barra y contenedor de mascota sin imagen; reflejar cambios en Admin.
+- [x] 1. Base y lógica: preparar Vite, catálogo y modelo; probar asignación de cuatro tareas únicas, independencia entre clientes, finalización idempotente y límites de porcentaje/estado con node:test.
+- [x] 2. Flujo Admin: crear/listar/seleccionar clientes y ver sus tareas. Guardar/recuperar estado con localStorage y manejar datos corruptos/errores de almacenamiento.
+- [x] 3. Flujo Cliente: selector, tareas, botón Completar, contador/barra y contenedor de mascota sin imagen; reflejar cambios en Admin.
 - [ ] 4. Verificación y entrega: reiniciar con confirmación, probar recorrido en navegador y pantalla pequeña, ejecutar tests/build, documentar ejecución y desplegar en Vercel cuando corresponda.
 
 Actualizar estos checkboxes con evidencia. Si el proyecto usa Git, hacer un commit por task terminada en una rama de trabajo y revisar antes de integrar en main. No es necesario dividir en subagentes ni crear más documentos de arquitectura.
 
 ## Criterios de aceptación
 
-- [ ] Desde vacío, crear Ana y Luis; cada uno recibe cuatro tareas distintas, todas pendientes.
-- [ ] Completar tareas de Ana deja intactas las de Luis y persiste tras recargar.
-- [ ] Con cuatro tareas: 0/4 y 1/4 -> sad; 2/4 -> neutral; 3/4 -> happy; 4/4 -> energetic.
-- [ ] Repetir una finalización no cambia el total; cero tareas no genera NaN.
-- [ ] Admin y Cliente muestran el mismo estado; no se necesita iniciar sesión.
-- [ ] Sin imágenes se ve un espacio reservado; después basta configurar rutas SVG/PNG.
-- [ ] Reiniciar elimina solo los datos de esta demo; sin confirmación no borra nada.
-- [ ] Tests y build pasan; no hay peticiones a servicios de datos, IA o API propia ni secretos en el bundle.
+- [x] Desde vacío, crear Ana y Luis; cada uno recibe cuatro tareas distintas, todas pendientes.
+- [x] Completar tareas de Ana deja intactas las de Luis y persiste tras recargar.
+- [x] Con cuatro tareas: 0/4 y 1/4 -> sad; 2/4 -> neutral; 3/4 -> happy; 4/4 -> energetic.
+- [x] Repetir una finalización no cambia el total; cero tareas no genera NaN.
+- [x] Admin y Cliente muestran el mismo estado; no se necesita iniciar sesión.
+- [x] Sin imágenes se ve un espacio reservado; después basta configurar rutas SVG/PNG.
+- [x] Reiniciar elimina solo los datos de esta demo; sin confirmación no borra nada.
+- [x] Tests y build pasan; no hay peticiones a servicios de datos, IA o API propia ni secretos en el bundle.
 - [ ] Vercel: directorio raíz del proyecto (.), build npm run build, salida dist. Comprobar la URL publicada; si se usa Git, registrar el commit desplegado.
 
 ## Prompt para iniciar
 
 Lee PLAN-MVP-ESTATICO.md y crea este proyecto nuevo e independiente en la raíz de la carpeta de trabajo. Usa Vite vanilla con JavaScript, HTML, CSS y localStorage. Prioriza el flujo funcional, la lógica y la persistencia local. Interfaz sencilla y genérica; no inventes marca ni mascota: deja su espacio y configuración para SVG/PNG futuros. Implementa las cuatro tasks, marca avances y verifica tests, build y recorrido en navegador. Este Markdown es suficiente; el PRD, si se adjunta, es solo contexto comercial.
+
