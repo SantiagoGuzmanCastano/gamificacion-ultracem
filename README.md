@@ -1,6 +1,6 @@
 # Demo de gamificación Ultracem
 
-Prototipo estático en español para crear participantes, asignar cuatro tareas comerciales ficticias y simular su cumplimiento. Las vistas Administrador y Cliente comparten el progreso y el estado de mascota del participante seleccionado.
+Prototipo estático en español con dos vistas. Administrador crea asesores, registra clientes comerciales y los asigna a un asesor. Cada cliente recibe cuatro tareas ficticias. Asesor consulta sus clientes y simula la finalización de sus tareas.
 
 ## Ejecutar
 
@@ -23,9 +23,9 @@ El build se genera en `dist/`. `npm run preview` permite revisar ese build local
 
 ## Probar el recorrido
 
-1. En Administrador, crea Ana y Luis. Cada participante recibe cuatro tareas distintas elegidas al azar.
-2. Selecciona Ana y cambia a Cliente. Completa sus tareas y observa el progreso y el estado de mascota.
-3. Selecciona Luis: sus tareas siguen pendientes. Recarga: las asignaciones y finalizaciones se conservan.
+1. En Administrador, crea los asesores Ana y Luis. Registra dos negocios ficticios, por ejemplo una ferretería para Ana y una constructora para Luis.
+2. Pulsa **Cambiar a Asesor** en la barra superior. Elige a Ana y un cliente de su cartera. Completa tareas y observa el progreso de ese cliente.
+3. Selecciona a Luis: el cliente y las tareas de Ana permanecen independientes. Regresa a Administrador para ver los pendientes agrupados por asesor. Recarga para comprobar la persistencia.
 4. Reiniciar demo pide confirmación. Cancelar conserva todo; aceptar elimina únicamente la clave de esta aplicación.
 
 | Tareas completadas | Progreso | Estado |
@@ -37,7 +37,7 @@ El build se genera en `dist/`. `npm run preview` permite revisar ese build local
 
 ## Datos y límites
 
-Se utiliza la clave `ultracem-gamificacion-demo-v1` de localStorage. El progreso y estado de mascota se calculan desde las tareas; no se guardan por separado. Los datos permanecen únicamente en ese navegador y origen: cambiar de dispositivo, puerto o URL de despliegue crea un almacenamiento distinto.
+Se utiliza la clave `ultracem-gamificacion-demo-v1` de localStorage. Su formato actual es la versión 2, con asesores y clientes comerciales separados. Los datos de la primera versión se migran conservando las tareas; cada participante anterior pasa a ser asesor y sus tareas se vinculan a un cliente rotulado «Cliente anterior de …». El progreso y estado de mascota se calculan desde las tareas de cada cliente. Los datos permanecen únicamente en ese navegador y origen: cambiar de dispositivo, puerto o URL de despliegue crea un almacenamiento distinto.
 
 Si el contenido guardado es inválido, aparece un aviso y la demo inicia vacía. Si guardar falla, la interacción continúa y un aviso indica que los cambios no se conservarán al recargar. Usa nombres ficticios.
 
@@ -72,10 +72,10 @@ La publicación y su URL deben verificarse en la cuenta de destino. No hay un de
 
 ## Verificación realizada
 
-- Diez pruebas con `node:test`: asignación, IDs únicos, independencia, idempotencia, porcentajes, estados, validación de almacenamiento, fallos y reinicio selectivo.
+- Siete pruebas con `node:test`: asignación por cliente, IDs únicos, independencia, idempotencia, porcentajes, estados, migración, validación de referencias, fallos de almacenamiento y reinicio selectivo.
 - `npm run build`: correcto con Vite 8.3.4.
-- Navegador Chromium: crear Ana/Luis, completar tareas, cambiar de participante y rol, recargar, tratar nombres como texto, simular cuota agotada, recuperar datos corruptos y aceptar/cancelar el reinicio.
-- Revisión visual a 1440 × 1000 y 375 × 812; sin desbordamiento horizontal ni errores de ejecución JavaScript en el recorrido.
+- Navegador Chromium: creación de dos asesores y dos clientes asignados, cambio de vista desde la barra superior, avance de tareas, aislamiento entre asesores y persistencia al recargar.
+- Revisión visual actualizada a 1440 × 1000 y 375 × 812; sin desbordamiento horizontal ni errores de ejecución JavaScript.
 - Revisión estática de código: sin hallazgos importantes.
 
-El plan original se conserva en `PLAN-MVP-ESTATICO.md`, con avances y evidencia de entrega al final.
+El plan inicial se conserva en `PLAN-MVP-ESTATICO.md` como registro de la primera versión. Esta rama incorpora la separación posterior entre asesores y clientes comerciales.
