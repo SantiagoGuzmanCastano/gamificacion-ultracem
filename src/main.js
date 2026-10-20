@@ -145,14 +145,14 @@ function intro(title, description, className) {
 }
 async function resetAdvisorTasks(advisor, clientCount) {
   if (!clientCount) return;
-  const confirmed = window.confirm('¿Reiniciar las tareas de ' + advisor.full_name + '? Se borrarán también las completadas y se crearán cuatro nuevas por cada cliente.');
+  const confirmed = window.confirm('¿Borrar todas las tareas de ' + advisor.full_name + '? Se eliminarán también las completadas y esta acción no se puede deshacer.');
   if (!confirmed) return;
   const result = await db.rpc('reset_mvp_advisor_tasks', { target_advisor: advisor.user_id });
   if (result.error) {
     notice(result.error.message, true);
     return;
   }
-  await refresh('Tareas de ' + advisor.full_name + ' reiniciadas.');
+  await refresh('Tareas de ' + advisor.full_name + ' eliminadas.');
 }
 function adminPage(page) {
   const tasks = clients.flatMap(client => client.tasks);
@@ -169,7 +169,7 @@ function adminPage(page) {
     copy.append(el('h3', '', advisor.full_name), el('p', 'muted', `${assigned.length} clientes asignados`));
     const actions = el('div', 'advisor-row-actions');
     actions.append(el('strong', 'pending-count', `${pending} pendientes`));
-    if (assigned.length) actions.append(button('Reiniciar tareas', 'danger-button', () => resetAdvisorTasks(advisor, assigned.length)));
+    if (assigned.length) actions.append(button('Borrar tareas', 'danger-button', () => resetAdvisorTasks(advisor, assigned.length)));
     head.append(copy, actions); section.append(head);
     if (!assigned.length) section.append(el('p', 'empty-inline', 'Aún no tiene clientes.'));
     const list = el('ul', 'pending-list');
