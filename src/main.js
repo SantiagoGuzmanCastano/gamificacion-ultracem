@@ -1,7 +1,7 @@
 import './style.css';
 import { createClient } from '@supabase/supabase-js';
 import { getProgress, getXp } from './game.js';
-import { mascotLabels } from './mascot.js';
+import { mascotImages, mascotLabels } from './mascot.js';
 
 const db = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
   ? createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY) : null;
@@ -340,9 +340,9 @@ function advisorPage(page) {
   line.append(el('span', '', `${progress.completed} de ${progress.total} tareas completadas`), el('strong', '', `${progress.rounded} %`));
   const bar = el('progress'); bar.max = 100; bar.value = progress.percentage; info.append(line, bar);
   const mascot = el('div', 'mascot');
-  const image = el('div', `mascot-sprite ${progress.mascot}`);
-  image.setAttribute('role', 'img');
-  image.setAttribute('aria-label', `Mascota: ${mascotLabels[progress.mascot]}`);
+  const image = el('img', 'mascot-image');
+  image.src = mascotImages[progress.mascot];
+  image.alt = `Mascota: ${mascotLabels[progress.mascot]}`;
   mascot.append(image);
   mascot.append(el('p', 'mascot-state', mascotLabels[progress.mascot])); section.append(info, mascot); detail.append(section);
   if (progress.total === 4 && progress.completed === 4) {
