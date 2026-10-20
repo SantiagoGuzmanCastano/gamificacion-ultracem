@@ -175,7 +175,13 @@ function adminMetricsSection() {
     const advisorSales = sales.filter(sale => sale.advisor_id === advisor.user_id);
     const amount = advisorSales.reduce((total, sale) => total + Number(sale.amount || 0), 0);
     const item = el('li', 'metrics-breakdown-row');
-    item.append(el('span', '', advisor.full_name), el('strong', '', `${advisorSales.length} · $${amount.toLocaleString('es-CO')}`));
+    const details = el('div', 'metrics-advisor-details');
+    details.append(el('strong', '', advisor.full_name), el('span', 'muted', `${advisorSales.length} ventas · $${amount.toLocaleString('es-CO')}`));
+    for (const sale of advisorSales) {
+      const client = clients.find(item => item.id === sale.client_id);
+      details.append(el('span', 'metrics-sale-client', `${client?.name || 'Cliente eliminado'} · $${Number(sale.amount).toLocaleString('es-CO')}`));
+    }
+    item.append(details);
     list.append(item);
   }
   if (advisors.length) section.append(list);
