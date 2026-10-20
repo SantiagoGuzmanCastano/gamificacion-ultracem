@@ -1,7 +1,9 @@
 export const STORAGE_KEY = 'ultracem-gamificacion-demo-v1';
 
+const emptyState = () => ({ version: 2, advisors: [], customers: [] });
+
 function isValid(state) {
-  if (!state || state.version !== 1 || !Array.isArray(state.clients)) return false;
+  if (!state || state.version !== 2 || !Array.isArray(state.advisors) || !Array.isArray(state.customers)) return false;
   const ids = new Set();
   const text = value => typeof value === 'string' && value.trim().length > 0;
   const uniqueId = value => {
@@ -9,11 +11,14 @@ function isValid(state) {
     ids.add(value);
     return true;
   };
-  return state.clients.every(client => {
-    if (!client || !uniqueId(client.id) || !text(client.name)
-      || !Array.isArray(client.tasks) || client.tasks.length !== 4) return false;
+  if (!state.advisors.every(advisor => advisor && uniqueId(advisor.id) && text(advisor.name))) return false;
+  const advisorIds = new Set(state.advisors.map(advisor => advisor.id));
+  return state.customers.every(customer => {
+    if (!customer || !uniqueId(customer.id) || !text(customer.name) || !text(customer.type)
+      || !advisorIds.has(customer.advisorId) || !Array.isArray(customer.tasks)
+      || customer.tasks.length !== 4) return false;
     const templates = new Set();
-    return client.tasks.every(task => {
+    return customer.tasks.every(task => {
       if (!task || !uniqueId(task.id) || !text(task.templateId) || templates.has(task.templateId)
         || !text(task.title) || !text(task.description) || !text(task.reason)
         || typeof task.completed !== 'boolean') return false;
@@ -24,15 +29,28 @@ function isValid(state) {
 }
 
 export function loadState(storage) {
-  const empty = { version: 1, clients: [] };
+  const empty = emptyState();
   try {
     const raw = (storage ?? globalThis.localStorage).getItem(STORAGE_KEY);
-    if (raw === null) return { state: empty, message: 'No hay datos guardados. Crea tu primer cliente para comenzar.' };
-    const state = JSON.parse(raw);
+    if (raw === null) return { state: empty, message: 'No hay datos guardados. Crea un asesor para comenzar.' };
+    let state = JSON.parse(raw);
+    if (state?.version === 1 && Array.isArray(state.clients)) {
+      const clients = state.clients;
+      state = {
+        version: 2,
+        advisors: clients.map(({ id, name }) => ({ id, name })),
+        customers: clients.map(({ id, name, tasks }) => ({
+          id: crypto.randomUUID(), name: `Cliente anterior de ${name}`, type: 'Sin definir', advisorId: id, tasks,
+        })),
+      };
+      if (!isValid(state)) throw new Error('Formato inválido');
+      const warning = saveState(state, storage);
+      return { state, message: warning || 'Se conservaron los datos anteriores. Puedes renombrar los clientes cuando ampliemos la edición.' };
+    }
     if (!isValid(state)) throw new Error('Formato inválido');
     return { state, message: '' };
   } catch {
-    return { state: empty, message: 'No se pudieron leer los datos guardados. La demo inicia vacía; puedes crear un cliente para continuar.' };
+    return { state: empty, message: 'No se pudieron leer los datos guardados. La demo inicia vacía; puedes crear un asesor para continuar.' };
   }
 }
 
