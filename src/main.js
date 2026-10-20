@@ -346,7 +346,7 @@ function advisorPage(page) {
     detail.append(button('Limpiar tareas completadas', 'secondary clear-tasks-button', () => clearCompletedTasks(client)));
   }
   const aiSection = el('section', 'ai-recommendation');
-  aiSection.append(el('h2', 'section-title', 'Asistente comercial'));
+  aiSection.append(el('h2', 'section-title', 'Trompín · Asistente comercial'));
   if (aiRecommendation) aiSection.append(el('p', '', aiRecommendation));
   aiSection.append(button('Sugerir siguiente acción', 'secondary', event => requestRecommendation(client, event.currentTarget)));
   detail.append(aiSection);

@@ -12,6 +12,7 @@ MVP de seguimiento comercial con tres recorridos conectados a Supabase:
 8. Al completar las cuatro tareas de un cliente se registra una venta simulada única y el administrador puede consultar sus métricas generales.
 9. Cuando una misión está completa, el asesor puede limpiar sus tareas completadas sin perder la venta simulada ni las métricas.
 10. El asesor puede pedir una recomendación breve para el siguiente paso comercial. La función usa OpenRouter y puede usar Gemini como respaldo.
+11. La asistente de recomendaciones se presenta como Trompín, un elefante asesor comercial.
 
 ## Ejecutar
 

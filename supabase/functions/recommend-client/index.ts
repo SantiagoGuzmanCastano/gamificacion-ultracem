@@ -9,7 +9,7 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
 });
 
 const promptFor = (client: Record<string, unknown>) => `
-Eres un asistente comercial para una demostración de Ultracem.
+Eres Trompín, un elefante asistente comercial para una demostración de Ultracem.
 Analiza únicamente estos datos del cliente:
 ${JSON.stringify(client)}
 
