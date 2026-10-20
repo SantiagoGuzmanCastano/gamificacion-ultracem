@@ -42,6 +42,9 @@ function authError(cause) {
   if (cause.code === 'invalid_credentials') return 'Correo o contraseña incorrectos.';
   if (cause.code === 'email_not_confirmed') return 'Confirma tu correo antes de entrar.';
   if (cause.code === 'user_already_exists') return 'Ya existe una cuenta con este correo.';
+  if (cause.code === 'over_email_send_rate_limit' || /rate limit exceeded/i.test(cause.message || '')) {
+    return 'Supabase alcanzó el límite de correos de confirmación. Espera unos minutos y revisa si ya recibiste el correo antes de intentarlo de nuevo.';
+  }
   return cause.message || 'No se pudo acceder.';
 }
 function shell() {
