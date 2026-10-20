@@ -364,12 +364,13 @@ function advisorPage(page) {
     actions.append(el('span', `task-status${task.completed ? ' completed' : ''}`, task.completed ? 'Completada' : 'Pendiente'));
     if (!task.completed) actions.append(button('Completar tarea', 'secondary', async event => {
       const control = event.currentTarget; control.disabled = true; control.textContent = 'Guardando…';
+      const wasLastTask = getProgress(client.tasks).completed === 3 && getProgress(client.tasks).total === 4;
       const result = await db.rpc('complete_mvp_task', { target_task: task.id });
       if (result.error || result.data !== true) {
         control.disabled = false; control.textContent = 'Completar tarea';
         notice(result.error?.message || 'La tarea ya fue actualizada. Recarga los datos.', true); return;
       }
-      await refresh('Tarea completada.');
+      await refresh(wasLastTask ? '¡Listo! Completaste la venta. La métrica ya llegó a tu administrador.' : 'Tarea completada.');
     }));
     item.append(content, actions); taskList.append(item);
   }
