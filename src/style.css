@@ -31,6 +31,12 @@ h3 { font-size: 1rem; line-height: 1.4; }
 .brand { font-size: 1.08rem; font-weight: 650; display: flex; align-items: center; gap: 10px; white-space: nowrap; }
 .demo-badge { border: 1px solid #c8d6cc; border-radius: 4px; font-size: .7rem; padding: 4px 8px; color: var(--muted); }
 .top-actions { display: flex; align-items: center; gap: 18px; }
+.session-name { color: var(--muted); font-size: .82rem; }
+.auth-page { min-height: 65vh; display: grid; align-content: center; justify-items: center; gap: 16px; padding: 32px 0; }
+.auth-form { width: min(100%, 400px); }
+.auth-form h1 { font-size: 1.8rem; }
+.auth-toggle { padding: 8px; }
+.error-notice { background: #fbe9e7; color: #822b22; }
 .switch-button { border: 1px solid var(--accent); background: var(--accent); color: #fff; border-radius: 6px; padding: 10px 15px; min-height: 42px; font-size: .83rem; font-weight: 600; white-space: nowrap; }
 .switch-button:hover, .primary:hover { background: #244635; }
 .text-button { background: transparent; border: 0; color: var(--muted); font-size: .8rem; text-decoration: underline; text-underline-offset: 4px; }

@@ -1,371 +1,255 @@
 import './style.css';
-import { createAdvisor, createCustomer, completeTask, getProgress, getAdvisorProgress } from './game.js';
-import { loadState, saveState, resetState } from './storage.js';
+import { createClient } from '@supabase/supabase-js';
+import { getProgress } from './game.js';
 import { mascotImages, mascotLabels } from './mascot.js';
 
-const loaded = loadState();
-let state = loaded.state;
-let role = 'admin';
-let advisorId = state.advisors[0]?.id ?? null;
-let customerId = state.customers.find(customer => customer.advisorId === advisorId)?.id ?? null;
-let storageMessage = loaded.message;
+const db = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
+  ? createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY) : null;
+const root = document.querySelector('#app');
+let user = null, profile = null, advisors = [], clients = [], selectedId = null;
 
-document.querySelector('#app').innerHTML = `
-  <header class="topbar">
-    <div class="brand">Gamificación <span class="demo-badge">Demo</span></div>
-    <div class="top-actions"><button id="role-switch" class="switch-button" type="button"></button><button id="reset" class="text-button" type="button">Reiniciar demo</button></div>
-  </header>
-  <main><p id="storage-notice" class="notice" role="status" hidden></p><p id="announcement" class="sr-only" role="status" aria-live="polite"></p><div id="page"></div>
-    <footer>Datos de demostración · Cumplimiento simulado. Completar una tarea no acredita una venta.<br>Las vistas simulan roles; los datos se guardan solo en este navegador.</footer>
-  </main>`;
-
-const page = document.querySelector('#page');
-const announce = message => { document.querySelector('#announcement').textContent = message; };
-
-function el(tag, className = '', text) {
+function el(tag, className = '', value = '') {
   const node = document.createElement(tag);
-  if (className) node.className = className;
-  if (text !== undefined) node.textContent = text;
+  node.className = className;
+  node.textContent = value;
   return node;
 }
-
-function button(text, className, action) {
-  const node = el('button', className, text);
+function button(label, className, handler) {
+  const node = el('button', className, label);
   node.type = 'button';
-  node.addEventListener('click', action);
+  node.addEventListener('click', handler);
   return node;
 }
-
-function field(labelText, id, input) {
-  const wrap = el('div', 'field');
-  const label = el('label', '', labelText);
-  label.htmlFor = id;
-  input.id = id;
-  wrap.append(label, input);
+function input(type, placeholder) {
+  const node = el('input');
+  node.type = type;
+  node.placeholder = placeholder;
+  node.required = true;
+  return node;
+}
+function field(label, control) {
+  const wrap = el('label', 'field', label);
+  wrap.append(control);
   return wrap;
 }
-
-function formError() {
+function notice(text, error = false) {
+  const node = document.querySelector('#notice');
+  node.textContent = text;
+  node.hidden = !text;
+  node.classList.toggle('error-notice', error);
+}
+function authError(cause) {
+  if (cause.code === 'invalid_credentials') return 'Correo o contraseña incorrectos.';
+  if (cause.code === 'email_not_confirmed') return 'Confirma tu correo antes de entrar.';
+  if (cause.code === 'user_already_exists') return 'Ya existe una cuenta con este correo.';
+  return cause.message || 'No se pudo acceder.';
+}
+function shell() {
+  root.innerHTML = '<header class="topbar"><div class="brand">Gamificación <span class="demo-badge">MVP</span></div><div class="top-actions" id="actions"></div></header><main><p id="notice" class="notice" role="status" hidden></p><div id="page"></div><footer>Acciones comerciales de demostración. Completar una tarea no acredita una venta.</footer></main>';
+  if (profile) {
+    const actions = document.querySelector('#actions');
+    actions.append(el('span', 'session-name', `${profile.full_name} · ${profile.role === 'admin' ? 'Administrador' : 'Asesor'}`));
+    actions.append(button('Cerrar sesión', 'text-button', async () => {
+      const result = await db.auth.signOut();
+      if (result.error) { notice('No se pudo cerrar la sesión. Intenta de nuevo.', true); return; }
+      user = profile = null; advisors = clients = [];
+      render();
+    }));
+  }
+}
+function authPage(mode = 'login') {
+  const page = document.querySelector('#page');
+  page.className = 'auth-page';
+  const form = el('form', 'editor-form auth-form');
+  form.append(el('h1', '', mode === 'login' ? 'Iniciar sesión' : 'Crear cuenta de asesor'));
+  form.append(el('p', 'muted', mode === 'login' ? 'Entra con tu correo y contraseña.' : 'Regístrate para ver los clientes que te asignen.'));
+  const name = input('text', 'Tu nombre');
+  name.minLength = 2; name.maxLength = 80;
+  if (mode === 'signup') form.append(field('Nombre completo', name));
+  const email = input('email', 'correo@ejemplo.com');
+  email.autocomplete = 'email';
+  const password = input('password', 'Contraseña');
+  password.minLength = 6;
+  password.autocomplete = mode === 'login' ? 'current-password' : 'new-password';
+  form.append(field('Correo', email), field('Contraseña', password));
   const error = el('p', 'form-error');
   error.setAttribute('role', 'alert');
-  return error;
+  const submit = el('button', 'primary', mode === 'login' ? 'Entrar' : 'Crear cuenta');
+  submit.type = 'submit';
+  form.append(error, submit);
+  form.addEventListener('submit', async event => {
+    event.preventDefault();
+    error.textContent = '';
+    submit.disabled = true; submit.textContent = 'Cargando…';
+    try {
+      if (mode === 'signup') {
+        const result = await db.auth.signUp({ email: email.value.trim(), password: password.value, options: { data: { full_name: name.value.trim() } } });
+        if (result.error) throw result.error;
+        if (!result.data.session) {
+          authPage('login');
+          notice('Cuenta creada. Confirma tu correo y luego inicia sesión.');
+          return;
+        }
+      } else {
+        const result = await db.auth.signInWithPassword({ email: email.value.trim(), password: password.value });
+        if (result.error) throw result.error;
+      }
+      await boot();
+    } catch (cause) {
+      error.textContent = authError(cause);
+      submit.disabled = false;
+      submit.textContent = mode === 'login' ? 'Entrar' : 'Crear cuenta';
+    }
+  });
+  page.replaceChildren(form, button(mode === 'login' ? 'Crear cuenta de asesor' : 'Ya tengo cuenta', 'text-button auth-toggle', () => authPage(mode === 'login' ? 'signup' : 'login')));
 }
-
-function save() {
-  storageMessage = saveState(state);
-  render();
+async function loadData() {
+  const own = await db.from('mvp_profiles').select('user_id,full_name,role').eq('user_id', user.id).single();
+  if (own.error) throw own.error;
+  profile = own.data;
+  if (profile.role === 'admin') {
+    const list = await db.from('mvp_profiles').select('user_id,full_name,role').eq('role', 'advisor').order('full_name');
+    if (list.error) throw list.error;
+    advisors = list.data;
+  } else advisors = [];
+  const result = await db.from('mvp_clients').select('id,name,type,advisor_id,mvp_tasks(id,title,description,completed_at)').order('created_at', { ascending: false });
+  if (result.error) throw result.error;
+  clients = result.data.map(client => ({ ...client, tasks: client.mvp_tasks.map(task => ({ ...task, completed: Boolean(task.completed_at) })) }));
+  if (!clients.some(client => client.id === selectedId)) selectedId = clients[0]?.id ?? null;
 }
-
-function intro(title, description, className) {
-  const header = el('div', `page-intro ${className}`);
-  const copy = el('div');
-  copy.append(el('h1', '', title), el('p', '', description));
-  header.append(copy, el('span', 'demo-note', 'Datos de demostración · Cumplimiento simulado'));
-  return header;
+async function boot() {
+  shell(); notice('Cargando datos…');
+  const result = await db.auth.getUser();
+  user = result.data.user;
+  if (!user) { profile = null; render(); return; }
+  try { await loadData(); render(); }
+  catch (cause) {
+    shell();
+    document.querySelector('#page').replaceChildren(el('p', 'empty-state', 'No se pudieron cargar los datos.'), button('Reintentar', 'primary', boot));
+    notice(cause.message, true);
+  }
 }
-
-function metric(label, value, note) {
-  const item = el('div', 'metric');
-  item.append(el('span', 'metric-label', label), el('strong', 'metric-value', String(value)), el('span', 'metric-note', note));
-  return item;
-}
-
 function metrics(items) {
   const row = el('div', 'metrics');
-  for (const item of items) row.append(metric(...item));
+  for (const [label, value, note] of items) {
+    const item = el('div', 'metric');
+    item.append(el('span', 'metric-label', label), el('strong', 'metric-value', String(value)), el('span', 'metric-note', note));
+    row.append(item);
+  }
   return row;
 }
-
-function advisorForm() {
-  const form = el('form', 'editor-form');
-  const input = el('input');
-  input.placeholder = 'Ej. Ana';
-  input.autocomplete = 'off';
-  input.required = true;
-  const error = formError();
-  const submit = el('button', 'primary', 'Crear asesor');
-  submit.type = 'submit';
-  form.append(el('h2', '', 'Nuevo asesor'), field('Nombre del asesor', 'advisor-name', input), error, submit);
-  form.addEventListener('submit', event => {
-    event.preventDefault();
-    try {
-      const advisor = createAdvisor(input.value);
-      state.advisors.push(advisor);
-      advisorId = advisor.id;
-      customerId = null;
-      save();
-      document.querySelector('#advisor-name').focus();
-      announce(`${advisor.name}: asesor creado.`);
-    } catch (cause) {
-      error.textContent = cause.message;
-      input.focus();
-    }
-  });
-  return form;
+function intro(title, description, className) {
+  const head = el('div', `page-intro ${className}`), copy = el('div');
+  copy.append(el('h1', '', title), el('p', '', description)); head.append(copy);
+  return head;
 }
-
-function customerForm() {
-  const form = el('form', 'editor-form');
-  const name = el('input');
-  name.placeholder = 'Ej. Ferretería Norte';
-  name.autocomplete = 'off';
-  name.required = true;
+function adminPage(page) {
+  const tasks = clients.flatMap(client => client.tasks);
+  page.className = 'admin-page';
+  page.append(intro('Panorama comercial', 'Clientes y tareas pendientes por asesor.', 'admin-intro'));
+  page.append(metrics([['Asesores', advisors.length, 'cuentas registradas'], ['Clientes comerciales', clients.length, 'negocios asignados'], ['Tareas pendientes', tasks.filter(task => !task.completed).length, 'acciones por completar']]));
+  const layout = el('div', 'admin-columns'), overview = el('section', 'admin-overview');
+  overview.append(el('h2', 'section-title', 'Pendientes por asesor'));
+  if (!advisors.length) overview.append(el('p', 'empty-state', 'Todavía no hay asesores. Pídeles que creen una cuenta.'));
+  for (const advisor of advisors) {
+    const assigned = clients.filter(client => client.advisor_id === advisor.user_id);
+    const pending = assigned.flatMap(client => client.tasks).filter(task => !task.completed).length;
+    const section = el('article', 'advisor-row'), head = el('div', 'advisor-row-head'), copy = el('div');
+    copy.append(el('h3', '', advisor.full_name), el('p', 'muted', `${assigned.length} clientes asignados`));
+    head.append(copy, el('strong', 'pending-count', `${pending} pendientes`)); section.append(head);
+    if (!assigned.length) section.append(el('p', 'empty-inline', 'Aún no tiene clientes.'));
+    const list = el('ul', 'pending-list');
+    for (const client of assigned) {
+      const item = el('li');
+      item.append(el('strong', '', client.name), el('span', 'muted', ` · ${client.tasks.filter(task => !task.completed).length} pendientes`));
+      const taskList = el('ul', 'pending-titles');
+      client.tasks.filter(task => !task.completed).forEach(task => taskList.append(el('li', '', task.title)));
+      item.append(taskList); list.append(item);
+    }
+    section.append(list); overview.append(section);
+  }
+  const manage = el('aside', 'admin-management'), form = el('form', 'editor-form');
+  form.append(el('h2', '', 'Nuevo cliente comercial'));
+  const name = input('text', 'Ej. Ferretería Norte'); name.minLength = 2; name.maxLength = 100;
   const type = el('select');
   for (const value of ['Ferretería', 'Constructora', 'Distribuidor', 'Otro']) {
-    const option = el('option', '', value);
-    option.value = value;
-    type.append(option);
+    const option = el('option', '', value); option.value = value; type.append(option);
   }
   const advisor = el('select');
-  for (const item of state.advisors) {
-    const option = el('option', '', item.name);
-    option.value = item.id;
-    option.selected = item.id === advisorId;
-    advisor.append(option);
-  }
-  const error = formError();
-  const submit = el('button', 'primary', 'Crear cliente y asignar tareas');
-  submit.type = 'submit';
-  form.append(el('h2', '', 'Nuevo cliente comercial'),
-    field('Nombre del negocio', 'customer-name', name),
-    field('Tipo de cliente', 'customer-type', type),
-    field('Asesor responsable', 'customer-advisor', advisor), error, submit);
-  form.addEventListener('submit', event => {
-    event.preventDefault();
-    try {
-      const customer = createCustomer(name.value, type.value, advisor.value);
-      state.customers.push(customer);
-      advisorId = customer.advisorId;
-      customerId = customer.id;
-      save();
-      document.querySelector('#customer-name').focus();
-      announce(`${customer.name}: cliente creado y asignado con cuatro tareas.`);
-    } catch (cause) {
-      error.textContent = cause.message;
-      name.focus();
-    }
+  advisors.forEach(item => { const option = el('option', '', item.full_name); option.value = item.user_id; advisor.append(option); });
+  form.append(field('Nombre del negocio', name), field('Tipo de cliente', type), field('Asesor responsable', advisor));
+  const error = el('p', 'form-error'); error.setAttribute('role', 'alert');
+  const submit = el('button', 'primary', 'Crear cliente y tareas'); submit.type = 'submit'; submit.disabled = !advisors.length;
+  form.append(error, submit);
+  form.addEventListener('submit', async event => {
+    event.preventDefault(); error.textContent = ''; submit.disabled = true; submit.textContent = 'Guardando…';
+    const result = await db.from('mvp_clients').insert({ name: name.value.trim(), type: type.value, advisor_id: advisor.value });
+    if (result.error) { error.textContent = result.error.message; submit.disabled = false; submit.textContent = 'Crear cliente y tareas'; return; }
+    await refresh('Cliente creado con cuatro tareas.');
   });
-  return form;
+  manage.append(form); layout.append(overview, manage); page.append(layout);
 }
-
-function pendingFor(advisor) {
-  const customers = state.customers.filter(customer => customer.advisorId === advisor.id);
-  const progress = getAdvisorProgress(state.customers, advisor.id);
-  const section = el('article', 'advisor-row');
-  const head = el('div', 'advisor-row-head');
-  const copy = el('div');
-  copy.append(el('h3', '', advisor.name), el('p', 'muted', `${customers.length} ${customers.length === 1 ? 'cliente' : 'clientes'} asignados`));
-  head.append(copy, el('strong', 'pending-count', `${progress.total - progress.completed} pendientes`));
-  section.append(head);
-  if (!customers.length) {
-    section.append(el('p', 'empty-inline', 'Aún no tiene clientes comerciales asignados.'));
-    return section;
-  }
-  const list = el('ul', 'pending-list');
-  for (const customer of customers) {
-    const pending = customer.tasks.filter(task => !task.completed);
-    const item = el('li');
-    const name = el('strong', '', customer.name);
-    item.append(name, el('span', 'muted', ` · ${customer.type} · ${pending.length} pendientes`));
-    if (pending.length) {
-      const tasks = el('ul', 'pending-titles');
-      for (const task of pending) tasks.append(el('li', '', task.title));
-      item.append(tasks);
-    } else item.append(el('p', 'all-done', 'Todas las tareas completadas'));
-    list.append(item);
-  }
-  section.append(list);
-  return section;
-}
-
-function adminPage() {
-  const fragment = document.createDocumentFragment();
-  fragment.append(intro('Panorama comercial', 'Una vista del trabajo pendiente por asesor y por cliente comercial.', 'admin-intro'));
-  const allTasks = state.customers.flatMap(customer => customer.tasks);
-  const completed = allTasks.filter(task => task.completed).length;
-  fragment.append(metrics([
-    ['Asesores', state.advisors.length, 'participantes de la demo'],
-    ['Clientes comerciales', state.customers.length, 'negocios asignados'],
-    ['Tareas pendientes', allTasks.length - completed, 'acciones por completar'],
-  ]));
-  const layout = el('div', 'admin-columns');
-  const overview = el('section', 'admin-overview');
-  overview.append(el('h2', 'section-title', 'Pendientes por asesor'));
-  if (!state.advisors.length) overview.append(el('div', 'empty-state', 'Crea un asesor para empezar a organizar clientes y tareas.'));
-  for (const advisor of state.advisors) overview.append(pendingFor(advisor));
-  const management = el('aside', 'admin-management');
-  management.append(advisorForm());
-  if (state.advisors.length) management.append(customerForm());
-  else management.append(el('p', 'muted management-hint', 'Después podrás crear negocios y asignarlos a un asesor.'));
-  layout.append(overview, management);
-  fragment.append(layout);
-  return fragment;
-}
-
-function advisorSelector() {
-  const select = el('select');
-  for (const advisor of state.advisors) {
-    const option = el('option', '', advisor.name);
-    option.value = advisor.id;
-    option.selected = advisor.id === advisorId;
-    select.append(option);
-  }
-  select.addEventListener('change', () => {
-    advisorId = select.value;
-    customerId = state.customers.find(customer => customer.advisorId === advisorId)?.id ?? null;
-    render();
-    document.querySelector('#advisor-select')?.focus();
-  });
-  return field('Asesor', 'advisor-select', select);
-}
-
-function customerList(customers) {
-  const aside = el('aside', 'customer-rail');
-  aside.append(el('h2', '', 'Mis clientes'), el('p', 'muted', 'Selecciona un negocio para ver sus tareas.'));
+function advisorPage(page) {
+  page.className = 'advisor-page';
+  page.append(intro('Mi cartera de clientes', 'Tareas comerciales de los negocios que tienes asignados.', 'advisor-intro'));
+  const tasks = clients.flatMap(client => client.tasks);
+  page.append(metrics([['Mis clientes', clients.length, 'negocios asignados'], ['Por completar', tasks.filter(task => !task.completed).length, 'tareas pendientes'], ['Completadas', tasks.filter(task => task.completed).length, 'acciones realizadas']]));
+  if (!clients.length) { page.append(el('p', 'empty-state', 'Todavía no tienes clientes. El administrador puede asignarte uno.')); return; }
+  const layout = el('div', 'advisor-columns'), rail = el('aside', 'customer-rail');
+  rail.append(el('h2', '', 'Mis clientes'));
   const list = el('ul', 'customer-list');
-  for (const customer of customers) {
+  for (const client of clients) {
     const item = el('li');
-    const control = button('', `customer-option${customer.id === customerId ? ' selected' : ''}`, () => {
-      customerId = customer.id;
-      render();
-      document.querySelector(`[data-customer-id="${CSS.escape(customer.id)}"]`)?.focus();
-    });
-    control.dataset.customerId = customer.id;
-    control.setAttribute('aria-pressed', String(customer.id === customerId));
-    const progress = getProgress(customer.tasks);
-    control.append(el('strong', '', customer.name), el('span', 'muted', `${customer.type} · ${progress.total - progress.completed} pendientes`));
-    item.append(control);
-    list.append(item);
+    const control = button('', `customer-option${client.id === selectedId ? ' selected' : ''}`, () => { selectedId = client.id; render(); });
+    control.setAttribute('aria-pressed', String(client.id === selectedId));
+    control.append(el('strong', '', client.name), el('span', 'muted', `${client.type} · ${client.tasks.filter(task => !task.completed).length} pendientes`));
+    item.append(control); list.append(item);
   }
-  aside.append(list);
-  return aside;
-}
-
-function progressView(customer) {
-  const progress = getProgress(customer.tasks);
-  const section = el('section', 'progress-section');
-  section.setAttribute('aria-label', 'Progreso del cliente');
-  const details = el('div', 'progress-details');
-  details.append(el('p', 'customer-type', customer.type), el('h2', 'participant-name', customer.name),
-    el('p', 'muted', 'Acciones comerciales de este cliente.'));
+  rail.append(list);
+  const client = clients.find(item => item.id === selectedId) ?? clients[0], detail = el('div', 'customer-detail');
+  const progress = getProgress(client.tasks), section = el('section', 'progress-section'), info = el('div', 'progress-details');
+  info.append(el('p', 'customer-type', client.type), el('h2', 'participant-name', client.name));
   const line = el('div', 'progress-line');
   line.append(el('span', '', `${progress.completed} de ${progress.total} tareas completadas`), el('strong', '', `${progress.rounded} %`));
-  const bar = el('progress');
-  bar.max = 100;
-  bar.value = progress.percentage;
-  bar.setAttribute('aria-label', 'Porcentaje de tareas completadas');
-  details.append(line, bar);
+  const bar = el('progress'); bar.max = 100; bar.value = progress.percentage; info.append(line, bar);
   const mascot = el('div', 'mascot');
-  const placeholder = el('div', 'mascot-placeholder', 'Mascota pendiente');
-  const path = mascotImages[progress.mascot];
-  if (path) {
-    const img = el('img', 'mascot-image');
-    img.alt = `Mascota: ${mascotLabels[progress.mascot]}`;
-    img.addEventListener('error', () => img.replaceWith(placeholder), { once: true });
-    img.src = path;
-    mascot.append(img);
-  } else mascot.append(placeholder);
-  const label = el('p', 'mascot-state');
-  label.append(el('span', '', 'Estado actual'), el('strong', '', mascotLabels[progress.mascot]));
-  mascot.append(label);
-  section.append(details, mascot);
-  return section;
-}
-
-function tasksView(customer) {
-  const section = el('section', 'tasks-section');
-  const head = el('div', 'tasks-header');
-  const heading = el('h2', 'section-title', 'Tareas de este cliente');
-  heading.id = 'tasks-heading';
-  heading.tabIndex = -1;
-  head.append(heading, el('span', 'muted', 'Cumplimiento simulado'));
-  section.append(head);
-  const list = el('ol', 'task-list');
-  for (const task of customer.tasks) {
-    const item = el('li', 'task');
-    const content = el('div', 'task-content');
+  const imagePath = mascotImages[progress.mascot];
+  if (imagePath) {
+    const image = el('img', 'mascot-image');
+    image.src = imagePath;
+    image.alt = `Mascota: ${mascotLabels[progress.mascot]}`;
+    mascot.append(image);
+  } else mascot.append(el('div', 'mascot-placeholder', 'Mascota pendiente'));
+  mascot.append(el('p', 'mascot-state', mascotLabels[progress.mascot])); section.append(info, mascot); detail.append(section);
+  const taskSection = el('section', 'tasks-section'); taskSection.append(el('h2', 'section-title', 'Tareas de este cliente'));
+  const taskList = el('ol', 'task-list');
+  for (const task of client.tasks) {
+    const item = el('li', 'task'), content = el('div', 'task-content'), actions = el('div', 'task-actions');
     content.append(el('h3', '', task.title), el('p', 'task-description', task.description));
-    const reason = el('p', 'task-reason');
-    reason.append(el('strong', '', 'Motivo: '), document.createTextNode(task.reason));
-    content.append(reason);
-    const actions = el('div', 'task-actions');
     actions.append(el('span', `task-status${task.completed ? ' completed' : ''}`, task.completed ? 'Completada' : 'Pendiente'));
-    if (!task.completed) {
-      const complete = button('Completar tarea', 'secondary', () => {
-        if (!completeTask(customer, task.id)) return;
-        save();
-        document.querySelector('#tasks-heading')?.focus();
-        announce(`${customer.name}: ${getProgress(customer.tasks).completed} de 4 tareas completadas.`);
-      });
-      complete.setAttribute('aria-label', `Completar tarea: ${task.title}`);
-      actions.append(complete);
-    }
-    item.append(content, actions);
-    list.append(item);
+    if (!task.completed) actions.append(button('Completar tarea', 'secondary', async event => {
+      const control = event.currentTarget; control.disabled = true; control.textContent = 'Guardando…';
+      const result = await db.from('mvp_tasks').update({ completed_at: new Date().toISOString() }).eq('id', task.id).is('completed_at', null).select('id');
+      if (result.error || result.data.length !== 1) {
+        control.disabled = false; control.textContent = 'Completar tarea';
+        notice(result.error?.message || 'La tarea ya fue actualizada. Recarga los datos.', true); return;
+      }
+      await refresh('Tarea completada.');
+    }));
+    item.append(content, actions); taskList.append(item);
   }
-  section.append(list);
-  return section;
+  taskSection.append(taskList); detail.append(taskSection); layout.append(rail, detail); page.append(layout);
 }
-
-function advisorPage() {
-  const fragment = document.createDocumentFragment();
-  fragment.append(intro('Mi cartera de clientes', 'Organiza el seguimiento de cada negocio, una acción a la vez.', 'advisor-intro'));
-  if (!state.advisors.length) {
-    const empty = el('section', 'empty-state');
-    empty.append(el('h2', '', 'Todavía no hay asesores.'), el('p', 'muted', 'Crea un asesor desde el panel de Administrador para empezar.'),
-      button('Ir a Administrador', 'primary', () => changeRole('admin')));
-    fragment.append(empty);
-    return fragment;
-  }
-  fragment.append(advisorSelector());
-  const customers = state.customers.filter(customer => customer.advisorId === advisorId);
-  const progress = getAdvisorProgress(state.customers, advisorId);
-  fragment.append(metrics([
-    ['Mis clientes', customers.length, 'negocios asignados'],
-    ['Por completar', progress.total - progress.completed, 'tareas pendientes'],
-    ['Completadas', progress.completed, 'acciones realizadas'],
-  ]));
-  if (!customers.length) {
-    fragment.append(el('div', 'empty-state', 'Este asesor todavía no tiene clientes. El Administrador puede asignarle uno.'));
-    return fragment;
-  }
-  const layout = el('div', 'advisor-columns');
-  layout.append(customerList(customers));
-  const selected = customers.find(customer => customer.id === customerId) ?? customers[0];
-  customerId = selected.id;
-  const detail = el('div', 'customer-detail');
-  detail.append(progressView(selected), tasksView(selected));
-  layout.append(detail);
-  fragment.append(layout);
-  return fragment;
+async function refresh(text) {
+  try { await loadData(); render(); notice(text); }
+  catch (cause) { notice(`El cambio se guardó, pero no se pudo actualizar la vista: ${cause.message}`, true); }
 }
-
-function changeRole(nextRole) {
-  role = nextRole;
-  render();
-  document.querySelector('#role-switch').focus();
-}
-
 function render() {
-  const switcher = document.querySelector('#role-switch');
-  switcher.textContent = role === 'admin' ? 'Cambiar a Asesor' : 'Cambiar a Administrador';
-  const notice = document.querySelector('#storage-notice');
-  notice.textContent = storageMessage;
-  notice.hidden = !storageMessage;
-  page.className = role === 'admin' ? 'admin-page' : 'advisor-page';
-  page.replaceChildren(role === 'admin' ? adminPage() : advisorPage());
+  shell();
+  const page = document.querySelector('#page');
+  if (!db) page.replaceChildren(el('p', 'empty-state', 'Falta configurar Supabase en .env.local.'));
+  else if (!profile) authPage();
+  else if (profile.role === 'admin') adminPage(page);
+  else advisorPage(page);
 }
-
-document.querySelector('#role-switch').addEventListener('click', () => changeRole(role === 'admin' ? 'advisor' : 'admin'));
-document.querySelector('#reset').addEventListener('click', () => {
-  if (!window.confirm('¿Reiniciar la demo? Se borrarán los asesores, clientes y tareas de esta aplicación.')) return;
-  storageMessage = resetState();
-  state = { version: 2, advisors: [], customers: [] };
-  advisorId = null;
-  customerId = null;
-  role = 'admin';
-  render();
-  announce('Demo reiniciada. Crea un asesor para comenzar.');
-});
-
-render();
+if (db) boot(); else render();
