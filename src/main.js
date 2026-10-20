@@ -6,7 +6,7 @@ import { mascotImages, mascotLabels } from './mascot.js';
 const db = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
   ? createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY) : null;
 const root = document.querySelector('#app');
-let user = null, profile = null, advisors = [], clients = [], ranking = [], selectedId = null;
+let user = null, profile = null, advisors = [], clients = [], sales = [], ranking = [], selectedId = null;
 
 function el(tag, className = '', value = '') {
   const node = document.createElement(tag);
@@ -55,7 +55,7 @@ function shell() {
     actions.append(button('Cerrar sesión', 'text-button', async () => {
       const result = await db.auth.signOut();
       if (result.error) { notice('No se pudo cerrar la sesión. Intenta de nuevo.', true); return; }
-      user = profile = null; advisors = clients = ranking = [];
+      user = profile = null; advisors = clients = sales = ranking = [];
       render();
     }));
   }
@@ -118,6 +118,9 @@ async function loadData() {
   const result = await db.from('mvp_clients').select('id,name,type,advisor_id,mvp_tasks(id,title,description,completed_at)').order('created_at', { ascending: false });
   if (result.error) throw result.error;
   clients = result.data.map(client => ({ ...client, tasks: client.mvp_tasks.map(task => ({ ...task, completed: Boolean(task.completed_at) })) }));
+  const salesResult = await db.from('mvp_sales').select('id,client_id,advisor_id,amount,completed_at');
+  if (salesResult.error) throw salesResult.error;
+  sales = salesResult.data ?? [];
   const rankingResult = await db.rpc('get_mvp_advisor_ranking');
   if (rankingResult.error) throw rankingResult.error;
   ranking = rankingResult.data ?? [];
@@ -160,6 +163,22 @@ function rankingSection() {
     list.append(item);
   }
   section.append(list);
+  return section;
+}
+function adminMetricsSection() {
+  const totalAmount = sales.reduce((total, sale) => total + Number(sale.amount || 0), 0);
+  const section = el('section', 'metrics-dashboard');
+  section.append(el('h2', 'section-title', 'Métricas generales'), el('p', 'muted', 'Resultados simulados a partir de misiones completadas.'));
+  section.append(metrics([['Misiones completadas', sales.length, 'ventas simuladas'], ['Valor acumulado', `$${totalAmount.toLocaleString('es-CO')}`, 'valor de prueba']]));
+  const list = el('ul', 'metrics-breakdown');
+  for (const advisor of advisors) {
+    const advisorSales = sales.filter(sale => sale.advisor_id === advisor.user_id);
+    const amount = advisorSales.reduce((total, sale) => total + Number(sale.amount || 0), 0);
+    const item = el('li', 'metrics-breakdown-row');
+    item.append(el('span', '', advisor.full_name), el('strong', '', `${advisorSales.length} · $${amount.toLocaleString('es-CO')}`));
+    list.append(item);
+  }
+  if (advisors.length) section.append(list);
   return section;
 }
 function intro(title, description, className) {
@@ -206,6 +225,7 @@ function adminPage(page) {
   const totalXp = ranking.reduce((total, row) => total + Number(row.xp || 0), 0);
   page.append(metrics([['Asesores', advisors.length, 'cuentas registradas'], ['Clientes comerciales', clients.length, 'negocios asignados'], ['Tareas pendientes', tasks.filter(task => !task.completed).length, 'acciones por completar'], ['XP acumulado', totalXp, 'de todos los asesores']]));
   page.append(rankingSection());
+  page.append(adminMetricsSection());
   const layout = el('div', 'admin-columns'), overview = el('section', 'admin-overview');
   overview.append(el('h2', 'section-title', 'Pendientes por asesor'));
   if (!advisors.length) overview.append(el('p', 'empty-state', 'Todavía no hay asesores. Pídeles que creen una cuenta.'));
@@ -295,8 +315,8 @@ function advisorPage(page) {
     actions.append(el('span', `task-status${task.completed ? ' completed' : ''}`, task.completed ? 'Completada' : 'Pendiente'));
     if (!task.completed) actions.append(button('Completar tarea', 'secondary', async event => {
       const control = event.currentTarget; control.disabled = true; control.textContent = 'Guardando…';
-      const result = await db.from('mvp_tasks').update({ completed_at: new Date().toISOString() }).eq('id', task.id).is('completed_at', null).select('id');
-      if (result.error || result.data.length !== 1) {
+      const result = await db.rpc('complete_mvp_task', { target_task: task.id });
+      if (result.error || result.data !== true) {
         control.disabled = false; control.textContent = 'Completar tarea';
         notice(result.error?.message || 'La tarea ya fue actualizada. Recarga los datos.', true); return;
       }

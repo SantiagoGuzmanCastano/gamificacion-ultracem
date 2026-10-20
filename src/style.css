@@ -62,6 +62,11 @@ main { max-width: 1336px; margin: auto; padding: 0 28px; }
 .ranking-identity { display: grid; gap: 3px; min-width: 0; }
 .ranking-identity strong { overflow-wrap: anywhere; }
 .ranking-xp { color: var(--accent); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.metrics-dashboard { margin: 8px 0 34px; padding: 24px; background: #fff; border: 1px solid var(--line); border-radius: 12px; }
+.metrics-dashboard .metrics { border-bottom: 0; margin-bottom: 12px; }
+.metrics-breakdown { list-style: none; padding: 0; margin: 0; border-top: 1px solid var(--line); }
+.metrics-breakdown-row { display: flex; justify-content: space-between; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--line); font-size: .85rem; }
+.metrics-breakdown-row strong { color: var(--accent); white-space: nowrap; }
 .admin-columns { display: grid; grid-template-columns: minmax(0, 1fr) 310px; gap: 38px; align-items: start; }
 .section-title { margin-bottom: 20px; font-size: 1.15rem; }
 .advisor-row { border-top: 1px solid var(--line); padding: 22px 0 26px; }

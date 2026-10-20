@@ -9,6 +9,7 @@ MVP de seguimiento comercial con tres recorridos conectados a Supabase:
 5. El administrador puede borrar todos los clientes asignados a un asesor. Sus tareas se eliminan automáticamente junto con ellos.
 6. Cada tarea completada suma 10 XP y ambos paneles muestran el ranking de asesores. El ranking se recalcula desde las tareas existentes, así que borrar tareas o clientes descuenta automáticamente los puntos asociados.
 7. El administrador puede ver el correo de cada asesor y borrar su cuenta. La acción elimina también sus clientes, tareas y XP.
+8. Al completar las cuatro tareas de un cliente se registra una venta simulada única y el administrador puede consultar sus métricas generales.
 
 ## Ejecutar
 

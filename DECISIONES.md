@@ -143,3 +143,13 @@ Este documento registra las decisiones que cambiaron el alcance o la implementac
 **Decisión elegida:** añadir el correo bajo cada nombre y un botón separado **Borrar asesor**, con confirmación. El borrado también elimina clientes, tareas y XP asociado.
 
 **Conclusión:** el administrador puede retirar una cuenta completa desde una acción explícita y consistente.
+
+## Decisión 15: registrar una venta simulada al completar una misión
+
+**Propuesta de la persona usuaria:** tratar las cuatro tareas de cada cliente como una misión comercial y registrar métricas cuando el asesor complete las cuatro.
+
+**Propuesta de ChatGPT:** guardar una venta simulada única por cliente y calcular las métricas del administrador a partir de esos registros.
+
+**Decisión elegida:** crear `mvp_sales`. Una función de Supabase registra un valor aleatorio una sola vez al completar la cuarta tarea. El administrador consulta misiones y valor acumulado en su panel.
+
+**Conclusión:** las métricas permanecen después de recargar y se eliminan junto con el cliente, sin introducir un módulo de ventas real.
