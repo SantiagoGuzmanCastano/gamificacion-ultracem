@@ -154,6 +154,17 @@ async function resetAdvisorTasks(advisor, clientCount) {
   }
   await refresh('Tareas de ' + advisor.full_name + ' eliminadas.');
 }
+async function deleteAdvisorClients(advisor, clientCount) {
+  if (!clientCount) return;
+  const confirmed = window.confirm('¿Borrar los ' + clientCount + ' clientes de ' + advisor.full_name + '? También se eliminarán sus tareas y esta acción no se puede deshacer.');
+  if (!confirmed) return;
+  const result = await db.rpc('delete_mvp_advisor_clients', { target_advisor: advisor.user_id });
+  if (result.error) {
+    notice(result.error.message, true);
+    return;
+  }
+  await refresh('Clientes de ' + advisor.full_name + ' eliminados.');
+}
 function adminPage(page) {
   const tasks = clients.flatMap(client => client.tasks);
   page.className = 'admin-page';
@@ -170,6 +181,7 @@ function adminPage(page) {
     const actions = el('div', 'advisor-row-actions');
     actions.append(el('strong', 'pending-count', `${pending} pendientes`));
     if (assigned.length) actions.append(button('Borrar tareas', 'danger-button', () => resetAdvisorTasks(advisor, assigned.length)));
+    if (assigned.length) actions.append(button('Borrar clientes', 'danger-button', () => deleteAdvisorClients(advisor, assigned.length)));
     head.append(copy, actions); section.append(head);
     if (!assigned.length) section.append(el('p', 'empty-inline', 'Aún no tiene clientes.'));
     const list = el('ul', 'pending-list');
