@@ -6,7 +6,7 @@ import { mascotImages, mascotLabels } from './mascot.js';
 const db = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
   ? createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY) : null;
 const root = document.querySelector('#app');
-let user = null, profile = null, advisors = [], clients = [], sales = [], ranking = [], selectedId = null;
+let user = null, profile = null, advisors = [], clients = [], sales = [], ranking = [], selectedId = null, aiRecommendation = '', saleNotice = '';
 
 function el(tag, className = '', value = '') {
   const node = document.createElement(tag);
@@ -55,7 +55,7 @@ function shell() {
     actions.append(button('Cerrar sesión', 'text-button', async () => {
       const result = await db.auth.signOut();
       if (result.error) { notice('No se pudo cerrar la sesión. Intenta de nuevo.', true); return; }
-      user = profile = null; advisors = clients = sales = ranking = [];
+      user = profile = null; advisors = clients = sales = ranking = []; aiRecommendation = ''; saleNotice = '';
       render();
     }));
   }
@@ -175,7 +175,13 @@ function adminMetricsSection() {
     const advisorSales = sales.filter(sale => sale.advisor_id === advisor.user_id);
     const amount = advisorSales.reduce((total, sale) => total + Number(sale.amount || 0), 0);
     const item = el('li', 'metrics-breakdown-row');
-    item.append(el('span', '', advisor.full_name), el('strong', '', `${advisorSales.length} · $${amount.toLocaleString('es-CO')}`));
+    const details = el('div', 'metrics-advisor-details');
+    details.append(el('strong', '', advisor.full_name), el('span', 'muted', `${advisorSales.length} ventas · $${amount.toLocaleString('es-CO')}`));
+    for (const sale of advisorSales) {
+      const client = clients.find(item => item.id === sale.client_id);
+      details.append(el('span', 'metrics-sale-client', `${client?.name || 'Cliente eliminado'} · $${Number(sale.amount).toLocaleString('es-CO')}`));
+    }
+    item.append(details);
     list.append(item);
   }
   if (advisors.length) section.append(list);
@@ -227,6 +233,31 @@ async function clearCompletedTasks(client) {
     return;
   }
   await refresh('Tareas completadas de ' + client.name + ' limpiadas. Las métricas se conservaron.');
+}
+async function requestRecommendation(client, control) {
+  control.disabled = true;
+  control.textContent = 'Analizando…';
+  aiRecommendation = '';
+  const progress = getProgress(client.tasks);
+  const result = await db.functions.invoke('recommend-client', {
+    body: {
+      name: client.name,
+      type: client.type,
+      completed_tasks: progress.completed,
+      total_tasks: progress.total,
+      pending_tasks: progress.total - progress.completed,
+      progress: progress.rounded,
+      tasks: client.tasks.filter(task => !task.completed).map(task => ({ title: task.title, description: task.description })),
+    },
+  });
+  if (result.error || result.data?.error) {
+    notice(result.data?.error || result.error.message, true);
+  } else {
+    aiRecommendation = result.data.recommendation;
+    render();
+  }
+  control.disabled = false;
+  control.textContent = 'Sugerir siguiente acción';
 }
 function adminPage(page) {
   const tasks = clients.flatMap(client => client.tasks);
@@ -296,7 +327,7 @@ function advisorPage(page) {
   const list = el('ul', 'customer-list');
   for (const client of clients) {
     const item = el('li');
-    const control = button('', `customer-option${client.id === selectedId ? ' selected' : ''}`, () => { selectedId = client.id; render(); });
+    const control = button('', `customer-option${client.id === selectedId ? ' selected' : ''}`, () => { selectedId = client.id; aiRecommendation = ''; saleNotice = ''; render(); });
     control.setAttribute('aria-pressed', String(client.id === selectedId));
     control.append(el('strong', '', client.name), el('span', 'muted', `${client.type} · ${client.tasks.filter(task => !task.completed).length} pendientes`));
     item.append(control); list.append(item);
@@ -320,7 +351,13 @@ function advisorPage(page) {
   if (progress.total === 4 && progress.completed === 4) {
     detail.append(button('Limpiar tareas completadas', 'secondary clear-tasks-button', () => clearCompletedTasks(client)));
   }
+  const aiSection = el('section', 'ai-recommendation');
+  aiSection.append(el('h2', 'section-title', 'Trompín · Asistente comercial'));
+  if (aiRecommendation) aiSection.append(el('p', '', aiRecommendation));
+  aiSection.append(button('Sugerir siguiente acción', 'secondary', event => requestRecommendation(client, event.currentTarget)));
+  detail.append(aiSection);
   const taskSection = el('section', 'tasks-section'); taskSection.append(el('h2', 'section-title', 'Tareas de este cliente'));
+  if (saleNotice) taskSection.append(el('p', 'sale-notice', saleNotice));
   const taskList = el('ol', 'task-list');
   for (const task of client.tasks) {
     const item = el('li', 'task'), content = el('div', 'task-content'), actions = el('div', 'task-actions');
@@ -328,12 +365,14 @@ function advisorPage(page) {
     actions.append(el('span', `task-status${task.completed ? ' completed' : ''}`, task.completed ? 'Completada' : 'Pendiente'));
     if (!task.completed) actions.append(button('Completar tarea', 'secondary', async event => {
       const control = event.currentTarget; control.disabled = true; control.textContent = 'Guardando…';
+      const wasLastTask = getProgress(client.tasks).completed === 3 && getProgress(client.tasks).total === 4;
       const result = await db.rpc('complete_mvp_task', { target_task: task.id });
       if (result.error || result.data !== true) {
         control.disabled = false; control.textContent = 'Completar tarea';
         notice(result.error?.message || 'La tarea ya fue actualizada. Recarga los datos.', true); return;
       }
-      await refresh('Tarea completada.');
+      saleNotice = wasLastTask ? '¡Listo! Completaste la venta. La métrica ya llegó a tu administrador.' : '';
+      await refresh(wasLastTask ? '' : 'Tarea completada.');
     }));
     item.append(content, actions); taskList.append(item);
   }

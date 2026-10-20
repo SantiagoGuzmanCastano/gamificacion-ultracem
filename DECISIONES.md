@@ -163,3 +163,13 @@ Este documento registra las decisiones que cambiaron el alcance o la implementac
 **Decisión elegida:** mostrar **Limpiar tareas completadas** al llegar a 4/4. La venta en `mvp_sales` permanece guardada y solo se eliminan las cuatro tareas.
 
 **Conclusión:** el asesor puede dejar lista su cartera para nuevas tareas sin alterar el historial de métricas.
+
+## Decisión 17: recomendación de IA mínima
+
+**Propuesta de la persona usuaria:** añadir una IA muy sencilla usando Gemini u OpenRouter.
+
+**Propuesta de ChatGPT:** ofrecer un botón de siguiente acción que envíe solo el resumen del cliente a una Edge Function, con OpenRouter como proveedor principal y Gemini como respaldo.
+
+**Decisión elegida:** la clave queda fuera del frontend y la función devuelve una recomendación de máximo 25 palabras. La integración se puede activar configurando secretos sin cambiar la interfaz.
+
+**Conclusión:** el MVP tiene una demostración de IA acotada y segura, sin construir todavía un sistema de recomendaciones avanzado.
