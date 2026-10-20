@@ -133,3 +133,13 @@ Este documento registra las decisiones que cambiaron el alcance o la implementac
 **Decisión elegida:** cada tarea completada vale 10 XP. El ranking se calcula en una función segura de Supabase contando las tareas actuales por asesor. Borrar tareas o clientes elimina sus registros y por eso sus puntos dejan de contar automáticamente.
 
 **Conclusión:** el XP siempre refleja el estado real de las tareas en la base de datos, tanto para el asesor como para el administrador.
+
+## Decisión 14: administrar cuentas de asesores
+
+**Propuesta de la persona usuaria:** mostrar el correo de cada asesor y permitir que el administrador borre una cuenta desde su panel.
+
+**Propuesta de ChatGPT:** resolverlo con funciones protegidas de Supabase que eliminen primero sus clientes y tareas y después la cuenta de autenticación.
+
+**Decisión elegida:** añadir el correo bajo cada nombre y un botón separado **Borrar asesor**, con confirmación. El borrado también elimina clientes, tareas y XP asociado.
+
+**Conclusión:** el administrador puede retirar una cuenta completa desde una acción explícita y consistente.

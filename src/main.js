@@ -111,9 +111,9 @@ async function loadData() {
   if (own.error) throw own.error;
   profile = own.data;
   if (profile.role === 'admin') {
-    const list = await db.from('mvp_profiles').select('user_id,full_name,role').eq('role', 'advisor').order('full_name');
+    const list = await db.rpc('get_mvp_advisors');
     if (list.error) throw list.error;
-    advisors = list.data;
+    advisors = (list.data ?? []).sort((a, b) => a.full_name.localeCompare(b.full_name));
   } else advisors = [];
   const result = await db.from('mvp_clients').select('id,name,type,advisor_id,mvp_tasks(id,title,description,completed_at)').order('created_at', { ascending: false });
   if (result.error) throw result.error;
@@ -189,6 +189,16 @@ async function deleteAdvisorClients(advisor, clientCount) {
   }
   await refresh('Clientes de ' + advisor.full_name + ' eliminados.');
 }
+async function deleteAdvisor(advisor) {
+  const confirmed = window.confirm('¿Borrar la cuenta de ' + advisor.full_name + '? Se eliminarán también sus clientes, tareas y puntos del ranking. Esta acción no se puede deshacer.');
+  if (!confirmed) return;
+  const result = await db.rpc('delete_mvp_advisor', { target_advisor: advisor.user_id });
+  if (result.error) {
+    notice(result.error.message, true);
+    return;
+  }
+  await refresh('Asesor ' + advisor.full_name + ' eliminado.');
+}
 function adminPage(page) {
   const tasks = clients.flatMap(client => client.tasks);
   page.className = 'admin-page';
@@ -203,11 +213,12 @@ function adminPage(page) {
     const assigned = clients.filter(client => client.advisor_id === advisor.user_id);
     const pending = assigned.flatMap(client => client.tasks).filter(task => !task.completed).length;
     const section = el('article', 'advisor-row'), head = el('div', 'advisor-row-head'), copy = el('div');
-    copy.append(el('h3', '', advisor.full_name), el('p', 'muted', `${assigned.length} clientes asignados`));
+    copy.append(el('h3', '', advisor.full_name), el('p', 'advisor-email', advisor.email || 'Correo no disponible'), el('p', 'muted', `${assigned.length} clientes asignados`));
     const actions = el('div', 'advisor-row-actions');
     actions.append(el('strong', 'pending-count', `${pending} pendientes`));
     if (assigned.length) actions.append(button('Borrar tareas', 'danger-button', () => resetAdvisorTasks(advisor, assigned.length)));
     if (assigned.length) actions.append(button('Borrar clientes', 'danger-button', () => deleteAdvisorClients(advisor, assigned.length)));
+    actions.append(button('Borrar asesor', 'danger-button', () => deleteAdvisor(advisor)));
     head.append(copy, actions); section.append(head);
     if (!assigned.length) section.append(el('p', 'empty-inline', 'Aún no tiene clientes.'));
     const list = el('ul', 'pending-list');
