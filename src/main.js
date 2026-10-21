@@ -10,7 +10,7 @@ const db = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_PU
 const root = document.querySelector('#app');
 let user = null, profile = null, advisors = [], clients = [], sales = [], ranking = [], selectedId = null, aiRecommendation = '', saleNotice = '';
 let theme = localStorage.getItem('ultracem-theme') || 'light';
-let advisorView = 'dashboard';
+let advisorView = 'dashboard', adminView = 'dashboard';
 let halloweenEnabled = false, halloweenReady = false, halloweenSaving = false, halloweenError = '';
 let halloweenTimer = null, halloweenRequest = 0;
 let noticeTimer = null;
@@ -102,9 +102,11 @@ function authError(cause) {
   return cause.message || 'No se pudo acceder.';
 }
 function shell() {
-  root.className = profile && profile.role !== 'admin' ? 'advisor-shell' : '';
-  root.innerHTML = '<header class="topbar"><div class="brand"><span class="brand-mark">U</span><span>Gamificación</span><span class="demo-badge">MVP</span></div><div class="top-actions" id="actions"></div></header><div class="app-layout"><aside class="app-sidebar" aria-label="Navegación decorativa"><div class="sidebar-caption">ULTRACEM</div><div class="sidebar-nav"><span class="sidebar-item active"><b>01</b> Resumen</span><span class="sidebar-item"><b>02</b> Clientes</span><span class="sidebar-item"><b>03</b> Progreso</span><span class="sidebar-item"><b>04</b> Ranking</span></div><div class="sidebar-bottom"><span class="sidebar-pulse"></span><span>Ruta comercial</span><small>Panel operativo</small></div></aside><main><p id="notice" class="notice" role="status" hidden></p><div id="page"></div><footer>Acciones comerciales de demostración. Completar una tarea no acredita una venta.</footer></main></div>';
-  if (root.classList.contains('advisor-shell')) {
+  root.className = !profile ? 'auth-shell' : profile.role !== 'admin' ? 'advisor-shell' : 'admin-shell';
+  root.innerHTML = !profile
+    ? '<main class="auth-main"><p id="notice" class="notice" role="status" hidden></p><div id="page"></div></main>'
+    : '<header class="topbar"><div class="brand"><span class="brand-mark">U</span><span>Gamificación</span><span class="demo-badge">MVP</span></div><div class="top-actions" id="actions"></div></header><div class="app-layout"><aside class="app-sidebar" aria-label="Navegación"><div class="sidebar-caption">ULTRACEM</div><div class="sidebar-nav"></div><div class="sidebar-bottom"><span class="sidebar-pulse"></span><span>Ruta comercial</span><small>Panel operativo</small></div></aside><main><p id="notice" class="notice" role="status" hidden></p><div id="page"></div><footer>Acciones comerciales de demostración. Completar una tarea no acredita una venta.</footer></main></div>';
+  if (profile && profile.role !== 'admin') {
     const sidebar = root.querySelector('.app-sidebar');
     const brand = el('div', 'sidebar-brand');
     brand.innerHTML = '<span class="sidebar-brand-symbol" aria-hidden="true">U</span><span class="sidebar-brand-name">ULTRACEM</span>';
@@ -139,6 +141,17 @@ function shell() {
       }
     }
     document.querySelector('main').prepend(mobileNav);
+  } else if (profile?.role === 'admin') {
+    const sidebar = root.querySelector('.app-sidebar');
+    const nav = sidebar.querySelector('.sidebar-nav');
+    const navigate = view => { adminView = view; render(); window.scrollTo(0, 0); };
+    nav.setAttribute('aria-label', 'Portal de administración');
+    for (const [view, label, icon] of [['dashboard', 'Tablero de admin', '01'], ['shop', 'Tienda', '02']]) {
+      const control = button(label, 'sidebar-item', () => navigate(view));
+      control.prepend(el('b', '', icon));
+      if (adminView === view) { control.classList.add('active'); control.setAttribute('aria-current', 'page'); }
+      nav.append(control);
+    }
   }
   if (profile) {
     const actions = document.querySelector('#actions');
@@ -154,7 +167,7 @@ function shell() {
       const result = await db.auth.signOut();
       if (result.error) { notice('No se pudo cerrar la sesión. Intenta de nuevo.', true); return; }
       stopHalloweenSync();
-      user = profile = null; advisors = clients = sales = ranking = []; aiRecommendation = ''; saleNotice = ''; advisorView = 'dashboard';
+      user = profile = null; advisors = clients = sales = ranking = []; aiRecommendation = ''; saleNotice = ''; advisorView = 'dashboard'; adminView = 'dashboard';
       render();
     }));
   }
@@ -620,6 +633,7 @@ function render() {
   const page = document.querySelector('#page');
   if (!db) page.replaceChildren(el('p', 'empty-state', 'Falta configurar Supabase en .env.local.'));
   else if (!profile) authPage();
+  else if (profile.role === 'admin' && adminView === 'shop') renderShop(page, sales.filter(sale => sale.confirmed).length, halloweenReady && halloweenEnabled, profile.equipped_skin, equipSkin);
   else if (profile.role === 'admin') adminPage(page);
   else if (advisorView === 'shop') renderShop(page, sales.filter(sale => sale.advisor_id === user?.id && sale.confirmed).length, halloweenReady && halloweenEnabled, profile.equipped_skin, equipSkin);
   else advisorPage(page);

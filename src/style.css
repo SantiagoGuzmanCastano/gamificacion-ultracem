@@ -51,6 +51,15 @@ h3 { font-size: 1rem; line-height: 1.4; }
 .theme-button { border: 1px solid rgb(255 255 255 / 35%); background: rgb(255 255 255 / 12%); color: #fff; border-radius: 999px; padding: 8px 12px; font-size: .78rem; font-weight: 700; }
 .theme-button:hover { background: rgb(255 255 255 / 22%); }
 .auth-page { min-height: 65vh; display: grid; align-content: center; justify-items: center; gap: 16px; padding: 32px 0; }
+.auth-shell { min-height: 100vh; background: radial-gradient(circle at 85% 15%, rgb(255 201 40 / 18%), transparent 26%), linear-gradient(145deg, #06244a, #0d6d9c); }
+.auth-shell .auth-main { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
+.auth-shell .auth-page { width: min(100%, 430px); min-height: 0; padding: 0; }
+.auth-shell .auth-form { width: 100%; padding: 34px; border: 1px solid rgb(255 255 255 / 28%); border-radius: 24px; background: rgb(255 255 255 / 96%); box-shadow: 0 24px 70px rgb(3 25 55 / 30%); }
+.auth-shell .auth-form h1 { color: #082e5d; font-size: 2rem; }
+.auth-shell .auth-toggle { color: #fff; }
+:root[data-theme="dark"] .auth-shell { background: radial-gradient(circle at 85% 15%, rgb(255 201 40 / 12%), transparent 26%), linear-gradient(145deg, #050e1d, #102d52); }
+:root[data-theme="dark"] .auth-shell .auth-form { border-color: #31516e; background: #122437; }
+:root[data-theme="dark"] .auth-shell .auth-form h1 { color: #f0f7ff; }
 .auth-form { width: min(100%, 400px); }
 .auth-form h1 { font-size: 1.8rem; }
 .auth-toggle { padding: 8px; }
