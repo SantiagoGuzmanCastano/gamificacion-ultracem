@@ -1,5 +1,5 @@
 export function getMascotState(percentage) {
-  if (percentage <= 25) return 'sad';
+  if (percentage === 0) return 'sad';
   if (percentage < 100) return 'neutral';
   return 'happy';
 }
