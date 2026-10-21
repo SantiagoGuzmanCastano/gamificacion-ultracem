@@ -202,7 +202,7 @@ function authPage(mode = 'login') {
   page.replaceChildren(form, button(mode === 'login' ? 'Crear cuenta de asesor' : 'Ya tengo cuenta', 'text-button auth-toggle', () => authPage(mode === 'login' ? 'signup' : 'login')));
 }
 async function loadData() {
-  const own = await db.from('mvp_profiles').select('user_id,full_name,role').eq('user_id', user.id).single();
+  const own = await db.from('mvp_profiles').select('user_id,full_name,role,equipped_skin').eq('user_id', user.id).single();
   if (own.error) throw own.error;
   profile = own.data;
   if (profile.role === 'admin') {
@@ -222,7 +222,7 @@ async function loadData() {
         return (aIndex < 0 ? taskOrder.length : aIndex) - (bIndex < 0 ? taskOrder.length : bIndex);
       }),
   }));
-  const salesResult = await db.from('mvp_sales').select('id,client_id,advisor_id,amount,completed_at');
+  const salesResult = await db.from('mvp_sales').select('id,client_id,advisor_id,amount,completed_at,confirmed');
   if (salesResult.error) throw salesResult.error;
   sales = salesResult.data ?? [];
   const rankingResult = await db.rpc('get_mvp_advisor_ranking');
@@ -267,11 +267,18 @@ function paintHalloween() {
   }
   const page = document.querySelector('.shop-page');
   if (page) {
-    renderHalloweenCollection(page, halloweenReady && halloweenEnabled);
+    renderHalloweenCollection(page, halloweenReady && halloweenEnabled, profile?.equipped_skin, ranking.find(row => row.advisor_id === user?.id)?.confirmed_sales ?? 0, equipSkin);
     const status = page.querySelector('.shop-mode-status');
     status.textContent = halloweenError;
     status.hidden = !halloweenError;
   }
+}
+async function equipSkin(skin) {
+  const result = await db.rpc('equip_mvp_skin', { target_skin: skin });
+  if (result.error) { notice(result.error.message, true); return; }
+  profile.equipped_skin = result.data;
+  render();
+  notice('Skin equipada.');
 }
 async function refreshHalloween() {
   if (!user || !profile || halloweenSaving) return;
@@ -349,30 +356,32 @@ function metrics(items, advisor = false) {
 }
 function rankingSection() {
   const section = el('section', 'ranking-section');
-  section.append(el('h2', 'section-title', 'Ranking de asesores'), el('p', 'muted', 'Cada tarea completada suma 10 XP.'));
+  section.append(el('h2', 'section-title', 'Ranking de asesores'), el('p', 'muted', 'El ranking se ordena por ventas confirmadas.'));
   if (!ranking.length) {
     section.append(el('p', 'empty-state', 'Aún no hay asesores con actividad registrada.'));
     return section;
   }
   const list = el('ol', 'ranking-list');
   for (const row of ranking) {
+    const confirmedSales = Number(row.confirmed_sales ?? row.sales ?? 0);
     const item = el('li', 'ranking-row' + (row.advisor_id === user?.id ? ' current' : ''));
     const identity = el('div', 'ranking-identity');
-    identity.append(el('strong', '', `${row.position}. ${row.full_name}`), el('span', 'muted', `${row.completed_tasks} tareas completadas`));
-    item.append(identity, el('strong', 'ranking-xp', `${row.xp} XP`));
+    identity.append(el('strong', '', `${row.position}. ${row.full_name}`), el('span', 'muted', `${confirmedSales} ventas confirmadas`));
+    item.append(identity, el('strong', 'ranking-xp', `${confirmedSales} ventas`));
     list.append(item);
   }
   section.append(list);
   return section;
 }
 function adminMetricsSection() {
-  const totalAmount = sales.reduce((total, sale) => total + Number(sale.amount || 0), 0);
+  const confirmedSales = sales.filter(sale => sale.confirmed);
+  const totalAmount = confirmedSales.reduce((total, sale) => total + Number(sale.amount || 0), 0);
   const section = el('section', 'metrics-dashboard');
   section.append(el('h2', 'section-title', 'Métricas generales'), el('p', 'muted', 'Resultados simulados a partir de misiones completadas.'));
-  section.append(metrics([['Misiones completadas', sales.length, 'ventas simuladas'], ['Valor acumulado', `$${totalAmount.toLocaleString('es-CO')}`, 'valor de prueba']]));
+  section.append(metrics([['Ventas confirmadas', confirmedSales.length, 'cierres registrados'], ['Valor acumulado', `$${totalAmount.toLocaleString('es-CO')}`, 'valor de prueba']]));
   const list = el('ul', 'metrics-breakdown');
   for (const advisor of advisors) {
-    const advisorSales = sales.filter(sale => sale.advisor_id === advisor.user_id);
+    const advisorSales = confirmedSales.filter(sale => sale.advisor_id === advisor.user_id);
     const amount = advisorSales.reduce((total, sale) => total + Number(sale.amount || 0), 0);
     const item = el('li', 'metrics-breakdown-row');
     const details = el('div', 'metrics-advisor-details');
@@ -463,8 +472,8 @@ function adminPage(page) {
   const tasks = clients.flatMap(client => client.tasks);
   page.className = 'admin-page';
   page.append(intro('Panorama comercial', 'Clientes y tareas pendientes por asesor.', 'admin-intro'));
-  const totalXp = ranking.reduce((total, row) => total + Number(row.xp || 0), 0);
-  page.append(metrics([['Asesores', advisors.length, 'cuentas registradas'], ['Clientes comerciales', clients.length, 'negocios asignados'], ['Tareas pendientes', tasks.filter(task => !task.completed).length, 'acciones por completar'], ['XP acumulado', totalXp, 'de todos los asesores']]));
+  const totalSales = ranking.reduce((total, row) => total + Number(row.confirmed_sales || 0), 0);
+  page.append(metrics([['Asesores', advisors.length, 'cuentas registradas'], ['Clientes comerciales', clients.length, 'negocios asignados'], ['Tareas pendientes', tasks.filter(task => !task.completed).length, 'acciones por completar'], ['Ventas confirmadas', totalSales, 'resultado comercial']]));
   page.append(rankingSection());
   page.append(adminMetricsSection());
   const layout = el('div', 'admin-columns'), overview = el('section', 'admin-overview');
@@ -522,7 +531,8 @@ function advisorPage(page) {
   const tasks = clients.flatMap(client => client.tasks);
   const completed = tasks.filter(task => task.completed).length;
   const ownRanking = ranking.find(row => row.advisor_id === user?.id);
-  page.append(metrics([['Mis clientes', clients.length, 'negocios asignados'], ['Por completar', tasks.filter(task => !task.completed).length, 'tareas pendientes'], ['Completadas', completed, 'acciones realizadas'], ['XP', ownRanking ? getXp(completed) : 0, '10 XP por tarea'], ['Posición', ownRanking ? `#${ownRanking.position}` : '—', 'ranking global']], true));
+  const ownSales = sales.filter(sale => sale.advisor_id === user?.id && sale.confirmed).length;
+  page.append(metrics([['Mis clientes', clients.length, 'negocios asignados'], ['Por completar', tasks.filter(task => !task.completed).length, 'tareas pendientes'], ['Completadas', completed, 'acciones realizadas'], ['Ventas', ownSales, 'ventas confirmadas'], ['Posición', ownRanking ? `#${ownRanking.position}` : '—', 'ranking global']], true));
   if (!clients.length) { page.append(el('p', 'empty-state', 'Todavía no tienes clientes. El administrador puede asignarte uno.')); return; }
   const overview = el('div', 'advisor-overview'), panel = el('section', 'advisor-client-panel'), rail = el('div', 'customer-rail');
   if (clients.length === 1) panel.classList.add('single-client');
@@ -544,12 +554,17 @@ function advisorPage(page) {
   const bar = el('progress'); bar.max = 100; bar.value = progress.percentage; info.append(line, bar);
   const mascot = el('div', 'mascot');
   const image = el('img', 'mascot-image');
-  image.src = mascotImages[progress.mascot];
+  const activeMascotImages = profile?.equipped_skin === 'skeleton'
+    ? { sad: '/skins/skeleton/sad.png', neutral: '/skins/skeleton/serious.png', happy: '/skins/skeleton/happy.png' }
+    : mascotImages;
+  image.src = activeMascotImages[progress.mascot];
   image.alt = `Mascota: ${mascotLabels[progress.mascot]}`;
   mascot.append(image);
   mascot.append(el('p', 'mascot-state', mascotLabels[progress.mascot])); section.append(info, mascot); detail.append(section);
   if (progress.total > 0 && progress.completed === progress.total) detail.append(el('p', 'client-complete-note', '¡Todo al día! Has completado todas las tareas de este cliente.'));
   if (progress.total === 4 && progress.completed === 4) {
+    const confirmed = sales.some(sale => sale.client_id === client.id && sale.confirmed);
+    if (!confirmed) detail.append(button('Confirmar venta', 'primary confirm-sale-button', () => confirmSale(client)));
     detail.append(button('Limpiar tareas completadas', 'secondary clear-tasks-button', () => clearCompletedTasks(client)));
   }
   panel.append(detail); overview.append(rankingSection(), panel); page.append(overview);
@@ -574,7 +589,7 @@ function advisorPage(page) {
         control.disabled = false; control.textContent = 'Completar tarea';
         notice(result?.error?.message || 'La tarea ya fue actualizada. Recarga los datos.', true); return;
       }
-      saleNotice = wasLastTask ? '¡Listo! Completaste la venta. La métrica ya llegó a tu administrador.' : '';
+      saleNotice = wasLastTask ? 'Las cuatro tareas están completas. Confirma la venta para registrarla.' : '';
       if (wasLastTask) celebrateCompletion();
       await refresh(wasLastTask ? '' : 'Tarea completada.');
       const completedTasks = progressBefore.completed + 1;
@@ -587,6 +602,11 @@ function advisorPage(page) {
   }
   taskSection.append(taskList); page.append(taskSection);
 }
+async function confirmSale(client) {
+  const result = await db.rpc('confirm_mvp_sale', { target_client: client.id });
+  if (result.error) { notice(result.error.message, true); return; }
+  await refresh('Venta confirmada correctamente.');
+}
 async function refresh(text) {
   try { await loadData(); render(); notice(text); }
   catch (cause) { notice(`El cambio se guardó, pero no se pudo actualizar la vista: ${cause.message}`, true); }
@@ -597,7 +617,7 @@ function render() {
   if (!db) page.replaceChildren(el('p', 'empty-state', 'Falta configurar Supabase en .env.local.'));
   else if (!profile) authPage();
   else if (profile.role === 'admin') adminPage(page);
-  else if (advisorView === 'shop') renderShop(page, ranking.find(row => row.advisor_id === user?.id)?.xp ?? 0, halloweenReady && halloweenEnabled);
+  else if (advisorView === 'shop') renderShop(page, sales.filter(sale => sale.advisor_id === user?.id && sale.confirmed).length, halloweenReady && halloweenEnabled, profile.equipped_skin, equipSkin);
   else advisorPage(page);
   paintHalloween();
 }
