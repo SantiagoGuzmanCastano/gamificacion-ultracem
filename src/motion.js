@@ -7,7 +7,7 @@ const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 export const anim = () => !reducedMotion.matches;
 
 let float = null;
-let busy = false;
+let cheer = null;
 
 // Quita los transform en línea para no anular el :hover del CSS.
 const reset = node => gsap.set(node, { clearProps: 'transform,translate,rotate,scale' });
@@ -62,6 +62,7 @@ export function hideToast() {
 // Detiene animaciones sobre nodos que render() está por reemplazar.
 export function killFx() {
   if (float) { float.kill(); float = null; }
+  if (cheer) { cheer.kill(); cheer = null; }
   const page = document.querySelector('#page');
   if (page) gsap.killTweensOf(page.querySelectorAll('*'));
 }
@@ -128,7 +129,8 @@ export function snapshot() {
   document.querySelectorAll('.ranking-row[data-k]').forEach(node => rows.set(node.dataset.k, node.getBoundingClientRect().top));
   document.querySelectorAll('[data-enter-key]').forEach(node => keys.add(node.dataset.enterKey));
   const leader = document.querySelector('.ranking-row[data-k]')?.dataset.k ?? null;
-  return { counts, bars, rows, keys, leader };
+  const view = document.querySelector('#page')?.className ?? '';
+  return { counts, bars, rows, keys, leader, view };
 }
 
 // Después de un render sin entrada: contadores, barras, FLIP y bloques nuevos.
@@ -154,7 +156,7 @@ export function update(before) {
     });
   }
   document.querySelectorAll('[data-enter-key]').forEach(node => {
-    if (before.keys.size && !before.keys.has(node.dataset.enterKey)) appear(node, 0);
+    if (before.view === document.querySelector('#page')?.className && !before.keys.has(node.dataset.enterKey)) appear(node, 0);
   });
   const leader = document.querySelector('.ranking-row[data-k]');
   if (before.leader && leader && leader.dataset.k !== before.leader) return leader.dataset.name || null;
@@ -197,14 +199,14 @@ export function burst(origin, count = 26, speed = [70, 180]) {
 export function mascotCheer(text) {
   const mascot = document.querySelector('.mascot');
   const image = mascot?.querySelector('.mascot-image');
-  if (!anim() || !image || busy) return;
-  busy = true;
+  if (!anim() || !image || cheer) return;
   if (float) float.pause();
   const bubble = document.createElement('span');
   bubble.className = 'mascot-bubble';
   bubble.textContent = text;
   mascot.append(bubble);
-  gsap.timeline({ onComplete: () => { bubble.remove(); busy = false; } })
+  // Si render() la interrumpe, killFx() la mata y libera el turno para la siguiente.
+  cheer = gsap.timeline({ onComplete: () => { bubble.remove(); cheer = null; } })
     .fromTo(image, { y: 0, scale: 1 }, { y: -18, scale: 1.08, duration: .2, yoyo: true, repeat: 1, ease: 'power2.out' }, .1)
     .add(() => float?.play(), .5)
     .fromTo(bubble, { scale: 0, opacity: 0 }, { scale: 1, opacity: 1, duration: .35, ease: 'back.out(2.4)' }, .25)
@@ -238,7 +240,7 @@ export function shake(node) {
 
 // Puntos que laten dentro de un botón mientras espera (§6.5). Devuelve la función para detenerlos.
 export function loadingDots(control, label) {
-  control.textContent = label;
+  control.textContent = anim() ? label : `${label}…`;
   if (!anim()) return () => {};
   const dots = [0, 1, 2].map(() => {
     const dot = document.createElement('span');

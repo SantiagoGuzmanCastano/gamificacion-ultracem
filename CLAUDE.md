@@ -52,13 +52,17 @@ src/mascot.js              # rutas/etiquetas de imágenes del pingüino base
 src/shop.js                # catálogo de skins + render de la tienda (innerHTML)
 src/style.css              # estilos generales, tema claro/oscuro (data-theme)
 src/shop.css               # estilos de la tienda
+src/motion.js              # ÚNICO módulo que importa GSAP: entradas, contadores, confeti, toast, mascota, FLIP
+src/motion.css             # capa de efectos (#fx), toast, burbuja de Topitín, barra de progreso animable
+src/motion-utils.js        # lógica pura de animaciones (formato, confeti, temblor), testeable con node
 public/mascot/             # pingüino base: feliz / serio / sad
 public/skins/              # skins de la tienda (+ skeleton/happy|sad|serious.png)
 SKINS/                     # originales de las skins (duplicados de public/skins, ~22 MB)
 supabase/migrations/       # esquema y funciones, en orden por timestamp
 supabase/functions/recommend-client/index.ts  # Edge Function de IA
 supabase/tests/halloween_mode.sql             # pruebas SQL de permisos del modo Halloween
-tests/                     # game.test.js, shop.test.js, halloween.test.js
+tests/                     # game.test.js, shop.test.js, halloween.test.js, motion.test.js
+animaciones.md             # especificación de animaciones (inspirada en Copiloto Ultracem.html)
 docs/superpowers/          # spec y plan del XP/ranking
 odd/tasks/                 # bitácoras de las features tienda y Halloween
 DECISIONES.md              # registro de decisiones de producto (leer antes de cambiar alcance)
@@ -109,7 +113,12 @@ El rol del primer admin se asigna a mano en el SQL Editor (ver README).
    - asesor → `advisorPage()`: métricas, ranking, selector de cliente, progreso con mascota, **Confirmar venta**, **Limpiar tareas completadas**, Trompín y lista de tareas.
 4. Cada acción → RPC → `refresh(msg)` = `loadData()` + `render()` + aviso.
 5. Modo Halloween: `refreshHalloween()` se ejecuta al iniciar, al enfocar la ventana y cada 10 s (admin, o asesor en la tienda); se detiene con `stopHalloweenSync()` al cerrar sesión o en `pagehide`.
-6. Efectos: confeti al completar la 4.ª tarea, corazón de la mascota en cada tarea y mensaje de ánimo cada 2 tareas. Todos respetan `prefers-reduced-motion`.
+6. Animaciones (GSAP, ver `animaciones.md`):
+   - La entrada escalonada corre solo al cambiar de vista (`entry`).
+   - `refresh()` toma un `snapshot()` antes del render y llama a `update()` después, para que los números cuenten desde su valor anterior y el ranking se reordene con FLIP.
+   - Las celebraciones (chip "+10 XP", confeti y burbuja de Topitín) solo se disparan si la RPC respondió bien.
+   - Los avisos usan un toast fijo (`notice()` → `motion.toast()`).
+   - Todo respeta `prefers-reduced-motion`.
 
 Navegación del asesor: "Mi tablero" y "Tienda", en la barra lateral y en `nav.advisor-nav` para móvil. La barra lateral del admin es decorativa.
 

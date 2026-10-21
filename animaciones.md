@@ -4,7 +4,7 @@ Especificación de todas las animaciones de la interfaz. Cubre botón por botón
 
 - **Fuente de inspiración:** la guía de diseño `Copiloto Ultracem.html` (carpeta `tercera_entrega`), que anima todo con **GSAP 3.12.5**.
 - **Rama:** `interfaz`, actualizada con `origin/main` en `eb22f58` (incluye tienda, modo Halloween y "Confirmar venta").
-- **Estado:** especificación. Todavía no hay código implementado.
+- **Estado:** implementado en `src/motion.js`, `src/motion.css` y `src/motion-utils.js`. En vez de atributos `data-a`, `main.js` usa listas de selectores (`viewEntry` y `clientEntry`).
 
 Cada valor marcado **[Guía]** se copia tal cual del HTML. Lo marcado **[Adaptación]** es una propuesta para botones o flujos que la guía no tiene, construida con el mismo lenguaje de movimiento.
 
