@@ -34,10 +34,11 @@ test('confirma la animación solo cuando la base guardó la tarea', () => {
   assert.equal(game.isTaskCompletionConfirmed({ data: true, error: new Error('fallo') }), false);
 });
 
-test('muestra frases de ánimo cada dos tareas completadas', () => {
-  assert.equal(typeof game.shouldShowEncouragement, 'function');
-  assert.equal(game.shouldShowEncouragement(1), false);
-  assert.equal(game.shouldShowEncouragement(2), true);
-  assert.equal(game.shouldShowEncouragement(3), false);
-  assert.equal(game.shouldShowEncouragement(4), true);
+test('la burbuja de Topitín cambia según las tareas completadas', () => {
+  assert.equal(game.getMascotCheer(1), '¡Excelente trabajo!');
+  assert.equal(game.getMascotCheer(2), '¡Vas con todo!');
+  assert.equal(game.getMascotCheer(3), '¡Una más!');
+  assert.equal(game.getMascotCheer(4), '¡Lo lograste!');
+  assert.equal(game.getMascotCheer(0), '¡Excelente trabajo!');
+  assert.equal(game.getMascotCheer(9), '¡Lo lograste!');
 });

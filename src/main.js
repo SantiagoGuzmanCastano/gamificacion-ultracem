@@ -2,8 +2,10 @@ import './style.css';
 import './shop.css';
 import { renderShop, renderHalloweenCollection } from './shop.js';
 import { createClient } from '@supabase/supabase-js';
-import { getProgress, getXp, isTaskCompletionConfirmed, shouldShowEncouragement } from './game.js';
+import { getMascotCheer, getProgress, isTaskCompletionConfirmed } from './game.js';
 import { mascotImages, mascotLabels } from './mascot.js';
+import { formatCount } from './motion-utils.js';
+import * as motion from './motion.js';
 
 const db = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
   ? createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY) : null;
@@ -13,8 +15,18 @@ let theme = localStorage.getItem('ultracem-theme') || 'light';
 let advisorView = 'dashboard';
 let halloweenEnabled = false, halloweenReady = false, halloweenSaving = false, halloweenError = '';
 let halloweenTimer = null, halloweenRequest = 0;
+let entry = 'view';
 document.documentElement.dataset.theme = theme;
 const taskOrder = ['Preparar una visita', 'Contactar al cliente', 'Revisar una cotización', 'Planear el siguiente paso'];
+const viewEntry = '.page-intro, .metric, .ranking-section, .advisor-client-panel, .ai-recommendation, .tasks-section, .task, .metrics-dashboard, .advisor-row, .admin-management, .shop-heading, .shop-collection, .shop-card, .auth-form, .empty-state';
+const clientEntry = '.customer-detail, .ai-recommendation, .tasks-section, .task';
+const halloweenEffects = {
+  appear: section => {
+    motion.appear(section, 0);
+    section.querySelectorAll('.shop-card').forEach((card, index) => motion.appear(card, .07 * (index + 1)));
+  },
+  leave: motion.leave,
+};
 
 function el(tag, className = '', value = '') {
   const node = document.createElement(tag);
@@ -41,52 +53,10 @@ function field(label, control) {
   return wrap;
 }
 function notice(text, error = false) {
-  const node = document.querySelector('#notice');
-  node.textContent = text;
-  node.hidden = !text;
-  node.classList.toggle('error-notice', error);
+  motion.toast(text, error);
 }
-function celebrateCompletion() {
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  const layer = el('div', 'confetti-layer');
-  layer.setAttribute('aria-hidden', 'true');
-  const colors = ['#0876d1', '#19b889', '#ffc629', '#ff7a35', '#55c9f2'];
-  for (let index = 0; index < 36; index++) {
-    const piece = el('span', `confetti-piece${index % 3 === 0 ? ' round' : ''}`);
-    piece.style.setProperty('--confetti-left', `${Math.random() * 100}%`);
-    piece.style.setProperty('--confetti-drift', `${Math.round(Math.random() * 180 - 90)}px`);
-    piece.style.setProperty('--confetti-rotation', `${Math.round(Math.random() * 900 - 450)}deg`);
-    piece.style.setProperty('--confetti-duration', `${1.35 + Math.random() * 0.7}s`);
-    piece.style.setProperty('--confetti-delay', `${Math.random() * 0.18}s`);
-    piece.style.setProperty('--confetti-color', colors[index % colors.length]);
-    layer.append(piece);
-  }
-  document.body.append(layer);
-  window.setTimeout(() => layer.remove(), 2300);
-}
-function releaseMascotHeart(completedTasks) {
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  const mascot = document.querySelector('.mascot');
-  if (!mascot) return;
-  const heart = el('span', 'mascot-heart', '♥');
-  const stage = Math.min(4, Math.max(1, completedTasks));
-  heart.style.setProperty('--heart-size', `${2.25 + stage * 0.2}rem`);
-  heart.style.setProperty('--heart-duration', `${1.65 + stage * 0.16}s`);
-  heart.style.setProperty('--heart-rise', `${120 + stage * 12}px`);
-  heart.setAttribute('aria-hidden', 'true');
-  mascot.append(heart);
-  window.setTimeout(() => heart.remove(), 2500);
-}
-function releaseMascotMessage(completedTasks) {
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  const mascot = document.querySelector('.mascot');
-  if (!mascot) return;
-  const messages = ['¡Tú puedes!', '¡Cada paso cuenta!', '¡Vas con todo!', '¡Buen trabajo!'];
-  const message = el('span', 'mascot-message', messages[(completedTasks / 2 - 1) % messages.length]);
-  message.setAttribute('role', 'status');
-  message.setAttribute('aria-live', 'polite');
-  mascot.append(message);
-  window.setTimeout(() => message.remove(), 2600);
+function afterCelebration(startedAt, callback) {
+  window.setTimeout(callback, Math.max(0, 900 - (performance.now() - startedAt)));
 }
 function authError(cause) {
   if (cause.code === 'invalid_credentials') return 'Correo o contraseña incorrectos.';
@@ -99,7 +69,7 @@ function authError(cause) {
 }
 function shell() {
   root.className = profile && profile.role !== 'admin' ? 'advisor-shell' : '';
-  root.innerHTML = '<header class="topbar"><div class="brand"><span class="brand-mark">U</span><span>Gamificación</span><span class="demo-badge">MVP</span></div><div class="top-actions" id="actions"></div></header><div class="app-layout"><aside class="app-sidebar" aria-label="Navegación decorativa"><div class="sidebar-caption">ULTRACEM</div><div class="sidebar-nav"><span class="sidebar-item active"><b>01</b> Resumen</span><span class="sidebar-item"><b>02</b> Clientes</span><span class="sidebar-item"><b>03</b> Progreso</span><span class="sidebar-item"><b>04</b> Ranking</span></div><div class="sidebar-bottom"><span class="sidebar-pulse"></span><span>Ruta comercial</span><small>Panel operativo</small></div></aside><main><p id="notice" class="notice" role="status" hidden></p><div id="page"></div><footer>Acciones comerciales de demostración. Completar una tarea no acredita una venta.</footer></main></div>';
+  root.innerHTML = '<header class="topbar"><div class="brand"><span class="brand-mark">U</span><span>Gamificación</span><span class="demo-badge">MVP</span></div><div class="top-actions" id="actions"></div></header><div class="app-layout"><aside class="app-sidebar" aria-label="Navegación decorativa"><div class="sidebar-caption">ULTRACEM</div><div class="sidebar-nav"><span class="sidebar-item active"><b>01</b> Resumen</span><span class="sidebar-item"><b>02</b> Clientes</span><span class="sidebar-item"><b>03</b> Progreso</span><span class="sidebar-item"><b>04</b> Ranking</span></div><div class="sidebar-bottom"><span class="sidebar-pulse"></span><span>Ruta comercial</span><small>Panel operativo</small></div></aside><main><div id="page"></div><footer>Acciones comerciales de demostración. Completar una tarea no acredita una venta.</footer></main></div>';
   if (root.classList.contains('advisor-shell')) {
     const sidebar = root.querySelector('.app-sidebar');
     const brand = el('div', 'sidebar-brand');
@@ -111,6 +81,7 @@ function shell() {
     sidebar.append(el('p', 'sidebar-motto', 'CONSTRUYENDO UN MUNDO MÁS FUERTE'));
     const navigate = view => {
       advisorView = view;
+      entry = 'view';
       render();
       if (view === 'shop') refreshHalloween();
       window.scrollTo(0, 0);
@@ -143,14 +114,15 @@ function shell() {
       theme = theme === 'dark' ? 'light' : 'dark';
       localStorage.setItem('ultracem-theme', theme);
       document.documentElement.dataset.theme = theme;
-      shell();
       render();
+      motion.themeFade(root);
     }));
     actions.append(button('Cerrar sesión', 'text-button', async () => {
       const result = await db.auth.signOut();
       if (result.error) { notice('No se pudo cerrar la sesión. Intenta de nuevo.', true); return; }
       stopHalloweenSync();
       user = profile = null; advisors = clients = sales = ranking = []; aiRecommendation = ''; saleNotice = ''; advisorView = 'dashboard';
+      entry = 'view';
       render();
     }));
   }
@@ -185,6 +157,7 @@ function authPage(mode = 'login') {
         if (result.error) throw result.error;
         if (!result.data.session) {
           authPage('login');
+          motion.enter(document.querySelector('#page'), viewEntry);
           notice('Cuenta creada. Confirma tu correo y luego inicia sesión.');
           return;
         }
@@ -195,11 +168,16 @@ function authPage(mode = 'login') {
       await boot();
     } catch (cause) {
       error.textContent = authError(cause);
+      motion.appear(error, 0);
+      motion.shake(form);
       submit.disabled = false;
       submit.textContent = mode === 'login' ? 'Entrar' : 'Crear cuenta';
     }
   });
-  page.replaceChildren(form, button(mode === 'login' ? 'Crear cuenta de asesor' : 'Ya tengo cuenta', 'text-button auth-toggle', () => authPage(mode === 'login' ? 'signup' : 'login')));
+  page.replaceChildren(form, button(mode === 'login' ? 'Crear cuenta de asesor' : 'Ya tengo cuenta', 'text-button auth-toggle', () => {
+    authPage(mode === 'login' ? 'signup' : 'login');
+    motion.enter(document.querySelector('#page'), viewEntry);
+  }));
 }
 async function loadData() {
   const own = await db.from('mvp_profiles').select('user_id,full_name,role,equipped_skin').eq('user_id', user.id).single();
@@ -235,11 +213,13 @@ async function boot() {
   shell(); notice('Cargando datos…');
   const result = await db.auth.getUser();
   user = result.data.user;
-  if (!user) { profile = null; render(); return; }
+  entry = 'view';
+  if (!user) { profile = null; render(); notice(''); return; }
   try {
     await loadData();
     await refreshHalloween();
     render();
+    notice('');
     halloweenTimer = window.setInterval(() => {
       if (!document.hidden && (profile?.role === 'admin' || advisorView === 'shop')) refreshHalloween();
     }, 10000);
@@ -267,7 +247,7 @@ function paintHalloween() {
   }
   const page = document.querySelector('.shop-page');
   if (page) {
-    renderHalloweenCollection(page, halloweenReady && halloweenEnabled, profile?.equipped_skin, ranking.find(row => row.advisor_id === user?.id)?.confirmed_sales ?? 0, equipSkin);
+    renderHalloweenCollection(page, halloweenReady && halloweenEnabled, profile?.equipped_skin, ranking.find(row => row.advisor_id === user?.id)?.confirmed_sales ?? 0, equipSkin, halloweenEffects);
     const status = page.querySelector('.shop-mode-status');
     status.textContent = halloweenError;
     status.hidden = !halloweenError;
@@ -278,6 +258,9 @@ async function equipSkin(skin) {
   if (result.error) { notice(result.error.message, true); return; }
   profile.equipped_skin = result.data;
   render();
+  const card = document.querySelector('.shop-card-equipped');
+  motion.checkPop(card?.querySelector('button'));
+  motion.beat(card);
   notice('Skin equipada.');
 }
 async function refreshHalloween() {
@@ -300,6 +283,7 @@ async function refreshHalloween() {
 async function toggleHalloween() {
   if (profile?.role !== 'admin' || !halloweenReady || halloweenSaving) return;
   const currentUser = user.id, request = ++halloweenRequest;
+  let saved = false;
   halloweenSaving = true;
   paintHalloween();
   try {
@@ -308,6 +292,7 @@ async function toggleHalloween() {
     if (currentUser !== user?.id || request !== halloweenRequest) return;
     halloweenEnabled = result.data.halloween_enabled === true;
     halloweenError = '';
+    saved = true;
     notice(`Modo Halloween ${halloweenEnabled ? 'activado' : 'desactivado'} para todos los asesores.`);
   } catch {
     if (currentUser !== user?.id || request !== halloweenRequest) return;
@@ -316,6 +301,10 @@ async function toggleHalloween() {
     if (currentUser === user?.id && request === halloweenRequest) {
       halloweenSaving = false;
       paintHalloween();
+      if (saved) {
+        motion.pulse(document.querySelector('#halloween-toggle'), 1.04);
+        motion.appear(document.querySelector('#halloween-status'), 0);
+      }
     }
   }
 }
@@ -341,7 +330,7 @@ function metrics(items, advisor = false) {
     '<path d="M12 2 21 7v10l-9 5-9-5V7z"/><path d="M7.5 11h9M8 14h8"/>',
     '<path d="M7 4h10v5a5 5 0 0 1-10 0V4ZM7 6H4v2a4 4 0 0 0 4 4M17 6h3v2a4 4 0 0 1-4 4M12 14v4M8 21h8M9 18h6"/>',
   ];
-  for (const [index, [label, value, note]] of items.entries()) {
+  for (const [index, [label, value, note, pre = '']] of items.entries()) {
     const item = el('div', 'metric');
     if (advisor) {
       const icon = el('span', 'metric-icon');
@@ -349,7 +338,9 @@ function metrics(items, advisor = false) {
       icon.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${iconPaths[index]}</svg>`;
       item.append(icon);
     }
-    item.append(el('span', 'metric-label', label), el('strong', 'metric-value', String(value)), el('span', 'metric-note', note));
+    const valueNode = el('strong', 'metric-value', typeof value === 'number' ? formatCount(value, { pre }) : String(value));
+    if (typeof value === 'number') Object.assign(valueNode.dataset, { count: value, key: `metric:${label}`, pre });
+    item.append(el('span', 'metric-label', label), valueNode, el('span', 'metric-note', note));
     row.append(item);
   }
   return row;
@@ -365,9 +356,12 @@ function rankingSection() {
   for (const row of ranking) {
     const confirmedSales = Number(row.confirmed_sales ?? row.sales ?? 0);
     const item = el('li', 'ranking-row' + (row.advisor_id === user?.id ? ' current' : ''));
+    Object.assign(item.dataset, { k: row.advisor_id, name: row.full_name });
     const identity = el('div', 'ranking-identity');
     identity.append(el('strong', '', `${row.position}. ${row.full_name}`), el('span', 'muted', `${confirmedSales} ventas confirmadas`));
-    item.append(identity, el('strong', 'ranking-xp', `${confirmedSales} ventas`));
+    const total = el('strong', 'ranking-xp', `${confirmedSales} ventas`);
+    Object.assign(total.dataset, { count: confirmedSales, key: `rank:${row.advisor_id}`, suf: ' ventas' });
+    item.append(identity, total);
     list.append(item);
   }
   section.append(list);
@@ -378,7 +372,7 @@ function adminMetricsSection() {
   const totalAmount = confirmedSales.reduce((total, sale) => total + Number(sale.amount || 0), 0);
   const section = el('section', 'metrics-dashboard');
   section.append(el('h2', 'section-title', 'Métricas generales'), el('p', 'muted', 'Resultados simulados a partir de misiones completadas.'));
-  section.append(metrics([['Ventas confirmadas', confirmedSales.length, 'cierres registrados'], ['Valor acumulado', `$${totalAmount.toLocaleString('es-CO')}`, 'valor de prueba']]));
+  section.append(metrics([['Ventas confirmadas', confirmedSales.length, 'cierres registrados'], ['Valor acumulado', totalAmount, 'valor de prueba', '$']]));
   const list = el('ul', 'metrics-breakdown');
   for (const advisor of advisors) {
     const advisorSales = confirmedSales.filter(sale => sale.advisor_id === advisor.user_id);
@@ -410,6 +404,7 @@ async function resetAdvisorTasks(advisor, clientCount) {
     notice(result.error.message, true);
     return;
   }
+  await motion.exit(document.querySelectorAll(`[data-advisor="${advisor.user_id}"] .pending-titles li`), -1);
   await refresh('Tareas de ' + advisor.full_name + ' eliminadas.');
 }
 async function deleteAdvisorClients(advisor, clientCount) {
@@ -421,6 +416,7 @@ async function deleteAdvisorClients(advisor, clientCount) {
     notice(result.error.message, true);
     return;
   }
+  await motion.exit(document.querySelectorAll(`[data-advisor="${advisor.user_id}"] .pending-list > li`), -1);
   await refresh('Clientes de ' + advisor.full_name + ' eliminados.');
 }
 async function deleteAdvisor(advisor) {
@@ -431,6 +427,7 @@ async function deleteAdvisor(advisor) {
     notice(result.error.message, true);
     return;
   }
+  await motion.exit(document.querySelectorAll(`[data-advisor="${advisor.user_id}"]`), -1);
   await refresh('Asesor ' + advisor.full_name + ' eliminado.');
 }
 async function clearCompletedTasks(client) {
@@ -441,11 +438,12 @@ async function clearCompletedTasks(client) {
     notice(result.error.message, true);
     return;
   }
+  await motion.exit(document.querySelectorAll('.task-list .task'));
   await refresh('Tareas completadas de ' + client.name + ' limpiadas. Las métricas se conservaron.');
 }
 async function requestRecommendation(client, control) {
   control.disabled = true;
-  control.textContent = 'Analizando…';
+  const stopDots = motion.loadingDots(control, 'Analizando');
   aiRecommendation = '';
   const progress = getProgress(client.tasks);
   const result = await db.functions.invoke('recommend-client', {
@@ -459,11 +457,14 @@ async function requestRecommendation(client, control) {
       tasks: client.tasks.filter(task => !task.completed).map(task => ({ title: task.title, description: task.description })),
     },
   });
+  stopDots();
   if (result.error || result.data?.error) {
     notice(result.data?.error || result.error.message, true);
   } else {
     aiRecommendation = result.data.recommendation;
     render();
+    motion.appear(document.querySelector('.ai-recommendation p'), 0);
+    motion.beat(document.querySelector('.ai-recommendation'), 1.01);
   }
   control.disabled = false;
   control.textContent = 'Sugerir siguiente acción';
@@ -483,6 +484,7 @@ function adminPage(page) {
     const assigned = clients.filter(client => client.advisor_id === advisor.user_id);
     const pending = assigned.flatMap(client => client.tasks).filter(task => !task.completed).length;
     const section = el('article', 'advisor-row'), head = el('div', 'advisor-row-head'), copy = el('div');
+    section.dataset.advisor = advisor.user_id;
     copy.append(el('h3', '', advisor.full_name), el('p', 'advisor-email', advisor.email || 'Correo no disponible'), el('p', 'muted', `${assigned.length} clientes asignados`));
     const actions = el('div', 'advisor-row-actions');
     actions.append(el('strong', 'pending-count', `${pending} pendientes`));
@@ -494,6 +496,7 @@ function adminPage(page) {
     const list = el('ul', 'pending-list');
     for (const client of assigned) {
       const item = el('li');
+      item.dataset.enterKey = `client:${client.id}`;
       item.append(el('strong', '', client.name), el('span', 'muted', ` · ${client.tasks.filter(task => !task.completed).length} pendientes`));
       const taskList = el('ul', 'pending-titles');
       client.tasks.filter(task => !task.completed).forEach(task => taskList.append(el('li', '', task.title)));
@@ -517,7 +520,7 @@ function adminPage(page) {
   form.addEventListener('submit', async event => {
     event.preventDefault(); error.textContent = ''; submit.disabled = true; submit.textContent = 'Guardando…';
     const result = await db.from('mvp_clients').insert({ name: name.value.trim(), type: type.value, advisor_id: advisor.value });
-    if (result.error) { error.textContent = result.error.message; submit.disabled = false; submit.textContent = 'Crear cliente y tareas'; return; }
+    if (result.error) { error.textContent = result.error.message; motion.appear(error, 0); submit.disabled = false; submit.textContent = 'Crear cliente y tareas'; return; }
     await refresh('Cliente creado con cuatro tareas.');
   });
   manage.append(halloweenControl(), form); layout.append(overview, manage); page.append(layout);
@@ -540,7 +543,10 @@ function advisorPage(page) {
   const list = el('ul', 'customer-list');
   for (const client of clients) {
     const item = el('li');
-    const control = button('', `customer-option${client.id === selectedId ? ' selected' : ''}`, () => { selectedId = client.id; aiRecommendation = ''; saleNotice = ''; render(); });
+    const control = button('', `customer-option${client.id === selectedId ? ' selected' : ''}`, () => {
+      if (client.id === selectedId) return;
+      selectedId = client.id; aiRecommendation = ''; saleNotice = ''; entry = 'client'; render();
+    });
     control.setAttribute('aria-pressed', String(client.id === selectedId));
     control.append(el('strong', '', client.name), el('span', 'muted', `${client.type} · ${client.tasks.filter(task => !task.completed).length} pendientes`));
     item.append(control); list.append(item);
@@ -551,7 +557,15 @@ function advisorPage(page) {
   info.append(el('p', 'customer-type', client.type), el('h2', 'participant-name', client.name));
   const line = el('div', 'progress-line');
   line.append(el('span', '', `${progress.completed} de ${progress.total} tareas completadas`), el('strong', '', `${progress.rounded} %`));
-  const bar = el('progress'); bar.max = 100; bar.value = progress.percentage; info.append(line, bar);
+  const bar = el('div', 'progress-bar');
+  bar.setAttribute('role', 'progressbar');
+  bar.setAttribute('aria-label', `Progreso de ${client.name}`);
+  bar.setAttribute('aria-valuemin', '0');
+  bar.setAttribute('aria-valuemax', '100');
+  bar.setAttribute('aria-valuenow', String(progress.rounded));
+  Object.assign(bar.dataset, { bar: progress.percentage, key: `client:${client.id}` });
+  const fill = el('i'); fill.style.width = `${progress.percentage}%`; bar.append(fill);
+  info.append(line, bar);
   const mascot = el('div', 'mascot');
   const image = el('img', 'mascot-image');
   const activeMascotImages = profile?.equipped_skin === 'skeleton'
@@ -564,7 +578,7 @@ function advisorPage(page) {
   if (progress.total > 0 && progress.completed === progress.total) detail.append(el('p', 'client-complete-note', '¡Todo al día! Has completado todas las tareas de este cliente.'));
   if (progress.total === 4 && progress.completed === 4) {
     const confirmed = sales.some(sale => sale.client_id === client.id && sale.confirmed);
-    if (!confirmed) detail.append(button('Confirmar venta', 'primary confirm-sale-button', () => confirmSale(client)));
+    if (!confirmed) detail.append(button('Confirmar venta', 'primary confirm-sale-button', event => confirmSale(client, event.currentTarget)));
     detail.append(button('Limpiar tareas completadas', 'secondary clear-tasks-button', () => clearCompletedTasks(client)));
   }
   panel.append(detail); overview.append(rankingSection(), panel); page.append(overview);
@@ -578,40 +592,70 @@ function advisorPage(page) {
   const taskList = el('ol', 'task-list');
   for (const task of client.tasks) {
     const item = el('li', 'task'), content = el('div', 'task-content'), actions = el('div', 'task-actions');
+    item.dataset.task = task.id;
     content.append(el('h3', '', task.title), el('p', 'task-description', task.description));
-    actions.append(el('span', `task-status${task.completed ? ' completed' : ''}`, task.completed ? 'Completada' : 'Pendiente'));
-    if (!task.completed) actions.append(button('Completar tarea', 'secondary', async event => {
-      const control = event.currentTarget; control.disabled = true; control.textContent = 'Guardando…';
-      const progressBefore = getProgress(client.tasks);
-      const wasLastTask = progressBefore.isLastTaskPending;
-      const result = await db.rpc('complete_mvp_task', { target_task: task.id });
-      if (!isTaskCompletionConfirmed(result)) {
-        control.disabled = false; control.textContent = 'Completar tarea';
-        notice(result?.error?.message || 'La tarea ya fue actualizada. Recarga los datos.', true); return;
-      }
-      saleNotice = wasLastTask ? 'Las cuatro tareas están completas. Confirma la venta para registrarla.' : '';
-      if (wasLastTask) celebrateCompletion();
-      await refresh(wasLastTask ? '' : 'Tarea completada.');
-      const completedTasks = progressBefore.completed + 1;
-      releaseMascotHeart(completedTasks);
-      if (shouldShowEncouragement(completedTasks)) {
-        window.setTimeout(() => releaseMascotMessage(completedTasks), 500);
-      }
-    }));
+    actions.append(el('span', `task-status${task.completed ? ' completed' : ''}`, task.completed ? '✓ Completada' : 'Pendiente'));
+    if (!task.completed) actions.append(button('Completar tarea', 'secondary', event => completeTask(client, task, event.currentTarget)));
     item.append(content, actions); taskList.append(item);
   }
   taskSection.append(taskList); page.append(taskSection);
 }
-async function confirmSale(client) {
-  const result = await db.rpc('confirm_mvp_sale', { target_client: client.id });
-  if (result.error) { notice(result.error.message, true); return; }
-  await refresh('Venta confirmada correctamente.');
+async function completeTask(client, task, control) {
+  control.disabled = true; control.textContent = 'Guardando…';
+  const origin = control.getBoundingClientRect();
+  const progressBefore = getProgress(client.tasks);
+  const wasLastTask = progressBefore.isLastTaskPending;
+  const result = await db.rpc('complete_mvp_task', { target_task: task.id });
+  if (!isTaskCompletionConfirmed(result)) {
+    control.disabled = false; control.textContent = 'Completar tarea';
+    notice(result?.error?.message || 'La tarea ya fue actualizada. Recarga los datos.', true); return;
+  }
+  const completedAt = performance.now();
+  saleNotice = wasLastTask ? 'Las cuatro tareas están completas. Confirma la venta para registrarla.' : '';
+  motion.chip('+10 XP', origin);
+  motion.burst(origin);
+  await refresh(wasLastTask ? '' : 'Tarea completada.', () => {
+    const row = document.querySelector(`[data-task="${task.id}"]`);
+    motion.checkPop(row?.querySelector('.task-status'));
+    motion.beat(row);
+    motion.mascotCheer(getMascotCheer(progressBefore.completed + 1));
+    if (!wasLastTask) return;
+    motion.appear(document.querySelector('.client-complete-note'));
+    motion.appear(document.querySelector('.sale-notice'));
+    const confirmButton = document.querySelector('.confirm-sale-button');
+    motion.appear(confirmButton);
+    window.setTimeout(() => motion.pulse(confirmButton, 1.04), 1200);
+  }, completedAt);
 }
-async function refresh(text) {
-  try { await loadData(); render(); notice(text); }
+async function confirmSale(client, control) {
+  control.disabled = true; control.textContent = 'Guardando…';
+  const origin = control.getBoundingClientRect();
+  const result = await db.rpc('confirm_mvp_sale', { target_client: client.id });
+  if (result.error) {
+    control.disabled = false; control.textContent = 'Confirmar venta';
+    notice(result.error.message, true); return;
+  }
+  const confirmedAt = performance.now();
+  motion.chip('+1 venta', origin);
+  motion.burst(origin, 40, [90, 220]);
+  motion.fadeOut(control);
+  await refresh('Venta confirmada correctamente.', () => motion.mascotCheer('¡Venta confirmada!'), confirmedAt);
+}
+// Recarga y anima desde el estado anterior. Con celebratedAt, el aviso espera a que termine la celebración.
+async function refresh(text, afterRender, celebratedAt) {
+  const before = motion.snapshot();
+  try {
+    await loadData(); render();
+    const leader = motion.update(before);
+    afterRender?.();
+    const message = [text, leader && `Cambio en el ranking: ${leader} sube al puesto 1.`].filter(Boolean).join(' ');
+    if (celebratedAt) afterCelebration(celebratedAt, () => notice(message));
+    else notice(message);
+  }
   catch (cause) { notice(`El cambio se guardó, pero no se pudo actualizar la vista: ${cause.message}`, true); }
 }
 function render() {
+  motion.killFx();
   shell();
   const page = document.querySelector('#page');
   if (!db) page.replaceChildren(el('p', 'empty-state', 'Falta configurar Supabase en .env.local.'));
@@ -620,5 +664,9 @@ function render() {
   else if (advisorView === 'shop') renderShop(page, sales.filter(sale => sale.advisor_id === user?.id && sale.confirmed).length, halloweenReady && halloweenEnabled, profile.equipped_skin, equipSkin);
   else advisorPage(page);
   paintHalloween();
+  if (entry === 'client') motion.enter(page, clientEntry, { counts: false });
+  else if (entry) motion.enter(page, viewEntry);
+  else motion.mascotIdle();
+  entry = null;
 }
 if (db) boot(); else render();

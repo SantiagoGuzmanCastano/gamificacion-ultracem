@@ -21,7 +21,7 @@ export function renderShop(page, sales, halloweenEnabled = false, equippedSkin =
         <h1 tabindex="-1">Tienda de Topitín</h1>
         <p>Tu esfuerzo tiene su propio estilo.</p></div>
       <div class="shop-xp"><span aria-hidden="true">✦</span>
-        <div><span>Ventas confirmadas</span><strong>${Number(sales).toLocaleString('es-CO')}</strong></div></div>
+        <div><span>Ventas confirmadas</span><strong data-count="${Number(sales)}" data-key="shop-sales">${Number(sales).toLocaleString('es-CO')}</strong></div></div>
     </header>
     <p class="shop-mode-status form-error" role="status" hidden></p>
     <section class="shop-collection" aria-labelledby="collection-title">
@@ -36,9 +36,9 @@ export function renderShop(page, sales, halloweenEnabled = false, equippedSkin =
   renderHalloweenCollection(page, halloweenEnabled, equippedSkin, sales, onEquip);
 }
 
-export function renderHalloweenCollection(page, enabled, equippedSkin = 'classic', sales = 0, onEquip = () => {}) {
+export function renderHalloweenCollection(page, enabled, equippedSkin = 'classic', sales = 0, onEquip = () => {}, effects = {}) {
   const existing = page.querySelector('#halloween-collection');
-  if (!enabled) { existing?.remove(); return; }
+  if (!enabled) { if (existing) (effects.leave ?? (node => node.remove()))(existing); return; }
   if (existing) return;
   const section = document.createElement('section');
   section.id = 'halloween-collection';
@@ -49,6 +49,7 @@ export function renderHalloweenCollection(page, enabled, equippedSkin = 'classic
     <span class="shop-count">2 atuendos</span></div><ul class="shop-grid"></ul>`;
   appendCards(section.querySelector('.shop-grid'), halloweenOutfits, equippedSkin, sales, onEquip);
   page.querySelector('.shop-collection').before(section);
+  effects.appear?.(section);
 }
 
 function appendCards(grid, collection, equippedSkin, sales, onEquip) {
@@ -59,6 +60,7 @@ function appendCards(grid, collection, equippedSkin, sales, onEquip) {
     const unlocked = skeleton && Number(sales) >= 1;
     const canEquip = classic && !equipped || skeleton && unlocked && !equipped;
     const card = document.createElement('li');
+    card.dataset.outfit = outfit.id;
     card.className = `shop-card${classic ? ' shop-card-classic' : ''}${equipped ? ' shop-card-equipped' : ''}`;
     card.innerHTML = `
       <div class="shop-artwork"><img src="${outfit.image}" alt="${outfit.name}" width="280" height="280"
