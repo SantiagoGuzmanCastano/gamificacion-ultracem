@@ -195,7 +195,7 @@ progress { display: block; width: 100%; height: 9px; margin-top: 10px; border: 0
 progress::-webkit-progress-bar { background: #e5edf7; }
 progress::-webkit-progress-value { background: var(--accent); }
 progress::-moz-progress-bar { background: var(--accent); }
-.mascot { display: flex; flex-direction: column; justify-content: center; align-items: center; }
+.mascot { position: relative; display: flex; flex-direction: column; justify-content: center; align-items: center; }
 .mascot-placeholder, .mascot-image { width: 150px; height: 100px; object-fit: contain; }
 .mascot-image { width: 180px; height: 210px; object-fit: contain; filter: drop-shadow(0 14px 16px rgb(23 45 76 / 12%)); }
 .mascot-placeholder { display: grid; place-items: center; border: 1px dashed #adbaaf; border-radius: 8px; background: #f6f8f5; color: #617066; font-size: .77rem; }
@@ -258,7 +258,10 @@ footer { border-top: 1px solid var(--line); padding: 22px 0 30px; margin-top: 56
   footer { margin-top: 38px; }
 }
 
-@media (prefers-reduced-motion: reduce) { button { transition: none; } }
+@media (prefers-reduced-motion: reduce) {
+  button { transition: none; }
+  .confetti-layer { display: none !important; }
+}
 
 /* Tablero del asesor */
 .advisor-shell { display: grid; grid-template-columns: 264px minmax(0, 1fr); grid-template-rows: 76px minmax(0, 1fr); min-height: 100vh; background: #eef7ff; }
@@ -362,6 +365,88 @@ footer { border-top: 1px solid var(--line); padding: 22px 0 30px; margin-top: 56
 :root[data-theme="dark"] .advisor-shell .advisor-kicker, :root[data-theme="dark"] .advisor-shell .customer-type { color: #a8d5f5; }
 :root[data-theme="dark"] .advisor-shell .ranking-xp, :root[data-theme="dark"] .advisor-shell .mascot-state { color: #7dd4ff; }
 :root[data-theme="dark"] .advisor-shell .progress-section { background: transparent; }
+
+.confetti-layer {
+  position: fixed;
+  z-index: 10000;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.confetti-piece {
+  position: absolute;
+  top: -14px;
+  left: var(--confetti-left);
+  width: 9px;
+  height: 13px;
+  border-radius: 2px;
+  background: var(--confetti-color);
+  opacity: .95;
+  animation: confetti-fall var(--confetti-duration) cubic-bezier(.2,.65,.4,1) var(--confetti-delay) forwards;
+}
+
+.confetti-piece.round {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
+@keyframes confetti-fall {
+  to {
+    opacity: 0;
+    transform: translate3d(var(--confetti-drift), 105vh, 0) rotate(var(--confetti-rotation));
+  }
+}
+
+.mascot-heart {
+  position: absolute;
+  z-index: 2;
+  top: 32%;
+  left: 50%;
+  color: #f05278;
+  font-size: var(--heart-size, 2.45rem);
+  line-height: 1;
+  filter: drop-shadow(0 3px 5px rgb(240 82 120 / 35%));
+  pointer-events: none;
+  animation: mascot-heart-rise var(--heart-duration, 2s) cubic-bezier(.18,.72,.3,1) forwards;
+}
+
+.mascot-message {
+  position: absolute;
+  z-index: 3;
+  top: -10px;
+  left: 50%;
+  width: max-content;
+  max-width: min(190px, 70vw);
+  padding: 9px 14px;
+  border: 1px solid #a9d4f3;
+  border-radius: 999px;
+  background: #fff;
+  color: #0b3b68;
+  box-shadow: 0 7px 20px rgb(20 73 116 / 18%);
+  font-size: .9rem;
+  font-weight: 800;
+  line-height: 1.2;
+  text-align: center;
+  pointer-events: none;
+  animation: mascot-message-pop 2.4s ease-out forwards;
+}
+
+@keyframes mascot-message-pop {
+  0% { opacity: 0; transform: translate(-50%, 12px) scale(.8); }
+  12% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  78% { opacity: 1; transform: translate(-50%, -3px) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -15px) scale(.96); }
+}
+
+@keyframes mascot-heart-rise {
+  0% { opacity: 0; transform: translate(-50%, 14px) scale(.3) rotate(-14deg); }
+  14% { opacity: 1; transform: translate(-50%, 0) scale(1.2) rotate(8deg); }
+  38% { opacity: 1; transform: translate(-50%, -5px) scale(1.2) rotate(-5deg); }
+  72% { opacity: .95; transform: translate(calc(-50% + 7px), -65px) scale(1.05) rotate(12deg); }
+  100% { opacity: 0; transform: translate(calc(-50% + 20px), calc(var(--heart-rise, 168px) * -1)) scale(.85) rotate(22deg); }
+}
 
 @media (max-width: 1220px) {
   .advisor-shell .advisor-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }

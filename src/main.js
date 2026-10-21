@@ -1,6 +1,6 @@
 import './style.css';
 import { createClient } from '@supabase/supabase-js';
-import { getProgress, getXp } from './game.js';
+import { getProgress, getXp, isTaskCompletionConfirmed, shouldShowEncouragement } from './game.js';
 import { mascotImages, mascotLabels } from './mascot.js';
 
 const db = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
@@ -40,6 +40,48 @@ function notice(text, error = false) {
   node.textContent = text;
   node.hidden = !text;
   node.classList.toggle('error-notice', error);
+}
+function celebrateCompletion() {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const layer = el('div', 'confetti-layer');
+  layer.setAttribute('aria-hidden', 'true');
+  const colors = ['#0876d1', '#19b889', '#ffc629', '#ff7a35', '#55c9f2'];
+  for (let index = 0; index < 36; index++) {
+    const piece = el('span', `confetti-piece${index % 3 === 0 ? ' round' : ''}`);
+    piece.style.setProperty('--confetti-left', `${Math.random() * 100}%`);
+    piece.style.setProperty('--confetti-drift', `${Math.round(Math.random() * 180 - 90)}px`);
+    piece.style.setProperty('--confetti-rotation', `${Math.round(Math.random() * 900 - 450)}deg`);
+    piece.style.setProperty('--confetti-duration', `${1.35 + Math.random() * 0.7}s`);
+    piece.style.setProperty('--confetti-delay', `${Math.random() * 0.18}s`);
+    piece.style.setProperty('--confetti-color', colors[index % colors.length]);
+    layer.append(piece);
+  }
+  document.body.append(layer);
+  window.setTimeout(() => layer.remove(), 2300);
+}
+function releaseMascotHeart(completedTasks) {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const mascot = document.querySelector('.mascot');
+  if (!mascot) return;
+  const heart = el('span', 'mascot-heart', '♥');
+  const stage = Math.min(4, Math.max(1, completedTasks));
+  heart.style.setProperty('--heart-size', `${2.25 + stage * 0.2}rem`);
+  heart.style.setProperty('--heart-duration', `${1.65 + stage * 0.16}s`);
+  heart.style.setProperty('--heart-rise', `${120 + stage * 12}px`);
+  heart.setAttribute('aria-hidden', 'true');
+  mascot.append(heart);
+  window.setTimeout(() => heart.remove(), 2500);
+}
+function releaseMascotMessage(completedTasks) {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const mascot = document.querySelector('.mascot');
+  if (!mascot) return;
+  const messages = ['¡Tú puedes!', '¡Cada paso cuenta!', '¡Vas con todo!', '¡Buen trabajo!'];
+  const message = el('span', 'mascot-message', messages[(completedTasks / 2 - 1) % messages.length]);
+  message.setAttribute('role', 'status');
+  message.setAttribute('aria-live', 'polite');
+  mascot.append(message);
+  window.setTimeout(() => message.remove(), 2600);
 }
 function authError(cause) {
   if (cause.code === 'invalid_credentials') return 'Correo o contraseña incorrectos.';
@@ -411,14 +453,21 @@ function advisorPage(page) {
     actions.append(el('span', `task-status${task.completed ? ' completed' : ''}`, task.completed ? 'Completada' : 'Pendiente'));
     if (!task.completed) actions.append(button('Completar tarea', 'secondary', async event => {
       const control = event.currentTarget; control.disabled = true; control.textContent = 'Guardando…';
-      const wasLastTask = getProgress(client.tasks).completed === 3 && getProgress(client.tasks).total === 4;
+      const progressBefore = getProgress(client.tasks);
+      const wasLastTask = progressBefore.isLastTaskPending;
       const result = await db.rpc('complete_mvp_task', { target_task: task.id });
-      if (result.error || result.data !== true) {
+      if (!isTaskCompletionConfirmed(result)) {
         control.disabled = false; control.textContent = 'Completar tarea';
-        notice(result.error?.message || 'La tarea ya fue actualizada. Recarga los datos.', true); return;
+        notice(result?.error?.message || 'La tarea ya fue actualizada. Recarga los datos.', true); return;
       }
       saleNotice = wasLastTask ? '¡Listo! Completaste la venta. La métrica ya llegó a tu administrador.' : '';
+      if (wasLastTask) celebrateCompletion();
       await refresh(wasLastTask ? '' : 'Tarea completada.');
+      const completedTasks = progressBefore.completed + 1;
+      releaseMascotHeart(completedTasks);
+      if (shouldShowEncouragement(completedTasks)) {
+        window.setTimeout(() => releaseMascotMessage(completedTasks), 500);
+      }
     }));
     item.append(content, actions); taskList.append(item);
   }
