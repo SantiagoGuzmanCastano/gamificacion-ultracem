@@ -34,7 +34,6 @@
 .shop-count { padding: 7px 12px; border: 1px solid var(--line); border-radius: 20px; color: var(--muted); white-space: nowrap; font-size: .8rem; }
 .shop-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; padding: 0; margin: 0; list-style: none; }
 .shop-card { position: relative; min-width: 0; overflow: hidden; display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 16px; background: #fff; }
-.shop-card::before { content: ''; position: absolute; inset: 0; z-index: 2; pointer-events: none; background: url('/shop/frames/card-frame.svg') center / 100% 100% no-repeat; opacity: .16; }
 .shop-artwork { height: 245px; padding: 18px 12px 4px; display: grid; place-items: center; background-image: linear-gradient(rgb(255 255 255 / 78%), rgb(255 255 255 / 78%)), var(--skin-bg); background-size: cover; background-position: center; }
 .shop-artwork img { display: block; width: 100%; height: 100%; min-height: 0; object-fit: contain; }
 .shop-card-details { display: flex; flex-direction: column; flex: 1; padding: 14px 16px 18px; text-align: center; }
@@ -46,10 +45,9 @@
 .shop-card-action { margin-top: auto; padding: 10px; width: 100%; min-height: 42px; border: 0; border-radius: 9px; background: #e7eff7; color: #526984; font-size: .82rem; font-weight: 650; cursor: not-allowed; opacity: 1; }
 .shop-card-action-ready { cursor: pointer; }
 .shop-card-action-equipped { cursor: default; box-shadow: inset 0 0 0 2px #19b889; color: #19b889; }
-.shop-card-equipped { box-shadow: 0 0 0 2px #19b889, 0 12px 24px rgb(25 184 137 / 18%); }
+.shop-card-equipped { border-color: #19b889; box-shadow: 0 0 0 4px #19b889, 0 12px 24px rgb(25 184 137 / 22%); }
 .shop-card-classic .shop-card-action { background: #fff3c4; color: #715300; }
 .shop-card-halloween { border-color: #a875ff; box-shadow: 0 0 0 2px rgb(168 117 255 / 24%), 0 14px 28px rgb(96 48 156 / 12%); }
-.shop-card-halloween::before { background-image: url('/shop/frames/halloween-frame.svg'); opacity: .28; }
 .halloween-collection { position: relative; overflow: hidden; isolation: isolate; padding: 24px; border: 1px solid #d9c8ff; border-radius: 24px; background: #f4efff; }
 .halloween-backdrop { position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg, rgb(244 239 255 / 96%), rgb(244 239 255 / 76%)), url('/skins/backgrounds/halloween-light.webp') center / cover; opacity: .9; }
 .halloween-content { position: relative; }
@@ -68,7 +66,6 @@
 .shop-note > span { color: var(--accent); font-size: 1.7rem; }
 .shop-note strong { color: var(--ink); }
 :root[data-theme="dark"] .shop-card { background: #142d43; }
-:root[data-theme="dark"] .shop-card::before { filter: invert(1); opacity: .22; }
 :root[data-theme="dark"] .shop-artwork { background-image: linear-gradient(rgb(7 24 47 / 72%), rgb(7 24 47 / 82%)), var(--skin-bg); }
 :root[data-theme="dark"] .shop-included { color: #8ee4bc; }
 :root[data-theme="dark"] .shop-card-action { background: #243f57; color: #b9cddd; }
