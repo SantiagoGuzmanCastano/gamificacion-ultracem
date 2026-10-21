@@ -5,13 +5,13 @@ const collection = [
 ];
 
 export const outfits = collection.map(([id, name], index) => ({
-  id, name: `Pingüino ${name}`, price: index * 50, image: `/skins/${id}.png`,
+  id, name: `Pingüino ${name}`, price: index * 50, image: `/skins/${id}.png`, frame: `/shop/frames/skins/${id}-frame.png`,
 }));
 
 export const halloweenOutfits = [
   ['zombie', 'Zombie', 300],
   ['esqueleto', 'Esqueleto', 40],
-].map(([id, name, price]) => ({ id, name: `Pingüino ${name}`, price, image: `/skins/${id}.png` }));
+].map(([id, name, price]) => ({ id, name: `Pingüino ${name}`, price, image: `/skins/${id}.png`, frame: `/shop/frames/skins/${id}-frame.png` }));
 
 export function renderShop(page, sales, halloweenEnabled = false, equippedSkin = 'classic', onEquip = () => {}) {
   page.className = 'shop-page';
@@ -63,8 +63,9 @@ function appendCards(grid, collection, equippedSkin, sales, onEquip) {
     const unlocked = skeleton && Number(sales) >= 1;
     const canEquip = classic && !equipped || skeleton && unlocked && !equipped;
     const card = document.createElement('li');
-    card.className = `shop-card${classic ? ' shop-card-classic' : ''}${outfit.id === 'zombie' || outfit.id === 'esqueleto' ? ' shop-card-halloween' : ''}${equipped ? ' shop-card-equipped' : ''}`;
+    card.className = `shop-card shop-card-${outfit.id}${classic ? ' shop-card-classic' : ''}${outfit.id === 'zombie' || outfit.id === 'esqueleto' ? ' shop-card-halloween' : ''}${equipped ? ' shop-card-equipped' : ''}`;
     card.innerHTML = `
+      <span class="shop-card-frame" style="--frame-image: url('${outfit.frame}')" aria-hidden="true"></span>
       <div class="shop-artwork" style="--skin-bg: url('/skins/backgrounds/${outfit.id}.webp')"><img src="${outfit.image}" alt="${outfit.name}" width="280" height="280"
         loading="eager" decoding="async"></div>
       <div class="shop-card-details"><h3>${outfit.name}</h3>
