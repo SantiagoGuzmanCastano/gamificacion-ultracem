@@ -1,6 +1,6 @@
 # Cosmetics shop frontend
 Objective: deliver the approved normal-outfit shop without backend changes. Branch: `feat/tienda-cosmeticos`, based on `origin/main` at `7b73bbc`.
-Delivery: single local feature commit, no push/deploy; forecast ~350 authored lines. Runner: `node --test`, `npm run build`, local browser checks.
+Delivery: local feature commit plus tracking closure, no push/deploy; forecast ~350 authored lines. Runner: `node --test`, `npm run build`, local browser checks.
 
 ## Specs
 S1. "Por ahora, solo la colección de atuendos normales, a una pestaña aparte." Provide an advisor-only shop and a working return to the existing dashboard, including mobile navigation. Keep admin behavior unchanged.
@@ -12,7 +12,7 @@ S6. "Un diseño usando los colores que se vienen manejando en la página". Follo
 S7. "mira si no tenemos nada pendiente en esta rama y esta todo al dia". Preserve existing dirty files and delivery folders. Base the new branch on fetched origin/main. Verify functional checks and browser views before delivery.
 
 ## Tasks
-T1 | S1–S7 | inline (existing flow understood; no parallel writer reason) | verified; local commit pending | RED missing shop module → GREEN 7/7 tests
+T1 | S1–S7 | inline (existing flow understood; no parallel writer reason) | completed | 0e56090; RED missing shop module → GREEN 7/7 tests
 
 ## Implementation plan
 1. Add a deterministic catalog test for outfit count/order/prices, asset existence and exclusion of seasonal outfits; observe RED with `node --test tests/shop.test.js`.
@@ -30,3 +30,4 @@ L5. RED observed with `node --test tests/shop.test.js` before implementation (mo
 L6. Local browser verified all ten images, prices, disabled controls, no seasonal content, keyboard navigation and heading focus, return to dashboard/client/task actions, logout reset, advisor with no clients, admin isolation, theme preservation and zero page errors. Widths 320/390/780/1024/1280/1600 had no horizontal overflow. Visually inspected desktop, mobile and dark mobile screenshots in output/playwright/. Browser used a local synthetic Supabase module and blocked external requests; no account or production data was used. Test probe files remain in ignored tmp/.
 L7. Independent verifier /root/verify_shop: no blockers; S1–S7 passed within scope. Fresh TEMP baseline archive: 5/5 tests; overlaid feature: 7/7 tests; original/published PNG hashes match 10/10. Shared-shell theme/logout/admin behavior inspected independently. Review risk: item 3 (shared shell). Native gentle-ai review unavailable; not represented as a native approval. Engram mirror pending because tools are unavailable.
 L8. Added the frontend catalog behavior to README without accepting any pre-existing documentation cleanup into this feature's commit. Large PNGs remain unchanged by user request; lazy loading limits initial loading work.
+L9. Implementation committed locally as 0e56090 (218 insertions, 1 deletion plus ten original PNGs). Final full suite passed 7/7 and final production build succeeded (71 modules). After commit, remaining tracked changes exactly match the pre-existing cleanup: nine files, +39/-320. ENTREGA-CLIENTE, ZIP and original SKINS remain untracked. No backend files changed, no push or deployment. Next scope, only when requested: Halloween activation/redemption and persistent XP balances.
