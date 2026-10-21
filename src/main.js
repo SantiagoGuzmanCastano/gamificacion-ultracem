@@ -227,7 +227,7 @@ async function loadData() {
     if (list.error) throw list.error;
     advisors = (list.data ?? []).sort((a, b) => a.full_name.localeCompare(b.full_name));
   } else advisors = [];
-  const result = await db.from('mvp_clients').select('id,name,type,advisor_id,mvp_tasks(id,title,description,completed_at)').order('created_at', { ascending: false });
+  const result = await db.from('mvp_clients').select('id,name,type,advisor_id,tons_requested,mvp_tasks(id,title,description,completed_at)').order('created_at', { ascending: false });
   if (result.error) throw result.error;
   clients = result.data.map(client => ({
     ...client,
@@ -239,7 +239,7 @@ async function loadData() {
         return (aIndex < 0 ? taskOrder.length : aIndex) - (bIndex < 0 ? taskOrder.length : bIndex);
       }),
   }));
-  const salesResult = await db.from('mvp_sales').select('id,client_id,advisor_id,amount,completed_at,confirmed');
+  const salesResult = await db.from('mvp_sales').select('id,client_id,advisor_id,amount,tons_sold,completed_at,confirmed');
   if (salesResult.error) throw salesResult.error;
   sales = salesResult.data ?? [];
   const rankingResult = await db.rpc('get_mvp_advisor_ranking');
@@ -383,7 +383,7 @@ function rankingSection() {
     const confirmedSales = Number(row.confirmed_sales ?? row.sales ?? 0);
     const item = el('li', 'ranking-row' + (row.advisor_id === user?.id ? ' current' : ''));
     const identity = el('div', 'ranking-identity');
-    identity.append(el('strong', '', `${row.position}. ${row.full_name}`), el('span', 'muted', `${confirmedSales} ventas confirmadas`));
+    identity.append(el('strong', '', `${row.position}. ${row.full_name}`), el('span', 'muted', `${confirmedSales} ventas · ${Number(row.confirmed_tons || 0).toLocaleString('es-CO')} toneladas`));
     item.append(identity, el('strong', 'ranking-xp', `${confirmedSales} ventas`));
     list.append(item);
   }
@@ -393,19 +393,21 @@ function rankingSection() {
 function adminMetricsSection() {
   const confirmedSales = sales.filter(sale => sale.confirmed);
   const totalAmount = confirmedSales.reduce((total, sale) => total + Number(sale.amount || 0), 0);
+  const totalTons = confirmedSales.reduce((total, sale) => total + Number(sale.tons_sold || 0), 0);
   const section = el('section', 'metrics-dashboard');
   section.append(el('h2', 'section-title', 'Métricas generales'), el('p', 'muted', 'Resultados simulados a partir de misiones completadas.'));
-  section.append(metrics([['Ventas confirmadas', confirmedSales.length, 'cierres registrados'], ['Valor acumulado', `$${totalAmount.toLocaleString('es-CO')}`, 'valor de prueba']]));
+  section.append(metrics([['Ventas confirmadas', confirmedSales.length, 'cierres registrados'], ['Toneladas vendidas', totalTons.toLocaleString('es-CO'), 'volumen comercial'], ['Valor acumulado', `$${totalAmount.toLocaleString('es-CO')}`, 'valor de prueba']]));
   const list = el('ul', 'metrics-breakdown');
   for (const advisor of advisors) {
     const advisorSales = confirmedSales.filter(sale => sale.advisor_id === advisor.user_id);
     const amount = advisorSales.reduce((total, sale) => total + Number(sale.amount || 0), 0);
+    const tons = advisorSales.reduce((total, sale) => total + Number(sale.tons_sold || 0), 0);
     const item = el('li', 'metrics-breakdown-row');
     const details = el('div', 'metrics-advisor-details');
-    details.append(el('strong', '', advisor.full_name), el('span', 'muted', `${advisorSales.length} ventas · $${amount.toLocaleString('es-CO')}`));
+    details.append(el('strong', '', advisor.full_name), el('span', 'muted', `${advisorSales.length} ventas · ${tons.toLocaleString('es-CO')} toneladas · $${amount.toLocaleString('es-CO')}`));
     for (const sale of advisorSales) {
       const client = clients.find(item => item.id === sale.client_id);
-      details.append(el('span', 'metrics-sale-client', `${client?.name || 'Cliente eliminado'} · $${Number(sale.amount).toLocaleString('es-CO')}`));
+      details.append(el('span', 'metrics-sale-client', `${client?.name || 'Cliente eliminado'} · ${Number(sale.tons_sold || 0).toLocaleString('es-CO')} toneladas · $${Number(sale.amount).toLocaleString('es-CO')}`));
     }
     item.append(details);
     list.append(item);
@@ -490,7 +492,8 @@ function adminPage(page) {
   page.className = 'admin-page';
   page.append(intro('Panorama comercial', 'Clientes y tareas pendientes por asesor.', 'admin-intro'));
   const totalSales = ranking.reduce((total, row) => total + Number(row.confirmed_sales || 0), 0);
-  page.append(metrics([['Asesores', advisors.length, 'cuentas registradas'], ['Clientes comerciales', clients.length, 'negocios asignados'], ['Tareas pendientes', tasks.filter(task => !task.completed).length, 'acciones por completar'], ['Ventas confirmadas', totalSales, 'resultado comercial']]));
+  const totalTons = ranking.reduce((total, row) => total + Number(row.confirmed_tons || 0), 0);
+  page.append(metrics([['Asesores', advisors.length, 'cuentas registradas'], ['Clientes comerciales', clients.length, 'negocios asignados'], ['Tareas pendientes', tasks.filter(task => !task.completed).length, 'acciones por completar'], ['Ventas confirmadas', totalSales, 'resultado comercial'], ['Toneladas vendidas', totalTons.toLocaleString('es-CO'), 'volumen comercial']]));
   page.append(rankingSection());
   page.append(adminMetricsSection());
   const layout = el('div', 'admin-columns'), overview = el('section', 'admin-overview');
@@ -521,19 +524,22 @@ function adminPage(page) {
   const manage = el('aside', 'admin-management'), form = el('form', 'editor-form');
   form.append(el('h2', '', 'Nuevo cliente comercial'));
   const name = input('text', 'Ej. Ferretería Norte'); name.minLength = 2; name.maxLength = 100;
+  const tons = input('number', 'Ej. 125.5'); tons.min = '0.01'; tons.step = '0.01';
   const type = el('select');
   for (const value of ['Ferretería', 'Constructora', 'Distribuidor', 'Otro']) {
     const option = el('option', '', value); option.value = value; type.append(option);
   }
   const advisor = el('select');
   advisors.forEach(item => { const option = el('option', '', item.full_name); option.value = item.user_id; advisor.append(option); });
-  form.append(field('Nombre del negocio', name), field('Tipo de cliente', type), field('Asesor responsable', advisor));
+  form.append(field('Nombre del negocio', name), field('Tipo de cliente', type), field('Asesor responsable', advisor), field('Toneladas solicitadas', tons));
   const error = el('p', 'form-error'); error.setAttribute('role', 'alert');
   const submit = el('button', 'primary', 'Crear cliente y tareas'); submit.type = 'submit'; submit.disabled = !advisors.length;
   form.append(error, submit);
   form.addEventListener('submit', async event => {
     event.preventDefault(); error.textContent = ''; submit.disabled = true; submit.textContent = 'Guardando…';
-    const result = await db.from('mvp_clients').insert({ name: name.value.trim(), type: type.value, advisor_id: advisor.value });
+    const requestedTons = Number(tons.value);
+    if (!Number.isFinite(requestedTons) || requestedTons <= 0) { error.textContent = 'Indica una cantidad de toneladas mayor que cero.'; submit.disabled = false; submit.textContent = 'Crear cliente y tareas'; return; }
+    const result = await db.from('mvp_clients').insert({ name: name.value.trim(), type: type.value, advisor_id: advisor.value, tons_requested: requestedTons });
     if (result.error) { error.textContent = result.error.message; submit.disabled = false; submit.textContent = 'Crear cliente y tareas'; return; }
     await refresh('Cliente creado con cuatro tareas.');
   });
@@ -548,8 +554,9 @@ function advisorPage(page) {
   const tasks = clients.flatMap(client => client.tasks);
   const completed = tasks.filter(task => task.completed).length;
   const ownRanking = ranking.find(row => row.advisor_id === user?.id);
-  const ownSales = sales.filter(sale => sale.advisor_id === user?.id && sale.confirmed).length;
-  page.append(metrics([['Mis clientes', clients.length, 'negocios asignados'], ['Por completar', tasks.filter(task => !task.completed).length, 'tareas pendientes'], ['Completadas', completed, 'acciones realizadas'], ['Ventas', ownSales, 'ventas confirmadas'], ['Posición', ownRanking ? `#${ownRanking.position}` : '—', 'ranking global']], true));
+  const ownConfirmedSales = sales.filter(sale => sale.advisor_id === user?.id && sale.confirmed);
+  const ownTons = ownConfirmedSales.reduce((total, sale) => total + Number(sale.tons_sold || 0), 0);
+  page.append(metrics([['Mis clientes', clients.length, 'negocios asignados'], ['Por completar', tasks.filter(task => !task.completed).length, 'tareas pendientes'], ['Completadas', completed, 'acciones realizadas'], ['Ventas', ownConfirmedSales.length, 'ventas confirmadas'], ['Toneladas', ownTons.toLocaleString('es-CO'), 'vendidas'], ['Posición', ownRanking ? `#${ownRanking.position}` : '—', 'ranking global']], true));
   if (!clients.length) { page.append(el('p', 'empty-state', 'Todavía no tienes clientes. El administrador puede asignarte uno.')); return; }
   const overview = el('div', 'advisor-overview'), panel = el('section', 'advisor-client-panel'), rail = el('div', 'customer-rail');
   if (clients.length === 1) panel.classList.add('single-client');
