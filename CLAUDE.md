@@ -135,7 +135,7 @@ Todas las ramas remotas ya están fusionadas en `main` (0 commits por delante).
 | `feat/task-completion-confetti` | #7 | confeti, corazones y mensajes de ánimo |
 | `feat/tienda-cosmeticos` | #8 | catálogo de la tienda |
 | `codex/halloween-tienda` | #9, #10 | modo Halloween global, ventas confirmadas, skin esqueleto |
-| `interfaz` (solo local) | — | rama de trabajo de interfaz; partió de `7b73bbc` (PR #7) |
+| `interfaz` (solo local) | — | rama de trabajo de interfaz y animaciones; actualizada sobre `eb22f58` (PR #10). Ver `animaciones.md` |
 
 Convenciones (`DECISIONES.md`, Decisión 9):
 - `main` está protegida y solo recibe PRs.
