@@ -7,6 +7,9 @@ const db = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_PU
   ? createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY) : null;
 const root = document.querySelector('#app');
 let user = null, profile = null, advisors = [], clients = [], sales = [], ranking = [], selectedId = null, aiRecommendation = '', saleNotice = '';
+let theme = localStorage.getItem('ultracem-theme') || 'light';
+document.documentElement.dataset.theme = theme;
+const taskOrder = ['Preparar una visita', 'Contactar al cliente', 'Revisar una cotización', 'Planear el siguiente paso'];
 
 function el(tag, className = '', value = '') {
   const node = document.createElement(tag);
@@ -48,10 +51,28 @@ function authError(cause) {
   return cause.message || 'No se pudo acceder.';
 }
 function shell() {
-  root.innerHTML = '<header class="topbar"><div class="brand">Gamificación <span class="demo-badge">MVP</span></div><div class="top-actions" id="actions"></div></header><main><p id="notice" class="notice" role="status" hidden></p><div id="page"></div><footer>Acciones comerciales de demostración. Completar una tarea no acredita una venta.</footer></main>';
+  root.className = profile && profile.role !== 'admin' ? 'advisor-shell' : '';
+  root.innerHTML = '<header class="topbar"><div class="brand"><span class="brand-mark">U</span><span>Gamificación</span><span class="demo-badge">MVP</span></div><div class="top-actions" id="actions"></div></header><div class="app-layout"><aside class="app-sidebar" aria-label="Navegación decorativa"><div class="sidebar-caption">ULTRACEM</div><div class="sidebar-nav"><span class="sidebar-item active"><b>01</b> Resumen</span><span class="sidebar-item"><b>02</b> Clientes</span><span class="sidebar-item"><b>03</b> Progreso</span><span class="sidebar-item"><b>04</b> Ranking</span></div><div class="sidebar-bottom"><span class="sidebar-pulse"></span><span>Ruta comercial</span><small>Panel operativo</small></div></aside><main><p id="notice" class="notice" role="status" hidden></p><div id="page"></div><footer>Acciones comerciales de demostración. Completar una tarea no acredita una venta.</footer></main></div>';
+  if (root.classList.contains('advisor-shell')) {
+    const sidebar = root.querySelector('.app-sidebar');
+    const brand = el('div', 'sidebar-brand');
+    brand.innerHTML = '<span class="sidebar-brand-symbol" aria-hidden="true">U</span><span class="sidebar-brand-name">ULTRACEM</span>';
+    const caption = sidebar.querySelector('.sidebar-caption');
+    caption.textContent = 'GAMIFICACIÓN';
+    caption.after(el('span', 'sidebar-mvp', 'MVP'));
+    sidebar.prepend(brand);
+    sidebar.append(el('p', 'sidebar-motto', 'CONSTRUYENDO UN MUNDO MÁS FUERTE'));
+  }
   if (profile) {
     const actions = document.querySelector('#actions');
     actions.append(el('span', 'session-name', `${profile.full_name} · ${profile.role === 'admin' ? 'Administrador' : 'Asesor'}`));
+    actions.append(button(theme === 'dark' ? '☀️ Claro' : '🌙 Oscuro', 'theme-button', () => {
+      theme = theme === 'dark' ? 'light' : 'dark';
+      localStorage.setItem('ultracem-theme', theme);
+      document.documentElement.dataset.theme = theme;
+      shell();
+      render();
+    }));
     actions.append(button('Cerrar sesión', 'text-button', async () => {
       const result = await db.auth.signOut();
       if (result.error) { notice('No se pudo cerrar la sesión. Intenta de nuevo.', true); return; }
@@ -117,7 +138,16 @@ async function loadData() {
   } else advisors = [];
   const result = await db.from('mvp_clients').select('id,name,type,advisor_id,mvp_tasks(id,title,description,completed_at)').order('created_at', { ascending: false });
   if (result.error) throw result.error;
-  clients = result.data.map(client => ({ ...client, tasks: client.mvp_tasks.map(task => ({ ...task, completed: Boolean(task.completed_at) })) }));
+  clients = result.data.map(client => ({
+    ...client,
+    tasks: client.mvp_tasks
+      .map(task => ({ ...task, completed: Boolean(task.completed_at) }))
+      .sort((a, b) => {
+        const aIndex = taskOrder.indexOf(a.title);
+        const bIndex = taskOrder.indexOf(b.title);
+        return (aIndex < 0 ? taskOrder.length : aIndex) - (bIndex < 0 ? taskOrder.length : bIndex);
+      }),
+  }));
   const salesResult = await db.from('mvp_sales').select('id,client_id,advisor_id,amount,completed_at');
   if (salesResult.error) throw salesResult.error;
   sales = salesResult.data ?? [];
@@ -138,10 +168,24 @@ async function boot() {
     notice(cause.message, true);
   }
 }
-function metrics(items) {
+function metrics(items, advisor = false) {
   const row = el('div', 'metrics');
-  for (const [label, value, note] of items) {
+  if (advisor) row.classList.add('advisor-metrics');
+  const iconPaths = [
+    '<circle cx="8" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M2.5 20v-2a5.5 5.5 0 0 1 11 0v2M15 15a4.5 4.5 0 0 1 6.5 4v1"/>',
+    '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4.5h6M9 10h6M9 14h6M9 18h4"/>',
+    '<circle cx="12" cy="12" r="9"/><path d="m7.5 12 3 3 6-6"/>',
+    '<path d="M12 2 21 7v10l-9 5-9-5V7z"/><path d="M7.5 11h9M8 14h8"/>',
+    '<path d="M7 4h10v5a5 5 0 0 1-10 0V4ZM7 6H4v2a4 4 0 0 0 4 4M17 6h3v2a4 4 0 0 1-4 4M12 14v4M8 21h8M9 18h6"/>',
+  ];
+  for (const [index, [label, value, note]] of items.entries()) {
     const item = el('div', 'metric');
+    if (advisor) {
+      const icon = el('span', 'metric-icon');
+      icon.setAttribute('aria-hidden', 'true');
+      icon.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${iconPaths[index]}</svg>`;
+      item.append(icon);
+    }
     item.append(el('span', 'metric-label', label), el('strong', 'metric-value', String(value)), el('span', 'metric-note', note));
     row.append(item);
   }
@@ -315,15 +359,18 @@ function adminPage(page) {
 }
 function advisorPage(page) {
   page.className = 'advisor-page';
-  page.append(intro('Mi cartera de clientes', 'Tareas comerciales de los negocios que tienes asignados.', 'advisor-intro'));
+  const hero = intro('Mi cartera de clientes', 'Tareas comerciales de los negocios que tienes asignados.', 'advisor-intro');
+  hero.firstChild.prepend(el('span', 'advisor-kicker', 'BIENVENIDO A TU TABLERO'));
+  hero.append(el('p', 'advisor-quote', 'Pequeñas acciones construyen grandes resultados'));
+  page.append(hero);
   const tasks = clients.flatMap(client => client.tasks);
   const completed = tasks.filter(task => task.completed).length;
   const ownRanking = ranking.find(row => row.advisor_id === user?.id);
-  page.append(metrics([['Mis clientes', clients.length, 'negocios asignados'], ['Por completar', tasks.filter(task => !task.completed).length, 'tareas pendientes'], ['Completadas', completed, 'acciones realizadas'], ['XP', ownRanking ? getXp(completed) : 0, '10 XP por tarea'], ['Posición', ownRanking ? `#${ownRanking.position}` : '—', 'ranking global']]));
-  page.append(rankingSection());
+  page.append(metrics([['Mis clientes', clients.length, 'negocios asignados'], ['Por completar', tasks.filter(task => !task.completed).length, 'tareas pendientes'], ['Completadas', completed, 'acciones realizadas'], ['XP', ownRanking ? getXp(completed) : 0, '10 XP por tarea'], ['Posición', ownRanking ? `#${ownRanking.position}` : '—', 'ranking global']], true));
   if (!clients.length) { page.append(el('p', 'empty-state', 'Todavía no tienes clientes. El administrador puede asignarte uno.')); return; }
-  const layout = el('div', 'advisor-columns'), rail = el('aside', 'customer-rail');
-  rail.append(el('h2', '', 'Mis clientes'));
+  const overview = el('div', 'advisor-overview'), panel = el('section', 'advisor-client-panel'), rail = el('div', 'customer-rail');
+  if (clients.length === 1) panel.classList.add('single-client');
+  panel.append(el('h2', 'section-title', 'Mis clientes'));
   const list = el('ul', 'customer-list');
   for (const client of clients) {
     const item = el('li');
@@ -332,7 +379,7 @@ function advisorPage(page) {
     control.append(el('strong', '', client.name), el('span', 'muted', `${client.type} · ${client.tasks.filter(task => !task.completed).length} pendientes`));
     item.append(control); list.append(item);
   }
-  rail.append(list);
+  rail.append(list); panel.append(rail);
   const client = clients.find(item => item.id === selectedId) ?? clients[0], detail = el('div', 'customer-detail');
   const progress = getProgress(client.tasks), section = el('section', 'progress-section'), info = el('div', 'progress-details');
   info.append(el('p', 'customer-type', client.type), el('h2', 'participant-name', client.name));
@@ -340,22 +387,21 @@ function advisorPage(page) {
   line.append(el('span', '', `${progress.completed} de ${progress.total} tareas completadas`), el('strong', '', `${progress.rounded} %`));
   const bar = el('progress'); bar.max = 100; bar.value = progress.percentage; info.append(line, bar);
   const mascot = el('div', 'mascot');
-  const imagePath = mascotImages[progress.mascot];
-  if (imagePath) {
-    const image = el('img', 'mascot-image');
-    image.src = imagePath;
-    image.alt = `Mascota: ${mascotLabels[progress.mascot]}`;
-    mascot.append(image);
-  } else mascot.append(el('div', 'mascot-placeholder', 'Mascota pendiente'));
+  const image = el('img', 'mascot-image');
+  image.src = mascotImages[progress.mascot];
+  image.alt = `Mascota: ${mascotLabels[progress.mascot]}`;
+  mascot.append(image);
   mascot.append(el('p', 'mascot-state', mascotLabels[progress.mascot])); section.append(info, mascot); detail.append(section);
+  if (progress.total > 0 && progress.completed === progress.total) detail.append(el('p', 'client-complete-note', '¡Todo al día! Has completado todas las tareas de este cliente.'));
   if (progress.total === 4 && progress.completed === 4) {
     detail.append(button('Limpiar tareas completadas', 'secondary clear-tasks-button', () => clearCompletedTasks(client)));
   }
+  panel.append(detail); overview.append(rankingSection(), panel); page.append(overview);
   const aiSection = el('section', 'ai-recommendation');
   aiSection.append(el('h2', 'section-title', 'Trompín · Asistente comercial'));
   if (aiRecommendation) aiSection.append(el('p', '', aiRecommendation));
   aiSection.append(button('Sugerir siguiente acción', 'secondary', event => requestRecommendation(client, event.currentTarget)));
-  detail.append(aiSection);
+  page.append(aiSection);
   const taskSection = el('section', 'tasks-section'); taskSection.append(el('h2', 'section-title', 'Tareas de este cliente'));
   if (saleNotice) taskSection.append(el('p', 'sale-notice', saleNotice));
   const taskList = el('ol', 'task-list');
@@ -376,7 +422,7 @@ function advisorPage(page) {
     }));
     item.append(content, actions); taskList.append(item);
   }
-  taskSection.append(taskList); detail.append(taskSection); layout.append(rail, detail); page.append(layout);
+  taskSection.append(taskList); page.append(taskSection);
 }
 async function refresh(text) {
   try { await loadData(); render(); notice(text); }
