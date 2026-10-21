@@ -1,6 +1,6 @@
 import './style.css';
 import './shop.css';
-import { renderShop } from './shop.js';
+import { renderShop, renderHalloweenCollection } from './shop.js';
 import { createClient } from '@supabase/supabase-js';
 import { getProgress, getXp, isTaskCompletionConfirmed, shouldShowEncouragement } from './game.js';
 import { mascotImages, mascotLabels } from './mascot.js';
@@ -11,6 +11,8 @@ const root = document.querySelector('#app');
 let user = null, profile = null, advisors = [], clients = [], sales = [], ranking = [], selectedId = null, aiRecommendation = '', saleNotice = '';
 let theme = localStorage.getItem('ultracem-theme') || 'light';
 let advisorView = 'dashboard';
+let halloweenEnabled = false, halloweenReady = false, halloweenSaving = false, halloweenError = '';
+let halloweenTimer = null, halloweenRequest = 0;
 document.documentElement.dataset.theme = theme;
 const taskOrder = ['Preparar una visita', 'Contactar al cliente', 'Revisar una cotización', 'Planear el siguiente paso'];
 
@@ -110,6 +112,7 @@ function shell() {
     const navigate = view => {
       advisorView = view;
       render();
+      if (view === 'shop') refreshHalloween();
       window.scrollTo(0, 0);
       const heading = document.querySelector('#page h1');
       if (heading) { heading.tabIndex = -1; heading.focus({ preventScroll: true }); }
@@ -146,6 +149,7 @@ function shell() {
     actions.append(button('Cerrar sesión', 'text-button', async () => {
       const result = await db.auth.signOut();
       if (result.error) { notice('No se pudo cerrar la sesión. Intenta de nuevo.', true); return; }
+      stopHalloweenSync();
       user = profile = null; advisors = clients = sales = ranking = []; aiRecommendation = ''; saleNotice = ''; advisorView = 'dashboard';
       render();
     }));
@@ -227,17 +231,99 @@ async function loadData() {
   if (!clients.some(client => client.id === selectedId)) selectedId = clients[0]?.id ?? null;
 }
 async function boot() {
+  stopHalloweenSync();
   shell(); notice('Cargando datos…');
   const result = await db.auth.getUser();
   user = result.data.user;
   if (!user) { profile = null; render(); return; }
-  try { await loadData(); render(); }
+  try {
+    await loadData();
+    await refreshHalloween();
+    render();
+    halloweenTimer = window.setInterval(() => {
+      if (!document.hidden && (profile?.role === 'admin' || advisorView === 'shop')) refreshHalloween();
+    }, 10000);
+  }
   catch (cause) {
     shell();
     document.querySelector('#page').replaceChildren(el('p', 'empty-state', 'No se pudieron cargar los datos.'), button('Reintentar', 'primary', boot));
     notice(cause.message, true);
   }
 }
+function stopHalloweenSync() {
+  window.clearInterval(halloweenTimer);
+  halloweenTimer = null;
+  halloweenRequest++;
+  halloweenEnabled = halloweenReady = halloweenSaving = false;
+  halloweenError = '';
+}
+function paintHalloween() {
+  const control = document.querySelector('#halloween-toggle');
+  if (control) {
+    control.disabled = !halloweenReady || halloweenSaving;
+    control.textContent = halloweenSaving ? 'Guardando…' : halloweenEnabled ? 'Desactivar Halloween' : 'Activar Halloween';
+    control.setAttribute('aria-pressed', String(halloweenEnabled));
+    document.querySelector('#halloween-status').textContent = halloweenError || `Modo Halloween ${halloweenEnabled ? 'activado' : 'desactivado'}.`;
+  }
+  const page = document.querySelector('.shop-page');
+  if (page) {
+    renderHalloweenCollection(page, halloweenReady && halloweenEnabled);
+    const status = page.querySelector('.shop-mode-status');
+    status.textContent = halloweenError;
+    status.hidden = !halloweenError;
+  }
+}
+async function refreshHalloween() {
+  if (!user || !profile || halloweenSaving) return;
+  const currentUser = user.id, request = ++halloweenRequest;
+  try {
+    const result = await db.from('mvp_app_settings').select('halloween_enabled').eq('id', true).single().abortSignal(AbortSignal.timeout(5000));
+    if (result.error) throw result.error;
+    if (currentUser !== user?.id || request !== halloweenRequest) return;
+    halloweenEnabled = result.data.halloween_enabled === true;
+    halloweenReady = true;
+    halloweenError = '';
+  } catch {
+    if (currentUser !== user?.id || request !== halloweenRequest) return;
+    halloweenEnabled = halloweenReady = false;
+    halloweenError = 'No se pudo consultar el modo Halloween. Se reintentará automáticamente.';
+  }
+  paintHalloween();
+}
+async function toggleHalloween() {
+  if (profile?.role !== 'admin' || !halloweenReady || halloweenSaving) return;
+  const currentUser = user.id, request = ++halloweenRequest;
+  halloweenSaving = true;
+  paintHalloween();
+  try {
+    const result = await db.from('mvp_app_settings').update({ halloween_enabled: !halloweenEnabled }).eq('id', true).select('halloween_enabled').single().abortSignal(AbortSignal.timeout(10000));
+    if (result.error) throw result.error;
+    if (currentUser !== user?.id || request !== halloweenRequest) return;
+    halloweenEnabled = result.data.halloween_enabled === true;
+    halloweenError = '';
+    notice(`Modo Halloween ${halloweenEnabled ? 'activado' : 'desactivado'} para todos los asesores.`);
+  } catch {
+    if (currentUser !== user?.id || request !== halloweenRequest) return;
+    notice('No se pudo guardar el modo Halloween. Intenta de nuevo.', true);
+  } finally {
+    if (currentUser === user?.id && request === halloweenRequest) {
+      halloweenSaving = false;
+      paintHalloween();
+    }
+  }
+}
+function halloweenControl() {
+  const section = el('section', 'editor-form');
+  section.setAttribute('aria-labelledby', 'halloween-control-title');
+  const title = el('h2', '', 'Modo Halloween'); title.id = 'halloween-control-title';
+  const status = el('p', 'muted'); status.id = 'halloween-status'; status.setAttribute('role', 'status');
+  const control = button('', 'primary', toggleHalloween); control.id = 'halloween-toggle';
+  section.append(title, el('p', 'muted', 'Muestra los dos atuendos exclusivos en la tienda de todos los asesores.'), status, control);
+  return section;
+}
+window.addEventListener('focus', () => { if (db && !document.hidden) refreshHalloween(); });
+window.addEventListener('pagehide', stopHalloweenSync);
+window.addEventListener('pageshow', event => { if (event.persisted && db) boot(); });
 function metrics(items, advisor = false) {
   const row = el('div', 'metrics');
   if (advisor) row.classList.add('advisor-metrics');
@@ -425,7 +511,7 @@ function adminPage(page) {
     if (result.error) { error.textContent = result.error.message; submit.disabled = false; submit.textContent = 'Crear cliente y tareas'; return; }
     await refresh('Cliente creado con cuatro tareas.');
   });
-  manage.append(form); layout.append(overview, manage); page.append(layout);
+  manage.append(halloweenControl(), form); layout.append(overview, manage); page.append(layout);
 }
 function advisorPage(page) {
   page.className = 'advisor-page';
@@ -511,7 +597,8 @@ function render() {
   if (!db) page.replaceChildren(el('p', 'empty-state', 'Falta configurar Supabase en .env.local.'));
   else if (!profile) authPage();
   else if (profile.role === 'admin') adminPage(page);
-  else if (advisorView === 'shop') renderShop(page, ranking.find(row => row.advisor_id === user?.id)?.xp ?? 0);
+  else if (advisorView === 'shop') renderShop(page, ranking.find(row => row.advisor_id === user?.id)?.xp ?? 0, halloweenReady && halloweenEnabled);
   else advisorPage(page);
+  paintHalloween();
 }
 if (db) boot(); else render();
