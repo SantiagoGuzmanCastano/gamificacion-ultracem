@@ -13,6 +13,7 @@ MVP de seguimiento comercial con tres recorridos conectados a Supabase:
 9. Cuando una misión está completa, el asesor puede limpiar sus tareas completadas sin perder la venta simulada ni las métricas.
 10. El asesor puede pedir una recomendación breve para el siguiente paso comercial. La función usa OpenRouter y puede usar Gemini como respaldo.
 11. La asistente de recomendaciones se presenta como Trompín, un elefante asesor comercial.
+12. El asesor puede abrir **Tienda** y volver a **Mi tablero**, también en móvil. El catálogo muestra diez atuendos de Topitín: clásico incluido y nueve estilos de 50 a 450 XP. Los controles están deshabilitados; no hay canjes, cambios de atuendo ni sección Halloween en esta versión. La experiencia mostrada sigue siendo la actual del ranking, sin saldo de tienda independiente.
 
 ## Ejecutar
 

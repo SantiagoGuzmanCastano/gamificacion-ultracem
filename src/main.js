@@ -1,4 +1,6 @@
 import './style.css';
+import './shop.css';
+import { renderShop } from './shop.js';
 import { createClient } from '@supabase/supabase-js';
 import { getProgress, getXp, isTaskCompletionConfirmed, shouldShowEncouragement } from './game.js';
 import { mascotImages, mascotLabels } from './mascot.js';
@@ -8,6 +10,7 @@ const db = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_PU
 const root = document.querySelector('#app');
 let user = null, profile = null, advisors = [], clients = [], sales = [], ranking = [], selectedId = null, aiRecommendation = '', saleNotice = '';
 let theme = localStorage.getItem('ultracem-theme') || 'light';
+let advisorView = 'dashboard';
 document.documentElement.dataset.theme = theme;
 const taskOrder = ['Preparar una visita', 'Contactar al cliente', 'Revisar una cotización', 'Planear el siguiente paso'];
 
@@ -104,6 +107,31 @@ function shell() {
     caption.after(el('span', 'sidebar-mvp', 'MVP'));
     sidebar.prepend(brand);
     sidebar.append(el('p', 'sidebar-motto', 'CONSTRUYENDO UN MUNDO MÁS FUERTE'));
+    const navigate = view => {
+      advisorView = view;
+      render();
+      window.scrollTo(0, 0);
+      const heading = document.querySelector('#page h1');
+      if (heading) { heading.tabIndex = -1; heading.focus({ preventScroll: true }); }
+    };
+    const nav = sidebar.querySelector('.sidebar-nav');
+    nav.setAttribute('aria-label', 'Portal del asesor');
+    sidebar.setAttribute('aria-label', 'Navegación del asesor');
+    nav.replaceChildren();
+    const mobileNav = el('nav', 'advisor-nav');
+    mobileNav.setAttribute('aria-label', 'Portal del asesor');
+    for (const [view, label, icon] of [['dashboard', 'Mi tablero', '01'], ['shop', 'Tienda', '02']]) {
+      for (const [container, className] of [[nav, 'sidebar-item'], [mobileNav, '']]) {
+        const control = button(label, className, () => navigate(view));
+        if (container === nav) control.prepend(el('b', '', icon));
+        if (advisorView === view) {
+          control.classList.add('active');
+          control.setAttribute('aria-current', 'page');
+        }
+        container.append(control);
+      }
+    }
+    document.querySelector('main').prepend(mobileNav);
   }
   if (profile) {
     const actions = document.querySelector('#actions');
@@ -118,7 +146,7 @@ function shell() {
     actions.append(button('Cerrar sesión', 'text-button', async () => {
       const result = await db.auth.signOut();
       if (result.error) { notice('No se pudo cerrar la sesión. Intenta de nuevo.', true); return; }
-      user = profile = null; advisors = clients = sales = ranking = []; aiRecommendation = ''; saleNotice = '';
+      user = profile = null; advisors = clients = sales = ranking = []; aiRecommendation = ''; saleNotice = ''; advisorView = 'dashboard';
       render();
     }));
   }
@@ -483,6 +511,7 @@ function render() {
   if (!db) page.replaceChildren(el('p', 'empty-state', 'Falta configurar Supabase en .env.local.'));
   else if (!profile) authPage();
   else if (profile.role === 'admin') adminPage(page);
+  else if (advisorView === 'shop') renderShop(page, ranking.find(row => row.advisor_id === user?.id)?.xp ?? 0);
   else advisorPage(page);
 }
 if (db) boot(); else render();
