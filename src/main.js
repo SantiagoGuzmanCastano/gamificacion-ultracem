@@ -13,6 +13,7 @@ let theme = localStorage.getItem('ultracem-theme') || 'light';
 let advisorView = 'dashboard';
 let halloweenEnabled = false, halloweenReady = false, halloweenSaving = false, halloweenError = '';
 let halloweenTimer = null, halloweenRequest = 0;
+let noticeTimer = null;
 document.documentElement.dataset.theme = theme;
 const taskOrder = ['Preparar una visita', 'Contactar al cliente', 'Revisar una cotización', 'Planear el siguiente paso'];
 
@@ -42,9 +43,12 @@ function field(label, control) {
 }
 function notice(text, error = false) {
   const node = document.querySelector('#notice');
+  window.clearTimeout(noticeTimer);
   node.textContent = text;
   node.hidden = !text;
   node.classList.toggle('error-notice', error);
+  node.classList.toggle('success-notice', !error && text === 'Skin equipada.');
+  if (!error && text === 'Skin equipada.') noticeTimer = window.setTimeout(() => { node.hidden = true; }, 3200);
 }
 function celebrateCompletion() {
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
