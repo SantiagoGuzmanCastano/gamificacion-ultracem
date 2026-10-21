@@ -42,11 +42,15 @@ export function renderHalloweenCollection(page, enabled, equippedSkin = 'classic
   if (existing) return;
   const section = document.createElement('section');
   section.id = 'halloween-collection';
-  section.className = 'shop-collection';
+  section.className = 'shop-collection halloween-collection';
   section.setAttribute('aria-labelledby', 'halloween-title');
-  section.innerHTML = `<div class="shop-collection-heading"><div><h2 id="halloween-title">Exclusivos de Halloween</h2>
-    <p>Dos estilos especiales de Topitín disponibles durante el modo Halloween. Canjes próximamente.</p></div>
-    <span class="shop-count">2 atuendos</span></div><ul class="shop-grid"></ul>`;
+  section.innerHTML = `<div class="halloween-backdrop" aria-hidden="true"></div><div class="halloween-content">
+    <div class="halloween-heading"><div><span class="halloween-badge"><img src="/shop/icons/pumpkin.svg" alt=""> Exclusivo</span>
+      <h2 id="halloween-title">Exclusivos de Halloween</h2><p>Dos estilos especiales de Topitín disponibles durante el modo Halloween.</p></div>
+      <span class="halloween-badge halloween-badge-event"><img src="/shop/icons/timer.svg" alt=""> Evento limitado</span></div>
+    <div class="halloween-meta"><div class="halloween-timer"><img src="/shop/icons/timer.svg" alt=""><div><strong>Quedan 06 días 14 h 32 min</strong><span>Consigue más XP antes de que termine el evento.</span></div></div>
+      <div class="halloween-xp"><img src="/shop/icons/xp.svg" alt=""><div><strong>Desbloquea estas skins recolectando XP</strong><span>Gana XP haciendo más ventas y completando tus objetivos.</span></div></div></div>
+    <ul class="shop-grid"></ul></div>`;
   appendCards(section.querySelector('.shop-grid'), halloweenOutfits, equippedSkin, sales, onEquip);
   page.querySelector('.shop-collection').before(section);
 }
@@ -59,9 +63,9 @@ function appendCards(grid, collection, equippedSkin, sales, onEquip) {
     const unlocked = skeleton && Number(sales) >= 1;
     const canEquip = classic && !equipped || skeleton && unlocked && !equipped;
     const card = document.createElement('li');
-    card.className = `shop-card${classic ? ' shop-card-classic' : ''}${equipped ? ' shop-card-equipped' : ''}`;
+    card.className = `shop-card${classic ? ' shop-card-classic' : ''}${outfit.id === 'zombie' || outfit.id === 'esqueleto' ? ' shop-card-halloween' : ''}${equipped ? ' shop-card-equipped' : ''}`;
     card.innerHTML = `
-      <div class="shop-artwork"><img src="${outfit.image}" alt="${outfit.name}" width="280" height="280"
+      <div class="shop-artwork" style="--skin-bg: url('/skins/backgrounds/${outfit.id}.webp')"><img src="${outfit.image}" alt="${outfit.name}" width="280" height="280"
         loading="eager" decoding="async"></div>
       <div class="shop-card-details"><h3>${outfit.name}</h3>
         ${classic

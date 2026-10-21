@@ -33,8 +33,8 @@
 .shop-collection-heading p { margin-top: 8px; color: var(--muted); font-size: .88rem; line-height: 1.6; max-width: 60ch; }
 .shop-count { padding: 7px 12px; border: 1px solid var(--line); border-radius: 20px; color: var(--muted); white-space: nowrap; font-size: .8rem; }
 .shop-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; padding: 0; margin: 0; list-style: none; }
-.shop-card { min-width: 0; overflow: hidden; display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 16px; background: #fff; }
-.shop-artwork { height: 245px; padding: 18px 12px 4px; display: grid; place-items: center; background: #fff; }
+.shop-card { position: relative; min-width: 0; overflow: hidden; display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 16px; background: #fff; }
+.shop-artwork { height: 245px; padding: 18px 12px 4px; display: grid; place-items: center; background-image: linear-gradient(rgb(255 255 255 / 78%), rgb(255 255 255 / 78%)), var(--skin-bg); background-size: cover; background-position: center; }
 .shop-artwork img { display: block; width: 100%; height: 100%; min-height: 0; object-fit: contain; }
 .shop-card-details { display: flex; flex-direction: column; flex: 1; padding: 14px 16px 18px; text-align: center; }
 .shop-card h3 { min-height: 2.8em; display: grid; place-items: center; font-size: .96rem; font-weight: 750; }
@@ -45,15 +45,36 @@
 .shop-card-action { margin-top: auto; padding: 10px; width: 100%; min-height: 42px; border: 0; border-radius: 9px; background: #e7eff7; color: #526984; font-size: .82rem; font-weight: 650; cursor: not-allowed; opacity: 1; }
 .shop-card-action-ready { cursor: pointer; }
 .shop-card-action-equipped { cursor: default; box-shadow: inset 0 0 0 2px #19b889; color: #19b889; }
-.shop-card-equipped { box-shadow: 0 0 0 2px #19b889, 0 12px 24px rgb(25 184 137 / 18%); }
+.shop-card-equipped { border-color: #19b889; box-shadow: 0 0 0 4px #19b889, 0 12px 24px rgb(25 184 137 / 22%); }
 .shop-card-classic .shop-card-action { background: #fff3c4; color: #715300; }
+.shop-card-halloween { border-color: #a875ff; box-shadow: 0 0 0 2px rgb(168 117 255 / 24%), 0 14px 28px rgb(96 48 156 / 12%); }
+.halloween-collection { position: relative; overflow: hidden; isolation: isolate; padding: 24px; border: 1px solid #d9c8ff; border-radius: 24px; background: #f4efff; }
+.halloween-backdrop { position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg, rgb(244 239 255 / 96%), rgb(244 239 255 / 76%)), url('/skins/backgrounds/halloween-light.webp') center / cover; opacity: .9; }
+.halloween-content { position: relative; }
+.halloween-heading { display: flex; align-items: start; justify-content: space-between; gap: 20px; }
+.halloween-heading h2 { margin-top: 10px; color: #33205c; font-size: clamp(1.6rem, 3vw, 2.4rem); }
+.halloween-heading p { margin-top: 8px; color: #5d4d79; }
+.halloween-badge { display: inline-flex; align-items: center; gap: 6px; padding: 7px 11px; border-radius: 999px; background: #4d1f75; color: #fff; font-size: .75rem; font-weight: 800; text-transform: uppercase; }
+.halloween-badge img { width: 16px; height: 16px; }
+.halloween-badge-event { background: #b5522d; }
+.halloween-meta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin: 20px 0 24px; }
+.halloween-timer, .halloween-xp { display: flex; align-items: center; gap: 12px; min-height: 76px; padding: 14px 16px; border: 1px solid rgb(104 69 167 / 22%); border-radius: 16px; background: rgb(255 255 255 / 78%); }
+.halloween-timer img, .halloween-xp img { width: 30px; height: 30px; color: #7137ba; flex: 0 0 auto; }
+.halloween-timer strong, .halloween-xp strong { display: block; color: #34205d; font-size: .95rem; }
+.halloween-timer span, .halloween-xp span { display: block; margin-top: 4px; color: #66587b; font-size: .78rem; }
 .shop-note { display: flex; align-items: center; gap: 14px; margin: 28px 0 0; padding: 18px 20px; border-left: 3px solid var(--yellow); color: var(--muted); font-size: .85rem; line-height: 1.6; }
 .shop-note > span { color: var(--accent); font-size: 1.7rem; }
 .shop-note strong { color: var(--ink); }
 :root[data-theme="dark"] .shop-card { background: #142d43; }
+:root[data-theme="dark"] .shop-artwork { background-image: linear-gradient(rgb(7 24 47 / 72%), rgb(7 24 47 / 82%)), var(--skin-bg); }
 :root[data-theme="dark"] .shop-included { color: #8ee4bc; }
 :root[data-theme="dark"] .shop-card-action { background: #243f57; color: #b9cddd; }
 :root[data-theme="dark"] .shop-card-classic .shop-card-action { background: #403b22; color: #ffdc71; }
+:root[data-theme="dark"] .halloween-collection { border-color: #513b89; background: #171333; }
+:root[data-theme="dark"] .halloween-backdrop { background: linear-gradient(90deg, rgb(23 19 51 / 92%), rgb(23 19 51 / 64%)), url('/skins/backgrounds/halloween-dark.webp') center / cover; }
+:root[data-theme="dark"] .halloween-heading h2, :root[data-theme="dark"] .halloween-timer strong, :root[data-theme="dark"] .halloween-xp strong { color: #f7f2ff; }
+:root[data-theme="dark"] .halloween-heading p, :root[data-theme="dark"] .halloween-timer span, :root[data-theme="dark"] .halloween-xp span { color: #cfc3eb; }
+:root[data-theme="dark"] .halloween-timer, :root[data-theme="dark"] .halloween-xp { border-color: #5a4794; background: rgb(14 20 48 / 82%); }
 @media (min-width: 1600px) { .shop-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
 @media (max-width: 1200px) { .shop-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } .shop-heading { align-items: start; } }
 @media (min-width: 781px) { .advisor-nav { display: none; } }
@@ -72,6 +93,9 @@
   .shop-card h3 { font-size: .83rem; min-height: 3em; }
   .shop-card-details { padding: 10px; }
   .shop-collection-heading { flex-direction: column; gap: 12px; }
+  .halloween-collection { padding: 16px; border-radius: 18px; }
+  .halloween-heading { flex-direction: column; }
+  .halloween-meta { grid-template-columns: 1fr; }
 }
 @media (max-width: 359px) { .shop-grid { grid-template-columns: 1fr; } .shop-artwork { height: 250px; } }
 @media (prefers-reduced-motion: no-preference) {
