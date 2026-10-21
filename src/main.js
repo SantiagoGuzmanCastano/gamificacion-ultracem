@@ -105,11 +105,11 @@ function shell() {
   root.className = !profile ? 'auth-shell' : profile.role !== 'admin' ? 'advisor-shell' : 'admin-shell';
   root.innerHTML = !profile
     ? '<main class="auth-main"><p id="notice" class="notice" role="status" hidden></p><div id="page"></div></main>'
-    : '<header class="topbar"><div class="brand"><span class="brand-mark">U</span><span>Gamificación</span><span class="demo-badge">MVP</span></div><div class="top-actions" id="actions"></div></header><div class="app-layout"><aside class="app-sidebar" aria-label="Navegación"><div class="sidebar-caption">ULTRACEM</div><div class="sidebar-nav"></div><div class="sidebar-bottom"><span class="sidebar-pulse"></span><span>Ruta comercial</span><small>Panel operativo</small></div></aside><main><p id="notice" class="notice" role="status" hidden></p><div id="page"></div><footer>Acciones comerciales de demostración. Completar una tarea no acredita una venta.</footer></main></div>';
+    : '<header class="topbar"><div class="brand"><img src="/ultracem-logo.png" alt="Ultracem"><span>Gamificación</span><span class="demo-badge">MVP</span></div><div class="top-actions" id="actions"></div></header><div class="app-layout"><aside class="app-sidebar" aria-label="Navegación"><div class="sidebar-caption">GAMIFICACIÓN</div><div class="sidebar-nav"></div><div class="sidebar-bottom"><span class="sidebar-pulse"></span><span>Ruta comercial</span><small>Panel operativo</small></div></aside><main><p id="notice" class="notice" role="status" hidden></p><div id="page"></div><footer>Acciones comerciales de demostración. Completar una tarea no acredita una venta.</footer></main></div>';
   if (profile && profile.role !== 'admin') {
     const sidebar = root.querySelector('.app-sidebar');
     const brand = el('div', 'sidebar-brand');
-    brand.innerHTML = '<span class="sidebar-brand-symbol" aria-hidden="true">U</span><span class="sidebar-brand-name">ULTRACEM</span>';
+    brand.innerHTML = '<img class="sidebar-logo" src="/ultracem-logo.png" alt="Ultracem">';
     const caption = sidebar.querySelector('.sidebar-caption');
     caption.textContent = 'GAMIFICACIÓN';
     caption.after(el('span', 'sidebar-mvp', 'MVP'));
