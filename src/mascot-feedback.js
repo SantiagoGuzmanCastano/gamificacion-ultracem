@@ -5,7 +5,6 @@ let dismissTimer = null;
 let bubble = null;
 
 export function getMascotFeedbackMessage(event, completedTasks = 1) {
-  if (event === 'map') return '¡Trabajo en progreso!';
   if (event === 'sale') return '¡Venta confirmada! ¡Buen trabajo!';
   if (event !== 'task') return null;
   const messages = ['¡Primer paso completado!', '¡Cada paso cuenta!', '¡Vas con todo!', '¡Buen trabajo! Ya puedes confirmar la venta.'];
@@ -24,7 +23,7 @@ export function showMascotFeedback(event, completedTasks) {
   const text = getMascotFeedbackMessage(event, completedTasks);
   if (!text) return;
   clearMascotFeedback();
-  const mascot = document.querySelector(event === 'map' ? '.map-mascot' : '.advisor-hero-mascot');
+  const mascot = document.querySelector('.advisor-hero-mascot');
   if (!mascot) return;
   bubble = document.createElement('span');
   bubble.className = 'mascot-feedback';
@@ -40,7 +39,6 @@ export function showMascotFeedback(event, completedTasks) {
       gsap.timeline()
         .to(mascot.querySelector('img'), { y: -6, rotation: event === 'sale' ? -2 : 0, duration: .18, ease: 'power2.out' })
         .to(mascot.querySelector('img'), { y: 0, rotation: 0, duration: .22, ease: 'power2.out' });
-      if (event === 'map') return;
       const heart = document.createElement('span');
       heart.className = 'mascot-feedback-heart';
       heart.innerHTML = '<svg viewBox="0 0 48 48" aria-hidden="true"><defs><linearGradient id="mascot-heart-fill" x1="0" y1="0" x2=".8" y2="1"><stop stop-color="#ffd1e0"/><stop offset=".42" stop-color="#ff7da7"/><stop offset="1" stop-color="#df306a"/></linearGradient></defs><path d="M24 42S6 30.6 6 18a10 10 0 0 1 18-6 10 10 0 0 1 18 6c0 12.6-18 24-18 24Z" fill="url(#mascot-heart-fill)" stroke="#ffb2cd" stroke-width="1.2"/><path d="M11 19c-.6-4 1.8-7 5-7" fill="none" stroke="#fff" stroke-opacity=".75" stroke-width="2.4" stroke-linecap="round"/><path class="heart-sparkle" d="m40 2 1.7 4.3L46 8l-4.3 1.7L40 14l-1.7-4.3L34 8l4.3-1.7Z" fill="#fff1b0"/></svg>';

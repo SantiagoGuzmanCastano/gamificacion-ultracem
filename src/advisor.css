@@ -141,16 +141,7 @@
 .advisor-shell button:active { transform: scale(.98); }
 .advisor-hero-mascot { position: relative; align-self: stretch; justify-self: stretch; min-width: 0; min-height: 290px; display: flex; flex-direction: column; align-items: center; justify-content: end; }
 .advisor-hero-mascot .mascot-image { width: min(100%, 300px); height: 300px; object-fit: contain; filter: drop-shadow(0 0 2px #00cfe9) drop-shadow(0 12px 18px #00132799); }
-.advisor-hero-mascot .mascot-feedback, .map-mascot .mascot-feedback { position: absolute; z-index: 2; right: 0; top: 12px; max-width: min(220px, 100%); padding: 12px 15px; border: 1px solid #3e7d99; border-radius: 14px 14px 14px 0; background: #002740; color: #fff; font-size: .85rem; font-weight: 750; line-height: 1.45; box-shadow: 0 6px 18px #00142533; pointer-events: none; transform-origin: bottom left; }
-.advisor-map-preview { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 32px; padding: clamp(24px, 5vw, 64px); border: 1px solid var(--dashboard-line); border-radius: 22px; background: radial-gradient(ellipse at 20% 60%, color-mix(in srgb, var(--dashboard-blue) 12%, transparent), transparent 60%), var(--dashboard-panel); }
-.map-mascot { position: relative; flex: 0 1 320px; min-width: 0; padding-top: 40px; }
-.map-mascot .mascot-image { display: block; width: 100%; height: 280px; object-fit: contain; filter: drop-shadow(0 12px 18px #00132730); }
-.map-preview-copy { flex: 1 1 240px; max-width: 420px; }
-.map-preview-icon { display: grid; place-items: center; width: 56px; height: 56px; margin-bottom: 20px; border-radius: 16px; background: var(--dashboard-inset); color: var(--dashboard-blue); }
-.map-preview-icon svg { width: 30px; height: 30px; }
-.map-preview-label { color: var(--dashboard-blue); font-size: .7rem; font-weight: 750; letter-spacing: .16em; }
-.map-preview-copy h2 { margin: 10px 0; font-size: clamp(1.4rem, 3vw, 2rem); letter-spacing: -.03em; }
-.map-preview-copy .muted { line-height: 1.7; }
+.advisor-hero-mascot .mascot-feedback { position: absolute; z-index: 2; right: 0; top: 12px; max-width: min(220px, 100%); padding: 12px 15px; border: 1px solid #3e7d99; border-radius: 14px 14px 14px 0; background: #002740; color: #fff; font-size: .85rem; font-weight: 750; line-height: 1.45; box-shadow: 0 6px 18px #00142533; pointer-events: none; transform-origin: bottom left; }
 .mascot-feedback-heart { position: absolute; top: 43%; left: 50%; z-index: 2; width: 46px; height: 46px; filter: drop-shadow(0 4px 7px #d9236140); pointer-events: none; }
 .mascot-feedback-heart svg { display: block; width: 100%; height: 100%; overflow: visible; }
 .advisor-shell .advisor-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; padding: 14px 8px; margin: 18px 0; border: 1px solid var(--dashboard-line); border-radius: 16px; background: var(--dashboard-panel); }
@@ -403,3 +394,26 @@
   .advisor-shell button:active { transform: none; }
   ::view-transition-old(root), ::view-transition-new(root) { animation: none; }
 }
+
+.advisor-map-container { position: relative; }
+.advisor-map-panel { overflow: hidden; border: 1px solid var(--dashboard-line); border-radius: 16px; background: var(--dashboard-panel); }
+.advisor-map-canvas { width: 100%; height: clamp(360px, 62vh, 680px); background: #08121f; }
+.advisor-map-status { margin: 0; padding: 12px 16px; border-bottom: 1px solid #14516d; background: #00344d; color: #f4fbff; font-weight: 650; }
+.advisor-map-error { background: #4a1825; color: #ffd8e1; }
+.advisor-map-legend { display: flex; flex-wrap: wrap; gap: 16px; padding: 12px 16px; }
+.advisor-map-legend span::before { display: inline-block; width: 12px; height: 12px; margin-right: 8px; border-radius: 3px; vertical-align: -1px; content: ''; }
+.advisor-map-legend-locked::before { background: #1b3047; }
+.advisor-map-legend-active::before { background: #1378c6; }
+.advisor-city-marker {
+  width: 32px; height: 32px; border: 2px solid #fff; border-radius: 50%;
+  background: #0b88d4; color: #fff; font: 700 13px/1 system-ui, sans-serif;
+  box-shadow: 0 2px 8px #001a2aaa; cursor: pointer;
+}
+.advisor-city-marker:focus-visible { outline: 3px solid #ffd124; outline-offset: 3px; }
+.advisor-map-warning {
+  position: absolute; z-index: 2; left: 12px; bottom: 12px; margin: 0;
+  max-width: min(280px, calc(100% - 24px)); padding: 8px 12px;
+  border-radius: 8px; background: #08121fe8; color: #fff; font-size: .8rem;
+}
+.advisor-map-container .maplibregl-popup-content { color: #102f49; }
+.advisor-map-container .maplibregl-popup-close-button { color: #102f49; }
