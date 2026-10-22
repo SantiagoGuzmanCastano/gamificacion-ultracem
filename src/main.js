@@ -7,6 +7,7 @@ import { mascotImages, mascotLabels } from './mascot.js';
 import { formatCount } from './motion-utils.js';
 import * as motion from './motion.js';
 import { createWelcome, getWelcomeTasks, shouldShowWelcome, welcomeDayKey } from './welcome.js';
+import { createLoader } from './loader.js';
 
 const db = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
   ? createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY) : null;
@@ -211,17 +212,20 @@ async function loadData() {
 }
 async function boot() {
   stopHalloweenSync();
-  shell(); notice('Cargando datos…');
+  const loader = createLoader(document.body);
+  shell();
   const result = await db.auth.getUser();
   user = result.data.user;
   entry = 'view';
-  if (!user) { profile = null; render(); notice(''); return; }
+  if (!user) { profile = null; render(); loader.hide(); return; }
   try {
     await loadData();
     await refreshHalloween();
     render();
-    notice('');
+    // La bienvenida arranca debajo del loader: al desvanecerse el logo, su capa frontal (el mismo anillo "U")
+    // queda a la vista y la cámara la atraviesa.
     showWelcome();
+    loader.hide();
     halloweenTimer = window.setInterval(() => {
       if (!document.hidden && (profile?.role === 'admin' || advisorView === 'shop')) refreshHalloween();
     }, 10000);
@@ -229,6 +233,7 @@ async function boot() {
   catch (cause) {
     shell();
     document.querySelector('#page').replaceChildren(el('p', 'empty-state', 'No se pudieron cargar los datos.'), button('Reintentar', 'primary', boot));
+    loader.hide();
     notice(cause.message, true);
   }
 }

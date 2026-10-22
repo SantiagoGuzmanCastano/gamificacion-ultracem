@@ -412,3 +412,21 @@ tests/motion.test.js  # lógica pura: formato de números, ángulos del confeti,
 | 4 | Temblor del formulario de login (§6.15) | **Sí se incluye**: 0,35 s, desactivado con movimiento reducido. |
 
 No quedan preguntas abiertas. El documento está listo para implementar.
+
+---
+
+## 13. Excepción aprobada: intro de bienvenida con vuelo falso 3D (2026-10-22)
+
+La guía v1.1 (p. 23) pide animaciones de 400 a 1.200 ms y solo desplazamiento y opacidad. La intro de bienvenida es una **excepción aprobada** por el responsable, con estos límites:
+
+| Paso | Qué pasa | Duración |
+|---|---|---|
+| Loader | Anillo "U" de Ultracem girando y "ULTRACEM" sobre azul marino mientras cargan los datos (`src/loader.js`) | Mientras carga; sale en 400 ms |
+| Fase 1 · Vuelo | La capa frontal (el mismo anillo "U") escala ×5 y se desvanece: la cámara la atraviesa. Las capas media y de fondo se acercan a ×1,1 | 1.200 ms |
+| Fase 2 · Mensaje | Letras que caen girando, desenfocadas, con rebote `back.out` | 700 ms por letra, escalonadas |
+| Fase 3 · Mascota y tareas | Topitín salta y saluda; el panel "Tareas del día" se desliza y sus filas entran en cascada | ≤ 750 ms cada paso |
+
+- Solo se usa aquí: la bienvenida aparece una vez al día por dispositivo.
+- Ningún paso supera 1,2 s.
+- Con "reducir movimiento" no hay vuelo ni letras animadas: el loader se quita al instante y la bienvenida aparece completa.
+- La capa frontal arranca oculta y solo GSAP la muestra, así que nunca tapa el contenido si no hay animación.

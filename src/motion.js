@@ -270,10 +270,18 @@ export function welcomeSequence(root, setStage) {
   const panel = root.querySelector('[data-testid="welcome-tasks"]');
   const items = panel.querySelectorAll('[data-testid="welcome-task"]');
   const close = root.querySelector('[data-testid="welcome-close"]');
+  const front = root.querySelector('[data-layer="front"]');
+  const depth = root.querySelectorAll('[data-layer="mid"], [data-layer="back"]');
   return new Promise(resolve => {
+    // Fase 1 · Vuelo falso 3D: la cámara atraviesa el frente (×5 y se desvanece) y el fondo se acerca.
+    // Excepción a la guía v1.1 solo para esta intro (animaciones.md §13): cada paso ≤ 1,2 s.
     const timeline = gsap.timeline({ onComplete: () => { setStage('done'); resolve(); } })
-      .from(root, { opacity: 0, duration: .35, ease: 'power1.out', clearProps: 'opacity' })
-      .from(chars, { y: 46, opacity: 0, rotationX: -90, filter: 'blur(8px)', duration: .7, stagger: .028, ease: 'back.out(1.7)', clearProps: 'transform,opacity,filter' }, .1)
+      .set(front, { opacity: 1, scale: 1 })
+      .to(front, { scale: 5, opacity: 0, duration: 1.2, ease: 'power2.in' }, .3)
+      .fromTo(depth, { scale: 1 }, { scale: 1.1, duration: 1.2, ease: 'power2.out' }, .3)
+      // Fase 2 · Mensaje letra por letra con rebote, justo al cruzar el frente.
+      .from(chars, { y: 46, opacity: 0, rotationX: -90, filter: 'blur(8px)', duration: .7, stagger: .028, ease: 'back.out(1.7)', clearProps: 'transform,opacity,filter' }, '-=.35')
+      // Fase 3 · Topitín y panel de tareas en cascada.
       .add(() => setStage('mascot'), '-=.15')
       .from(image, { y: 90, opacity: 0, scale: .6, rotation: -8, duration: .75, ease: 'back.out(1.6)', clearProps: 'opacity' })
       .to(image, { rotation: 6, duration: .22, yoyo: true, repeat: 3, ease: 'sine.inOut', onComplete: () => gsap.set(image, { clearProps: 'transform' }) })

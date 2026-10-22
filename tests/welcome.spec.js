@@ -74,6 +74,19 @@ describe('createWelcome', () => {
       });
     });
 
+    it('fase 1 (vuelo falso 3D): tres capas decorativas detrás del contenido, en orden fondo, medio y frente', () => {
+      const layers = welcome.element.querySelector('[data-testid="welcome-layers"]');
+      expect(layers).not.toBeNull();
+      expect(layers.getAttribute('aria-hidden')).toBe('true');
+      expect(welcome.element.firstElementChild).toBe(layers);
+      expect([...layers.children].map(layer => layer.dataset.layer)).toEqual(['back', 'mid', 'front']);
+    });
+
+    it('las capas no contienen texto: el mensaje sigue siendo lo primero que se lee', () => {
+      const layers = welcome.element.querySelector('[data-testid="welcome-layers"]');
+      expect(layers.textContent.trim()).toBe('');
+    });
+
     it('la mascota usa la imagen indicada (Topitín saludando)', () => {
       const image = container.querySelector('[data-testid="welcome-mascot"] img');
       expect(image.getAttribute('src')).toBe('/mascot/pinguino-feliz.png');

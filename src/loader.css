@@ -1,0 +1,24 @@
+/* Loader: azul marino con el logo de Ultracem (guía p. 4: logo sobre el azul marino, una sola aparición). */
+.loader {
+  position: fixed; inset: 0; z-index: 90;
+  display: grid; place-content: center; justify-items: center; gap: 28px;
+  background: #0A2A5E; color: #fff;
+  font-family: "Poppins", "Plus Jakarta Sans", "Segoe UI", sans-serif;
+  transition: opacity 400ms cubic-bezier(.2, .7, .2, 1);
+}
+.loader.is-leaving { opacity: 0; }
+.loader-logo { display: grid; justify-items: center; gap: 6px; }
+.loader-ring {
+  width: 72px; height: 72px; margin-bottom: 14px;
+  border: 11px solid #FFC20E; border-top-color: transparent; border-radius: 50%;
+  transform: rotate(-25deg); animation: loader-spin 1200ms linear infinite;
+}
+.loader-name { font-size: 30px; font-weight: 700; letter-spacing: .04em; }
+.loader-tag { color: #9CC0EE; font-size: 11px; font-weight: 700; letter-spacing: .26em; }
+.loader-bar { position: relative; width: 140px; height: 4px; overflow: hidden; border-radius: 999px; background: rgb(255 255 255 / 15%); }
+.loader-bar i { position: absolute; inset: 0 auto 0 0; width: 40%; border-radius: inherit; background: #FFC20E; animation: loader-slide 1200ms cubic-bezier(.2, .7, .2, 1) infinite; }
+@keyframes loader-spin { to { transform: rotate(335deg); } }
+@keyframes loader-slide { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+@media (prefers-reduced-motion: reduce) {
+  .loader, .loader-ring, .loader-bar i { animation: none; transition: none; }
+}

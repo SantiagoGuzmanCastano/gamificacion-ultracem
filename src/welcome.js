@@ -91,9 +91,19 @@ export function createWelcome(container, { name = '', tasks = [], mascotSrc = '/
   close.dataset.testid = 'welcome-close';
   panel.append(close);
 
+  // Fase 1 (vuelo falso 3D): capas planas detrás del contenido; motion.js las anima.
+  const layers = el('div', 'welcome-layers');
+  layers.dataset.testid = 'welcome-layers';
+  layers.setAttribute('aria-hidden', 'true');
+  for (const depth of ['back', 'mid', 'front']) {
+    const layer = el('div', `welcome-layer welcome-layer-${depth}`);
+    layer.dataset.layer = depth;
+    layers.append(layer);
+  }
+
   const stage = el('div', 'welcome-stage');
   stage.append(mascot, panel);
-  element.append(heading, stage);
+  element.append(layers, heading, stage);
   container.append(element);
 
   let closed = false;
