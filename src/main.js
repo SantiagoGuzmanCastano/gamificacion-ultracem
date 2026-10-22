@@ -8,6 +8,7 @@ import { formatCount } from './motion-utils.js';
 import * as motion from './motion.js';
 import { createWelcome, getWelcomeTasks, shouldShowWelcome, welcomeDayKey } from './welcome.js';
 import { createLoader } from './loader.js';
+import './dashboard.css';
 
 const db = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
   ? createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY) : null;
@@ -20,7 +21,28 @@ let halloweenTimer = null, halloweenRequest = 0;
 let entry = 'view';
 document.documentElement.dataset.theme = theme;
 const taskOrder = ['Preparar una visita', 'Contactar al cliente', 'Revisar una cotización', 'Planear el siguiente paso'];
-const viewEntry = '.page-intro, .metric, .ranking-section, .advisor-client-panel, .ai-recommendation, .tasks-section, .task, .metrics-dashboard, .advisor-row, .admin-management, .shop-heading, .shop-collection, .shop-card, .auth-form, .empty-state';
+const viewEntry = '.page-intro, .metric, .ranking-section, .advisor-client-panel, .today-card, .ai-recommendation, .tasks-section, .task, .metrics-dashboard, .advisor-row, .admin-management, .shop-heading, .shop-collection, .shop-card, .auth-form, .empty-state';
+// Íconos de relleno redondeado, 20 px (guía p. 5). Contenido estático.
+const ICONS = {
+  people: '<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2" fill="currentColor"/><path d="M3 19c0-3.2 2.6-5.2 6-5.2s6 2 6 5.2z" fill="currentColor"/><circle cx="17" cy="9" r="2.5" fill="currentColor" opacity=".6"/><path d="M16 14.2c3 0 5 1.6 5 4.3h-4.2c0-1.8-.5-3.2-.8-4.3z" fill="currentColor" opacity=".6"/></svg>',
+  list: '<svg viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="17" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M9 10h6M9 14h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+  check: '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  sale: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 2 21 7v10l-9 5-9-5V7z" opacity=".25"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M8 12.5l2.6 2.6L16 9.7"/></svg>',
+  trophy: '<svg viewBox="0 0 24 24"><path d="M7 4h10v5a5 5 0 0 1-10 0z" fill="currentColor"/><path d="M7 6H4c0 3 1.5 4.5 3.3 4.7M17 6h3c0 3-1.5 4.5-3.3 4.7" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 14v4M8 20h8" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>',
+  home: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M3.5 11 12 4l8.5 7v8.5a1 1 0 0 1-1 1H15v-6H9v6H4.5a1 1 0 0 1-1-1z"/></svg>',
+  store: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M4 9h16v10a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 19zM5 4h14l1.5 4h-17z"/></svg>',
+  moon: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></svg>',
+  sun: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.5" fill="currentColor"/><path stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></svg>',
+  out: '<svg viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4M10 16l-4-4 4-4M6 12h10"/></svg>',
+  spark: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/></svg>',
+};
+function icon(name, className = '') {
+  const node = el('span', `icon ${className}`.trim());
+  node.setAttribute('aria-hidden', 'true');
+  node.innerHTML = ICONS[name];
+  return node;
+}
+const plural = (count, one, many) => `${count} ${count === 1 ? one : many}`;
 const clientEntry = '.customer-detail, .ai-recommendation, .tasks-section, .task';
 const halloweenEffects = {
   appear: section => {
@@ -78,7 +100,7 @@ function shell() {
     brand.innerHTML = '<span class="sidebar-brand-symbol" aria-hidden="true">U</span><span class="sidebar-brand-name">ULTRACEM</span>';
     const caption = sidebar.querySelector('.sidebar-caption');
     caption.textContent = 'GAMIFICACIÓN';
-    caption.after(el('span', 'sidebar-mvp', 'MVP'));
+    caption.append(el('span', 'sidebar-mvp', 'MVP'));
     sidebar.prepend(brand);
     sidebar.append(el('p', 'sidebar-motto', 'CONSTRUYENDO UN MUNDO MÁS FUERTE'));
     const navigate = view => {
@@ -96,10 +118,12 @@ function shell() {
     nav.replaceChildren();
     const mobileNav = el('nav', 'advisor-nav');
     mobileNav.setAttribute('aria-label', 'Portal del asesor');
-    for (const [view, label, icon] of [['dashboard', 'Mi tablero', '01'], ['shop', 'Tienda', '02']]) {
+    for (const [view, label, number, glyph] of [['dashboard', 'Mi tablero', '01', 'home'], ['shop', 'Tienda', '02', 'store']]) {
       for (const [container, className] of [[nav, 'sidebar-item'], [mobileNav, '']]) {
-        const control = button(label, className, () => navigate(view));
-        if (container === nav) control.prepend(el('b', '', icon));
+        const control = button('', className, () => navigate(view));
+        control.setAttribute('aria-label', label);
+        if (container === nav) control.append(el('b', '', number));
+        control.append(icon(glyph), el('span', '', label));
         if (advisorView === view) {
           control.classList.add('active');
           control.setAttribute('aria-current', 'page');
@@ -112,21 +136,26 @@ function shell() {
   if (profile) {
     const actions = document.querySelector('#actions');
     actions.append(el('span', 'session-name', `${profile.full_name} · ${profile.role === 'admin' ? 'Administrador' : 'Asesor'}`));
-    actions.append(button(theme === 'dark' ? '☀️ Claro' : '🌙 Oscuro', 'theme-button', () => {
+    const themeButton = button('', 'theme-button', () => {
       theme = theme === 'dark' ? 'light' : 'dark';
       localStorage.setItem('ultracem-theme', theme);
       document.documentElement.dataset.theme = theme;
       render();
       motion.themeFade(root);
-    }));
-    actions.append(button('Cerrar sesión', 'text-button', async () => {
+    });
+    themeButton.append(icon(theme === 'dark' ? 'sun' : 'moon'), el('span', '', theme === 'dark' ? 'Claro' : 'Oscuro'));
+    actions.append(themeButton);
+    const logout = button('', 'text-button', async () => {
       const result = await db.auth.signOut();
       if (result.error) { notice('No se pudo cerrar la sesión. Intenta de nuevo.', true); return; }
       stopHalloweenSync();
       user = profile = null; advisors = clients = sales = ranking = []; aiRecommendation = ''; saleNotice = ''; advisorView = 'dashboard';
       entry = 'view';
       render();
-    }));
+    });
+    logout.append(icon('out'), el('span', '', 'Cerrar sesión'));
+    logout.setAttribute('aria-label', 'Cerrar sesión');
+    actions.append(logout);
   }
 }
 function authPage(mode = 'login') {
@@ -356,21 +385,10 @@ window.addEventListener('pageshow', event => { if (event.persisted && db) boot()
 function metrics(items, advisor = false) {
   const row = el('div', 'metrics');
   if (advisor) row.classList.add('advisor-metrics');
-  const iconPaths = [
-    '<circle cx="8" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M2.5 20v-2a5.5 5.5 0 0 1 11 0v2M15 15a4.5 4.5 0 0 1 6.5 4v1"/>',
-    '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4.5h6M9 10h6M9 14h6M9 18h4"/>',
-    '<circle cx="12" cy="12" r="9"/><path d="m7.5 12 3 3 6-6"/>',
-    '<path d="M12 2 21 7v10l-9 5-9-5V7z"/><path d="M7.5 11h9M8 14h8"/>',
-    '<path d="M7 4h10v5a5 5 0 0 1-10 0V4ZM7 6H4v2a4 4 0 0 0 4 4M17 6h3v2a4 4 0 0 1-4 4M12 14v4M8 21h8M9 18h6"/>',
-  ];
+  const glyphs = ['people', 'list', 'check', 'sale', 'trophy'];
   for (const [index, [label, value, note, pre = '']] of items.entries()) {
     const item = el('div', 'metric');
-    if (advisor) {
-      const icon = el('span', 'metric-icon');
-      icon.setAttribute('aria-hidden', 'true');
-      icon.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${iconPaths[index]}</svg>`;
-      item.append(icon);
-    }
+    if (advisor) item.append(icon(glyphs[index], 'metric-icon'));
     const valueNode = el('strong', 'metric-value', typeof value === 'number' ? formatCount(value, { pre }) : String(value));
     if (typeof value === 'number') Object.assign(valueNode.dataset, { count: value, key: `metric:${label}`, pre });
     item.append(el('span', 'metric-label', label), valueNode, el('span', 'metric-note', note));
@@ -388,13 +406,16 @@ function rankingSection() {
   const list = el('ol', 'ranking-list');
   for (const row of ranking) {
     const confirmedSales = Number(row.confirmed_sales ?? row.sales ?? 0);
-    const item = el('li', 'ranking-row' + (row.advisor_id === user?.id ? ' current' : ''));
+    const own = row.advisor_id === user?.id;
+    const item = el('li', 'ranking-row' + (own ? ' current' : ''));
     Object.assign(item.dataset, { k: row.advisor_id, name: row.full_name });
+    const medal = el('span', 'medal', String(row.position));
+    medal.setAttribute('aria-label', `Puesto ${row.position}`);
     const identity = el('div', 'ranking-identity');
-    identity.append(el('strong', '', `${row.position}. ${row.full_name}`), el('span', 'muted', `${confirmedSales} ventas confirmadas`));
-    const total = el('strong', 'ranking-xp', `${confirmedSales} ventas`);
-    Object.assign(total.dataset, { count: confirmedSales, key: `rank:${row.advisor_id}`, suf: ' ventas' });
-    item.append(identity, total);
+    identity.append(el('strong', '', `${row.full_name}${own ? ' · tú' : ''}`), el('span', 'muted', plural(confirmedSales, 'venta confirmada', 'ventas confirmadas')));
+    const total = el('strong', 'ranking-xp', plural(confirmedSales, 'venta', 'ventas'));
+    Object.assign(total.dataset, { count: confirmedSales, key: `rank:${row.advisor_id}`, suf: confirmedSales === 1 ? ' venta' : ' ventas' });
+    item.append(medal, identity, total);
     list.append(item);
   }
   section.append(list);
@@ -568,9 +589,10 @@ function advisorPage(page) {
   const completed = tasks.filter(task => task.completed).length;
   const ownRanking = ranking.find(row => row.advisor_id === user?.id);
   const ownSales = sales.filter(sale => sale.advisor_id === user?.id && sale.confirmed).length;
-  page.append(metrics([['Mis clientes', clients.length, 'negocios asignados'], ['Por completar', tasks.filter(task => !task.completed).length, 'tareas pendientes'], ['Completadas', completed, 'acciones realizadas'], ['Ventas', ownSales, 'ventas confirmadas'], ['Posición', ownRanking ? `#${ownRanking.position}` : '—', 'ranking global']], true));
+  page.append(metrics([['Mis clientes', clients.length, 'negocios asignados'], ['Por completar', tasks.filter(task => !task.completed).length, 'tareas pendientes'], ['Completadas', completed, 'acciones realizadas'], ['Ventas', ownSales, ownSales ? 'ventas confirmadas' : 'Aún sin cierres · ventas confirmadas'], ['Posición', ownRanking ? `#${ownRanking.position}` : '—', 'ranking global']], true));
   if (!clients.length) { page.append(el('p', 'empty-state', 'Todavía no tienes clientes. El administrador puede asignarte uno.')); return; }
-  const overview = el('div', 'advisor-overview'), panel = el('section', 'advisor-client-panel'), rail = el('div', 'customer-rail');
+  // Bento (guía v1.1): clientes a la izquierda; avance y ranking a la derecha; Trompín y tareas debajo.
+  const bento = el('div', 'advisor-bento'), panel = el('section', 'advisor-client-panel'), rail = el('div', 'customer-rail');
   if (clients.length === 1) panel.classList.add('single-client');
   panel.append(el('h2', 'section-title', 'Mis clientes'));
   const list = el('ul', 'customer-list');
@@ -581,13 +603,15 @@ function advisorPage(page) {
       selectedId = client.id; aiRecommendation = ''; saleNotice = ''; entry = 'client'; render();
     });
     control.setAttribute('aria-pressed', String(client.id === selectedId));
-    control.append(el('strong', '', client.name), el('span', 'muted', `${client.type} · ${client.tasks.filter(task => !task.completed).length} pendientes`));
+    control.append(el('strong', '', client.name), el('span', 'sr-only', ` · ${client.type} · ${client.tasks.filter(task => !task.completed).length} pendientes`));
     item.append(control); list.append(item);
   }
   rail.append(list); panel.append(rail);
   const client = clients.find(item => item.id === selectedId) ?? clients[0], detail = el('div', 'customer-detail');
   const progress = getProgress(client.tasks), section = el('section', 'progress-section'), info = el('div', 'progress-details');
-  info.append(el('p', 'customer-type', client.type), el('h2', 'participant-name', client.name));
+  const head = el('div', 'client-head'), names = el('div');
+  names.append(el('p', 'customer-type', client.type), el('h2', 'participant-name', client.name));
+  head.append(icon('people', 'client-icon'), names);
   const line = el('div', 'progress-line');
   line.append(el('span', '', `${progress.completed} de ${progress.total} tareas completadas`), el('strong', '', `${progress.rounded} %`));
   const bar = el('div', 'progress-bar');
@@ -598,28 +622,45 @@ function advisorPage(page) {
   bar.setAttribute('aria-valuenow', String(progress.rounded));
   Object.assign(bar.dataset, { bar: progress.percentage, key: `client:${client.id}` });
   const fill = el('i'); fill.style.width = `${progress.percentage}%`; bar.append(fill);
-  info.append(line, bar);
+  info.append(head, line, bar);
+  const pending = progress.total - progress.completed;
+  if (pending > 0) {
+    const tip = el('div', 'client-notice'), copy = el('div');
+    const title = progress.completed === 0 ? 'Empieza por la primera' : progress.completed * 2 === progress.total ? 'Vas por la mitad' : 'Sigue así';
+    copy.append(el('b', '', title), document.createTextNode(`Te ${pending === 1 ? 'falta' : 'faltan'} ${plural(pending, 'tarea', 'tareas')} para cerrar este cliente.`));
+    tip.append(icon('spark'), copy);
+    info.append(tip);
+  }
+  if (progress.total > 0 && pending === 0) {
+    const done = el('div', 'client-complete-note'), copy = el('div');
+    copy.append(el('b', '', '¡Todo al día!'), document.createTextNode('Has completado todas las tareas de este cliente.'));
+    done.append(icon('spark'), copy);
+    info.append(done);
+  }
+  if (progress.total === 4 && progress.completed === 4) {
+    const confirmed = sales.some(sale => sale.client_id === client.id && sale.confirmed);
+    if (!confirmed) info.append(button('Confirmar venta', 'primary confirm-sale-button', event => confirmSale(client, event.currentTarget)));
+    info.append(button('Limpiar tareas completadas', 'secondary clear-tasks-button', () => clearCompletedTasks(client)));
+  }
+  // La mascota acompaña; nunca regaña (guía p. 5): feliz con avance, triste solo sin empezar.
+  const mood = progress.mascot === 'sad' ? 'sad' : 'happy';
   const mascot = el('div', 'mascot');
   const image = el('img', 'mascot-image');
   const activeMascotImages = profile?.equipped_skin === 'skeleton'
     ? { sad: '/skins/skeleton/sad.png', neutral: '/skins/skeleton/serious.png', happy: '/skins/skeleton/happy.png' }
     : mascotImages;
-  image.src = activeMascotImages[progress.mascot];
-  image.alt = `Mascota: ${mascotLabels[progress.mascot]}`;
-  mascot.append(image);
-  mascot.append(el('p', 'mascot-state', mascotLabels[progress.mascot])); section.append(info, mascot); detail.append(section);
-  if (progress.total > 0 && progress.completed === progress.total) detail.append(el('p', 'client-complete-note', '¡Todo al día! Has completado todas las tareas de este cliente.'));
-  if (progress.total === 4 && progress.completed === 4) {
-    const confirmed = sales.some(sale => sale.client_id === client.id && sale.confirmed);
-    if (!confirmed) detail.append(button('Confirmar venta', 'primary confirm-sale-button', event => confirmSale(client, event.currentTarget)));
-    detail.append(button('Limpiar tareas completadas', 'secondary clear-tasks-button', () => clearCompletedTasks(client)));
-  }
-  panel.append(detail); overview.append(rankingSection(), panel); page.append(overview);
+  image.src = activeMascotImages[mood];
+  image.alt = `Mascota: ${mascotLabels[mood]}`;
+  const say = mood === 'sad' ? '¡Empecemos hoy!' : progress.percentage === 100 ? '¡Excelente trabajo!' : '¡Vas muy bien!';
+  mascot.append(el('span', 'mascot-say', say), image, el('p', 'mascot-state sr-only', mascotLabels[mood]));
+  section.append(info, mascot); detail.append(section);
+  panel.append(detail);
+  bento.append(panel, todayCard(tasks), rankingSection());
   const aiSection = el('section', 'ai-recommendation');
   aiSection.append(el('h2', 'section-title', 'Trompín · Asistente comercial'));
   if (aiRecommendation) aiSection.append(el('p', '', aiRecommendation));
   aiSection.append(button('Sugerir siguiente acción', 'secondary', event => requestRecommendation(client, event.currentTarget)));
-  page.append(aiSection);
+  bento.append(aiSection);
   const taskSection = el('section', 'tasks-section'); taskSection.append(el('h2', 'section-title', 'Tareas de este cliente'));
   if (saleNotice) taskSection.append(el('p', 'sale-notice', saleNotice));
   const taskList = el('ol', 'task-list');
@@ -631,7 +672,31 @@ function advisorPage(page) {
     if (!task.completed) actions.append(button('Completar tarea', 'secondary', event => completeTask(client, task, event.currentTarget)));
     item.append(content, actions); taskList.append(item);
   }
-  taskSection.append(taskList); page.append(taskSection);
+  taskSection.append(taskList); bento.append(taskSection); page.append(bento);
+}
+// Avance global de tareas del asesor: anillo cian sobre superficie oscura (guía v1.1 p. 24).
+function todayCard(tasks) {
+  const done = tasks.filter(task => task.completed).length, total = tasks.length;
+  const percent = total ? Math.round(done / total * 100) : 0;
+  const card = el('section', 'today-card');
+  card.setAttribute('aria-labelledby', 'today-title');
+  const ring = el('div', 'ring');
+  ring.setAttribute('role', 'img');
+  ring.setAttribute('aria-label', `Avance de tus tareas: ${percent} %`);
+  ring.innerHTML = '<svg viewBox="0 0 42 42" aria-hidden="true"><circle class="ring-track" cx="21" cy="21" r="15.9155"/><circle class="ring-value" cx="21" cy="21" r="15.9155" pathLength="100" stroke-dasharray="100"/></svg>';
+  const value = ring.querySelector('.ring-value');
+  value.setAttribute('stroke-dashoffset', String(100 - percent));
+  Object.assign(value.dataset, { ring: percent, key: 'ring:tasks' });
+  const label = el('b', '', `${percent} %`);
+  Object.assign(label.dataset, { count: percent, key: 'ring-label:tasks', suf: ' %' });
+  label.setAttribute('aria-hidden', 'true');
+  ring.append(label);
+  const copy = el('div'), eyebrow = el('p', 'today-eyebrow', 'Tu avance');
+  eyebrow.id = 'today-title';
+  const message = !total ? 'Aún no tienes tareas asignadas.' : done === total ? 'Completaste todas tus tareas. ¡Buen trabajo!' : 'Completa una más para seguir sumando XP.';
+  copy.append(eyebrow, el('strong', '', `${done} de ${total} tareas`), el('p', '', message));
+  card.append(ring, copy);
+  return card;
 }
 async function completeTask(client, task, control) {
   control.disabled = true; control.textContent = 'Guardando…';

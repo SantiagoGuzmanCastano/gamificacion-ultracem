@@ -107,11 +107,18 @@ export function enter(scope, selector, { counts = true } = {}) {
     if (bars.length) gsap.from(bars, { scaleX: 0, duration: .9, delay: .25, stagger: .05, ease: 'power2.out', clearProps: 'transform' });
   }
   if (counts) scope.querySelectorAll('[data-count]').forEach(node => countUp(node, 0, Number(node.dataset.count), 1));
+  // Anillo de avance: de 0 a su valor en 1.200 ms (guía v1.1 p. 23).
+  scope.querySelectorAll('[data-ring]').forEach(node => ring(node, 0, Number(node.dataset.ring), 1.2));
   const mascot = scope.querySelector('.mascot-image');
   if (mascot && anim()) {
     gsap.from(mascot, { y: 26, opacity: 0, scale: .88, duration: .6, delay: .5, ease: 'back.out(1.7)', clearProps: 'transform,opacity' });
   }
   mascotIdle(mascot, 1.2);
+}
+
+function ring(node, from, to, duration) {
+  if (!anim() || from === to) return;
+  gsap.fromTo(node, { attr: { 'stroke-dashoffset': 100 - from } }, { attr: { 'stroke-dashoffset': 100 - to }, duration, ease: 'power2.out' });
 }
 
 // A8 · Flotación de la mascota en reposo.
@@ -126,6 +133,7 @@ export function snapshot() {
   const counts = new Map(), bars = new Map(), rows = new Map(), keys = new Set();
   document.querySelectorAll('[data-count][data-key]').forEach(node => counts.set(node.dataset.key, Number(node.dataset.count)));
   document.querySelectorAll('[data-bar][data-key]').forEach(node => bars.set(node.dataset.key, Number(node.dataset.bar)));
+  document.querySelectorAll('[data-ring][data-key]').forEach(node => bars.set(node.dataset.key, Number(node.dataset.ring)));
   document.querySelectorAll('.ranking-row[data-k]').forEach(node => rows.set(node.dataset.k, node.getBoundingClientRect().top));
   document.querySelectorAll('[data-enter-key]').forEach(node => keys.add(node.dataset.enterKey));
   const leader = document.querySelector('.ranking-row[data-k]')?.dataset.k ?? null;
@@ -146,6 +154,10 @@ export function update(before) {
     const previous = before.bars.get(node.dataset.key), next = Number(node.dataset.bar);
     if (previous === undefined || previous === next || !anim()) return;
     gsap.fromTo(node.firstElementChild, { width: `${previous}%` }, { width: `${next}%`, duration: .8, ease: 'power2.out' });
+  });
+  document.querySelectorAll('[data-ring][data-key]').forEach(node => {
+    const previous = before.bars.get(node.dataset.key);
+    if (previous !== undefined) ring(node, previous, Number(node.dataset.ring), .8);
   });
   if (anim()) {
     document.querySelectorAll('.ranking-row[data-k]').forEach(node => {

@@ -1,0 +1,244 @@
+/* Tablero del asesor en bento, fiel a la Guía de diseño y marca Ultracem v1.1.
+   Los tokens se acotan a .advisor-shell para no cambiar el panel del administrador. */
+.advisor-shell {
+  --side: #0A2A5E; --side-2: #07204A;
+  --blue: #1F6FE5; --blue-ink: #1650B8; --blue-soft: #E3EEFD;
+  --yellow: #FFC20E; --yellow-soft: #FFF4CC;
+  --green: #1FA971; --green-ink: #0E7A50; --green-soft: #E2F6EC;
+  --purple: #6A3DE0; --purple-soft: #EEE8FF; --orange-ink: #8A4A00; --orange-soft: #FFEBD3;
+  --gold-ink: #8A5300; --gold-soft: #FFF4D6; --gold-line: #F6D77A;
+  --bg: #EEF4FC; --card: #FFFFFF; --line: #DDE6F3; --ink: #0B1F44; --ink-2: #4A5B7A; --ink-3: #7A89A5;
+  --muted: var(--ink-2); --accent: var(--blue); --cyan: #12C8FF; --track: #DDE6F3;
+  --font: "Poppins", "Plus Jakarta Sans", sans-serif; --font-hand: "Caveat", cursive;
+  --r-sm: 10px; --r-md: 12px; --r-lg: 18px; --r-xl: 24px;
+  --shadow: 0 1px 2px rgba(10, 42, 94, .07), 0 8px 24px rgba(10, 42, 94, .08);
+  display: grid; grid-template-columns: 252px minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); min-height: 100vh;
+  color: var(--ink); font-family: var(--font); font-size: 15px; line-height: 1.5;
+  /* Fondo del tablero: degradado azul a blanco con una franja amarilla en la esquina (guía p. 11) */
+  background:
+    linear-gradient(160deg, transparent 78%, rgb(255 194 14 / 16%) 78.2%, transparent 86%) fixed,
+    linear-gradient(180deg, #DCE9FB 0%, var(--bg) 38%, #F7FAFE 100%) fixed;
+}
+:root[data-theme="dark"] .advisor-shell {
+  --blue: #5B9BFF; --blue-ink: #8DB8FF; --blue-soft: #14336E; --yellow-soft: #3A3210;
+  --green: #3DD08F; --green-ink: #5BE0A5; --green-soft: #0F3A2E;
+  --purple: #A88CFF; --purple-soft: #2A2060; --orange-ink: #FFC48A; --orange-soft: #402A12;
+  --gold-ink: #FFD36B; --gold-soft: #3A3212; --gold-line: #7A6320;
+  --bg: #071A3A; --card: #0E2756; --line: #1E3C74; --ink: #EAF1FF; --ink-2: #A9BBDD; --ink-3: #7F93B8; --track: #1E3C74;
+  --shadow: 0 1px 2px rgb(0 0 0 / 30%), 0 8px 24px rgb(0 0 0 / 28%);
+  background: linear-gradient(160deg, transparent 80%, rgb(255 194 14 / 7%) 80.2%, transparent 88%) fixed, var(--bg);
+}
+/* Anula los fondos oscuros heredados de style.css: aquí manda la pareja de tokens de la guía. */
+:root[data-theme="dark"] .advisor-shell .app-sidebar { background: var(--side); }
+:root[data-theme="dark"] .advisor-shell .topbar { background: transparent; }
+:root[data-theme="dark"] .advisor-shell .advisor-intro, :root[data-theme="dark"] .advisor-shell .customer-rail, :root[data-theme="dark"] .advisor-shell .progress-section { background: none; border-color: transparent; }
+:root[data-theme="dark"] .advisor-shell .ranking-section, :root[data-theme="dark"] .advisor-shell .tasks-section, :root[data-theme="dark"] .advisor-shell .task { background: var(--card); }
+:root[data-theme="dark"] .advisor-shell .ai-recommendation { background: color-mix(in srgb, var(--blue-soft) 45%, var(--card)); border-color: var(--line); color: var(--ink); }
+:root[data-theme="dark"] .advisor-shell .sale-notice { background: var(--yellow-soft); color: var(--ink); }
+:root[data-theme="dark"] .advisor-shell .customer-option { color: var(--ink-2); }
+:root[data-theme="dark"] .advisor-shell .customer-option:hover { background: var(--blue-soft); }
+:root[data-theme="dark"] .advisor-shell .secondary, :root[data-theme="dark"] .advisor-shell .clear-tasks-button { background: var(--card); border-color: var(--line); color: var(--blue-ink); }
+:root[data-theme="dark"] .advisor-shell .secondary:hover { background: var(--blue-soft); }
+:root[data-theme="dark"] .advisor-shell .task-description { color: var(--ink-2); }
+.advisor-shell :focus-visible { outline: 3px solid #FFC20E; outline-offset: 2px; }
+.advisor-shell .icon { display: inline-grid; place-items: center; flex: none; }
+.advisor-shell .icon svg { width: 20px; height: 20px; }
+.advisor-shell .app-layout { display: contents; }
+
+/* ===== Sidebar: siempre azul marino (también en oscuro) ===== */
+.advisor-shell .app-sidebar { grid-column: 1; grid-row: 1 / 3; position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; gap: 6px; padding: 28px 16px; background: var(--side); border: 0; color: #fff; }
+.sidebar-brand, .sidebar-mvp, .sidebar-motto { display: none; }
+.advisor-shell .sidebar-brand { display: flex; align-items: center; gap: 10px; padding: 0 8px; }
+.advisor-shell .sidebar-brand-symbol { width: 34px; height: 34px; border: 6px solid #FFC20E; border-top-color: transparent; border-radius: 50%; font-size: 0; transform: rotate(-25deg); }
+.advisor-shell .sidebar-brand-name { font-size: 20px; font-weight: 700; letter-spacing: -.01em; }
+.advisor-shell .sidebar-caption { padding: 4px 8px 22px; color: #9CC0EE; font-size: 10px; font-weight: 700; letter-spacing: .24em; }
+.advisor-shell .sidebar-mvp { display: inline-block; margin-left: 6px; padding: 2px 8px; border-radius: 999px; background: #FFC20E; color: var(--side); letter-spacing: .1em; }
+.advisor-shell .sidebar-nav { display: grid; gap: 6px; }
+.advisor-shell .sidebar-item { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 48px; padding: 0 14px; border: 0; border-radius: var(--r-md); background: transparent; color: #C9D8F2; font: 500 14px var(--font); text-align: left; }
+.advisor-shell .sidebar-item b { width: 18px; color: inherit; font-size: 11px; font-weight: 500; opacity: .7; }
+.advisor-shell .sidebar-item:not(.active):hover { background: rgb(255 255 255 / 8%); }
+.advisor-shell .sidebar-item.active { background: linear-gradient(180deg, #2F82F0, #1F6FE5); color: #fff; box-shadow: 0 8px 18px rgb(31 111 229 / 35%); }
+.advisor-shell .sidebar-bottom { display: none; }
+.advisor-shell .sidebar-motto { display: block; margin-top: auto; padding: 16px 8px 0; border-top: 1px solid rgb(255 255 255 / 12%); color: #9FB6DD; font-size: 10px; font-weight: 600; line-height: 1.9; letter-spacing: .26em; }
+.advisor-shell .sidebar-motto::after { content: ""; display: block; width: 34px; height: 3px; margin-top: 8px; border-radius: 3px; background: #FFC20E; }
+
+/* ===== Barra superior ===== */
+.advisor-shell .topbar { grid-column: 2; grid-row: 1; min-height: 76px; padding: 0 40px; background: transparent; border: 0; box-shadow: none; }
+.advisor-shell .topbar .brand { display: none; }
+.advisor-shell .top-actions { width: 100%; justify-content: flex-end; gap: 12px; }
+.advisor-shell .session-name { display: flex; align-items: center; gap: 8px; color: var(--ink-2); font-size: 13px; font-weight: 600; }
+.advisor-shell .session-name::before { content: ""; width: 28px; height: 28px; border-radius: 50%; background: var(--blue-soft) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%231650B8'%3E%3Ccircle cx='12' cy='9' r='4'/%3E%3Cpath d='M4 20c0-4 4-6 8-6s8 2 8 6z'/%3E%3C/svg%3E") center / 16px no-repeat; }
+.advisor-shell .theme-button, .advisor-shell .topbar .text-button { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px; border-radius: var(--r-md); font: 600 13px var(--font); text-decoration: none; }
+.advisor-shell .theme-button { border: 1px solid var(--line); background: var(--card); color: var(--ink); box-shadow: var(--shadow); }
+.advisor-shell .theme-button:hover { background: var(--blue-soft); }
+.advisor-shell .topbar .text-button { border: 0; background: transparent; color: var(--ink-2); }
+.advisor-shell .topbar .text-button:hover { color: var(--ink); }
+.advisor-shell .theme-button svg, .advisor-shell .topbar .text-button svg { width: 18px; height: 18px; }
+
+/* ===== Contenido ===== */
+.advisor-shell main { grid-column: 2; grid-row: 2; max-width: none; padding: 0 40px; }
+.advisor-shell .advisor-page { margin: 0; padding: 0 0 40px; background: none; }
+.advisor-shell .advisor-intro { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; min-height: 0; margin: 8px 0 28px; padding: 0; background: none; border: 0; box-shadow: none; }
+.advisor-shell .advisor-kicker { display: block; color: var(--blue-ink); font-size: 11px; font-weight: 700; letter-spacing: .26em; }
+.advisor-shell .advisor-intro h1 { max-width: none; margin: 6px 0 8px; color: var(--ink); font-size: clamp(34px, 4.2vw, 52px); font-weight: 700; line-height: 1.05; letter-spacing: -.03em; }
+.advisor-shell .advisor-intro p:not(.advisor-quote) { margin: 0; color: var(--ink-2); font-size: 15px; }
+.advisor-shell .advisor-quote { max-width: 15ch; margin: 0; color: var(--blue-ink); font: 700 30px/1 var(--font-hand); text-align: center; transform: rotate(-3deg); text-shadow: none; }
+.advisor-shell .advisor-quote::after { content: ""; display: block; width: 70%; height: 4px; margin: 8px auto 0; border-radius: 4px; background: #FFC20E; }
+
+/* Tarjetas KPI: ícono suave, cifra y contexto (guía p. 12) */
+.advisor-shell .advisor-metrics { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 16px; margin: 0 0 16px; border: 0; }
+.advisor-shell .advisor-metrics .metric, .advisor-shell .advisor-metrics .metric + .metric { display: grid; grid-template-columns: 38px minmax(0, 1fr); grid-template-rows: 38px 1fr auto; column-gap: 10px; row-gap: 10px; min-height: 150px; padding: 18px; background: var(--card); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--shadow); }
+.advisor-shell .metric-icon { grid-column: 1; grid-row: 1; display: grid; place-items: center; width: 38px; height: 38px; border-radius: var(--r-sm); background: var(--blue-soft); color: var(--blue-ink); }
+.advisor-shell .metric-icon svg { width: 20px; height: 20px; }
+.advisor-shell .metric:nth-child(2) .metric-icon { background: var(--orange-soft); color: var(--orange-ink); }
+.advisor-shell .metric:nth-child(3) .metric-icon { background: var(--green-soft); color: var(--green-ink); }
+.advisor-shell .metric:nth-child(4) .metric-icon { background: var(--purple-soft); color: var(--purple); }
+.advisor-shell .metric:nth-child(5) .metric-icon { background: var(--gold-soft); color: var(--gold-ink); }
+.advisor-shell .advisor-metrics .metric-label { grid-column: 2; grid-row: 1; align-self: center; color: var(--ink); font-size: 13px; font-weight: 600; }
+.advisor-shell .advisor-metrics .metric-value { grid-column: 1 / -1; grid-row: 2; align-self: end; color: var(--ink); font-size: 40px; font-weight: 700; line-height: 1; letter-spacing: -.03em; }
+.advisor-shell .advisor-metrics .metric-note { grid-column: 1 / -1; grid-row: 3; color: var(--ink-2); font-size: 11px; }
+
+/* ===== Bento ===== */
+.advisor-shell .advisor-bento { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 16px; }
+.advisor-shell .advisor-client-panel, .advisor-shell .ranking-section, .advisor-shell .today-card, .advisor-shell .ai-recommendation, .advisor-shell .tasks-section {
+  min-width: 0; margin: 0; padding: 22px; background: var(--card); border: 1px solid var(--line); border-radius: var(--r-xl); box-shadow: var(--shadow); color: var(--ink);
+}
+.advisor-shell .advisor-client-panel { grid-column: span 7; grid-row: span 2; position: relative; display: flex; flex-direction: column; }
+.advisor-shell .today-card { grid-column: span 5; }
+.advisor-shell .ranking-section { grid-column: span 5; }
+.advisor-shell .ai-recommendation, .advisor-shell .tasks-section { grid-column: 1 / -1; }
+.advisor-shell .section-title { margin: 0 0 4px; padding: 0; color: var(--ink); font-size: 17px; font-weight: 600; }
+.advisor-shell .section-title::before { display: none; }
+.advisor-shell .advisor-client-panel > .section-title { font-size: 22px; letter-spacing: -.01em; }
+.advisor-shell .muted { color: var(--ink-2); }
+
+/* Ranking: la fila propia en dorado suave (guía p. 13) */
+.advisor-shell .ranking-section > .muted { margin: 0 0 16px; font-size: 13px; }
+.advisor-shell .ranking-list { display: grid; gap: 10px; border: 0; }
+.advisor-shell .ranking-row { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; gap: 12px; align-items: center; min-height: 64px; padding: 10px 14px; border: 1px solid var(--line); border-radius: var(--r-lg); background: color-mix(in srgb, var(--blue-soft) 30%, var(--card)); }
+.advisor-shell .ranking-row.current { background: var(--gold-soft); border-color: var(--gold-line); }
+.advisor-shell .medal { display: grid; place-items: center; width: 34px; height: 34px; border: 2px solid var(--line); border-radius: 50%; background: var(--card); color: var(--ink-2); font-size: 13px; font-weight: 700; }
+.advisor-shell .ranking-row.current .medal { border-color: #FFC20E; color: var(--ink); }
+.advisor-shell .ranking-identity { gap: 0; padding: 0; }
+.advisor-shell .ranking-identity::before { display: none; }
+.advisor-shell .ranking-identity strong { font-size: 14px; font-weight: 600; }
+.advisor-shell .ranking-identity .muted { font-size: 12px; }
+.advisor-shell .ranking-xp { color: var(--blue-ink); font-size: 19px; font-weight: 700; }
+
+/* Tu avance: gráfica sobre superficie oscura con anillo cian (guía v1.1 p. 24) */
+.advisor-shell .today-card { display: flex; align-items: center; gap: 22px; background: var(--side-2); border-color: #1E3C74; color: #EAF1FF; }
+.advisor-shell .ring { position: relative; flex: none; width: 112px; height: 112px; }
+.advisor-shell .ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.advisor-shell .ring circle { fill: none; stroke-width: 11; }
+.advisor-shell .ring-track { stroke: #1E3C74; }
+.advisor-shell .ring-value { stroke: var(--cyan); stroke-linecap: round; }
+.advisor-shell .ring b { position: absolute; inset: 0; display: grid; place-items: center; font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.advisor-shell .today-eyebrow { color: #9CC0EE; font-size: 11px; font-weight: 700; letter-spacing: .26em; text-transform: uppercase; }
+.advisor-shell .today-card strong { display: block; color: #fff; font-size: 17px; font-weight: 600; }
+.advisor-shell .today-card p { margin-top: 6px; color: #A9BBDD; font-size: 13px; }
+
+/* Mis clientes */
+.advisor-shell .customer-rail { margin: 4px 0 22px; padding: 0; border: 0; background: transparent; box-shadow: none; overflow: visible; }
+.advisor-shell .single-client .customer-rail { display: none; }
+.advisor-shell .customer-list { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; }
+.advisor-shell .customer-list li + li { margin: 0; }
+.advisor-shell .customer-option { display: inline-flex; align-items: center; width: auto; min-height: 40px; padding: 0 14px; border: 1px solid var(--line); border-radius: 999px; background: var(--card); color: var(--ink-2); }
+.advisor-shell .customer-option strong { font-size: 13px; font-weight: 600; }
+.advisor-shell .customer-option:hover { background: var(--blue-soft); }
+.advisor-shell .customer-option.selected { background: var(--side); border-color: var(--side); color: #fff; }
+:root[data-theme="dark"] .advisor-shell .customer-option.selected { background: var(--blue); border-color: var(--blue); color: #04163A; }
+.advisor-shell .customer-detail { display: flex; flex-direction: column; flex: 1; }
+.advisor-shell .progress-section { display: grid; grid-template-columns: minmax(0, 1fr) 210px; gap: 12px; align-items: end; flex: 1; padding: 0; background: none; border: 0; box-shadow: none; }
+.advisor-shell .progress-details { padding: 20px; border: 1px solid var(--line); border-radius: var(--r-lg); background: color-mix(in srgb, var(--blue-soft) 35%, var(--card)); }
+.advisor-shell .client-head { display: flex; align-items: center; gap: 10px; }
+.advisor-shell .client-icon { width: 38px; height: 38px; border-radius: var(--r-sm); background: var(--blue-soft); color: var(--blue-ink); }
+.advisor-shell .customer-type { margin: 0; color: var(--ink-3); font-size: 11px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; }
+.advisor-shell .participant-name { color: var(--ink); font-size: 22px; font-weight: 700; letter-spacing: -.01em; }
+.advisor-shell .progress-line { margin: 22px 0 8px; color: var(--ink-2); font-size: 13px; }
+.advisor-shell .progress-line strong { color: var(--ink); font-size: 15px; }
+.advisor-shell .progress-bar { height: 10px; margin: 0; background: var(--track); }
+.advisor-shell .progress-bar > i { background: var(--blue); }
+.advisor-shell .client-notice, .advisor-shell .client-complete-note { display: flex; gap: 10px; max-width: none; margin: 16px 0 0; padding: 12px 14px; border-radius: var(--r-md); font-size: 13px; line-height: 1.45; }
+.advisor-shell .client-notice { background: var(--yellow-soft); color: var(--ink); }
+.advisor-shell .client-notice .icon { color: var(--gold-ink); }
+.advisor-shell .client-notice b, .advisor-shell .client-complete-note b { display: block; }
+.advisor-shell .client-complete-note { background: var(--green-soft); color: var(--green-ink); font-weight: 400; }
+.advisor-shell .mascot { position: relative; align-self: end; margin: -60px -8px -22px 0; }
+.advisor-shell .mascot-image { display: block; width: 100%; height: auto; filter: drop-shadow(0 14px 14px rgb(10 42 94 / 18%)); }
+.advisor-shell .mascot-say { position: absolute; top: 6%; left: -34%; padding: 8px 14px; border: 1px solid var(--line); border-radius: 16px 16px 4px 16px; background: var(--card); color: var(--blue-ink); font: 700 22px/1 var(--font-hand); white-space: nowrap; box-shadow: var(--shadow); }
+.advisor-shell .mascot:has(.mascot-bubble) .mascot-say { opacity: 0; }
+
+/* Botones: alto 44 px, radio 12, un solo primario por zona (guía p. 12) */
+.advisor-shell .primary, .advisor-shell .secondary { min-height: 44px; padding: 0 18px; border-radius: var(--r-md); font: 600 13.5px var(--font); }
+.advisor-shell .primary { background: var(--blue); border: 1.5px solid var(--blue); color: #fff; box-shadow: none; }
+:root[data-theme="dark"] .advisor-shell .primary { color: #04163A; }
+.advisor-shell .primary:hover { background: var(--blue-ink); transform: none; }
+.advisor-shell .secondary { background: var(--card); border: 1.5px solid var(--line); color: var(--blue-ink); }
+.advisor-shell .secondary:hover { background: var(--blue-soft); }
+.advisor-shell .confirm-sale-button { margin-top: 16px; }
+.advisor-shell .clear-tasks-button { margin-top: 12px; }
+.advisor-shell .confirm-sale-button + .clear-tasks-button { margin-left: 8px; }
+
+/* Trompín y tareas */
+.advisor-shell .ai-recommendation { background: color-mix(in srgb, var(--blue-soft) 45%, var(--card)); }
+.advisor-shell .ai-recommendation p { margin: 6px 0 14px; color: var(--ink); font-size: 14px; line-height: 1.55; }
+.advisor-shell .sale-notice { margin: 8px 0 12px; padding: 12px 14px; border: 0; border-radius: var(--r-md); background: var(--yellow-soft); color: var(--ink); font-size: 13px; font-weight: 600; box-shadow: none; }
+.advisor-shell .task-list { display: grid; gap: 10px; margin-top: 12px; }
+.advisor-shell .task { margin: 0; padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--card); box-shadow: none; }
+.advisor-shell .task:hover { box-shadow: var(--shadow); }
+.advisor-shell .task h3 { font-size: 15px; font-weight: 600; }
+.advisor-shell .task-description { color: var(--ink-2); font-size: 13px; }
+.advisor-shell .task-status { padding: 4px 11px; border-radius: 999px; background: var(--orange-soft); color: var(--orange-ink); font-size: 12px; font-weight: 600; }
+.advisor-shell .task-status.completed { background: var(--green-soft); color: var(--green-ink); }
+.advisor-shell .empty-state { border-color: var(--line); color: var(--ink-2); }
+.advisor-shell footer { border-color: var(--line); color: var(--ink-3); }
+
+/* Íconos y botones de la barra superior también en el panel del administrador */
+.icon { display: inline-grid; place-items: center; flex: none; }
+.icon svg { width: 18px; height: 18px; }
+.theme-button, .topbar .text-button { display: inline-flex; align-items: center; gap: 6px; }
+
+/* Navegación móvil: barra inferior azul marino */
+.advisor-nav { display: none; }
+
+/* Ranking también en el panel del administrador (misma estructura de fila) */
+.ranking-row .medal { flex: none; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--line); font-size: .78rem; font-weight: 700; }
+.ranking-row .ranking-identity { flex: 1; }
+
+/* ===== Adaptación (guía p. 11) ===== */
+@media (max-width: 1180px) {
+  .advisor-shell .advisor-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .advisor-shell .advisor-client-panel { grid-column: 1 / -1; grid-row: auto; }
+  .advisor-shell .today-card, .advisor-shell .ranking-section { grid-column: span 6; }
+}
+@media (max-width: 1020px) and (min-width: 781px) {
+  .advisor-shell { grid-template-columns: 84px minmax(0, 1fr); }
+  .advisor-shell .sidebar-brand-name, .advisor-shell .sidebar-caption, .advisor-shell .sidebar-item > span:not(.icon), .advisor-shell .sidebar-item b, .advisor-shell .sidebar-motto { display: none; }
+  .advisor-shell .sidebar-brand { justify-content: center; padding: 0 0 22px; }
+  .advisor-shell .sidebar-item { justify-content: center; padding: 0; }
+  .advisor-shell .advisor-quote { display: none; }
+}
+@media (max-width: 780px) {
+  .advisor-shell { display: block; }
+  .advisor-shell .app-sidebar { display: none; }
+  .advisor-shell .topbar { padding: 12px 16px; min-height: 64px; }
+  .advisor-shell .topbar .brand { display: flex; color: var(--ink); }
+  .advisor-shell .topbar .brand span:not(.brand-mark) { display: none; }
+  .advisor-shell .top-actions { width: auto; gap: 8px; }
+  .advisor-shell .session-name, .advisor-shell .topbar .text-button > span:not(.icon) { display: none; }
+  .advisor-shell main { padding: 0 16px 96px; }
+  .advisor-shell .advisor-intro { display: block; }
+  .advisor-shell .advisor-quote { display: none; }
+  .advisor-shell .advisor-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .advisor-shell .advisor-metrics .metric:last-child { grid-column: 1 / -1; }
+  .advisor-shell .advisor-bento { grid-template-columns: 1fr; }
+  .advisor-shell .advisor-client-panel, .advisor-shell .today-card, .advisor-shell .ranking-section { grid-column: 1 / -1; }
+  .advisor-shell .progress-section { grid-template-columns: 1fr; }
+  .advisor-shell .mascot { display: none; }
+  .advisor-shell .advisor-nav { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; position: fixed; inset: auto 0 0; z-index: 40; margin: 0; padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px)); background: var(--side); }
+  .advisor-shell .advisor-nav button { display: grid; justify-items: center; gap: 2px; min-height: 52px; padding: 6px 0 0; border: 0; border-radius: 12px; background: transparent; color: #C9D8F2; font: 600 11px var(--font); }
+  .advisor-shell .advisor-nav button.active { background: rgb(255 255 255 / 14%); color: #fff; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .advisor-shell .sidebar-item, .advisor-shell .advisor-nav button { transition: background-color 150ms ease, transform 130ms cubic-bezier(.23, 1, .32, 1); }
+}
