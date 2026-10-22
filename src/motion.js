@@ -259,6 +259,38 @@ export function themeFade(node) {
   gsap.fromTo(node, { opacity: .85 }, { opacity: 1, duration: .2, clearProps: 'opacity' });
 }
 
+// Bienvenida inmersiva: letras que caen girando y se enfocan → Topitín entra saltando y saluda con
+// burbuja → panel de tareas → botón para seguir. Resuelve al terminar.
+export function welcomeSequence(root, setStage) {
+  if (!anim()) { setStage('done'); return Promise.resolve(); }
+  const chars = root.querySelectorAll('.welcome-char');
+  const mascot = root.querySelector('[data-testid="welcome-mascot"]');
+  const image = mascot.querySelector('.welcome-mascot-image');
+  const bubble = mascot.querySelector('.welcome-bubble');
+  const panel = root.querySelector('[data-testid="welcome-tasks"]');
+  const items = panel.querySelectorAll('[data-testid="welcome-task"]');
+  const close = root.querySelector('[data-testid="welcome-close"]');
+  return new Promise(resolve => {
+    const timeline = gsap.timeline({ onComplete: () => { setStage('done'); resolve(); } })
+      .from(root, { opacity: 0, duration: .35, ease: 'power1.out', clearProps: 'opacity' })
+      .from(chars, { y: 46, opacity: 0, rotationX: -90, filter: 'blur(8px)', duration: .7, stagger: .028, ease: 'back.out(1.7)', clearProps: 'transform,opacity,filter' }, .1)
+      .add(() => setStage('mascot'), '-=.15')
+      .from(image, { y: 90, opacity: 0, scale: .6, rotation: -8, duration: .75, ease: 'back.out(1.6)', clearProps: 'opacity' })
+      .to(image, { rotation: 6, duration: .22, yoyo: true, repeat: 3, ease: 'sine.inOut', onComplete: () => gsap.set(image, { clearProps: 'transform' }) })
+      .from(bubble, { scale: 0, opacity: 0, duration: .4, ease: 'back.out(2.4)', clearProps: 'transform,opacity' }, '<')
+      .add(() => setStage('tasks'), '-=.4')
+      .from(panel, { x: 40, opacity: 0, duration: .55, ease: 'power3.out', clearProps: 'transform,opacity' }, '<');
+    if (items.length) timeline.from(items, { y: 12, opacity: 0, duration: .35, stagger: .07, ease: 'power2.out', clearProps: 'transform,opacity' }, '-=.25');
+    timeline.add(() => setStage('done')).from(close, { y: 10, opacity: 0, duration: .35, ease: 'power3.out', clearProps: 'transform,opacity' });
+  });
+}
+
+// Salida de la bienvenida antes de quitarla del DOM.
+export function welcomeExit(root) {
+  if (!anim() || !root) return Promise.resolve();
+  return new Promise(resolve => gsap.to(root, { opacity: 0, scale: 1.02, duration: .4, ease: 'power2.in', onComplete: resolve }));
+}
+
 // Salida de la sección Halloween (§6.9).
 export function leave(node) {
   if (!anim()) { node.remove(); return; }

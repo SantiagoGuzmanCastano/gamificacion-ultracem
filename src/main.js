@@ -6,6 +6,7 @@ import { getMascotCheer, getProgress, isTaskCompletionConfirmed } from './game.j
 import { mascotImages, mascotLabels } from './mascot.js';
 import { formatCount } from './motion-utils.js';
 import * as motion from './motion.js';
+import { createWelcome, getWelcomeTasks, shouldShowWelcome, welcomeDayKey } from './welcome.js';
 
 const db = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
   ? createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY) : null;
@@ -220,6 +221,7 @@ async function boot() {
     await refreshHalloween();
     render();
     notice('');
+    showWelcome();
     halloweenTimer = window.setInterval(() => {
       if (!document.hidden && (profile?.role === 'admin' || advisorView === 'shop')) refreshHalloween();
     }, 10000);
@@ -229,6 +231,32 @@ async function boot() {
     document.querySelector('#page').replaceChildren(el('p', 'empty-state', 'No se pudieron cargar los datos.'), button('Reintentar', 'primary', boot));
     notice(cause.message, true);
   }
+}
+// Bienvenida del asesor: una vez al día por dispositivo, sobre el tablero ya cargado.
+function showWelcome() {
+  if (profile?.role !== 'advisor' || document.querySelector('.welcome')) return;
+  const today = welcomeDayKey();
+  let lastShown = null;
+  try { lastShown = localStorage.getItem('ultracem-welcome-day'); } catch { /* sin almacenamiento: se muestra */ }
+  if (!shouldShowWelcome(lastShown, today)) return;
+  try { localStorage.setItem('ultracem-welcome-day', today); } catch { /* sin almacenamiento */ }
+  const layer = el('div');
+  document.body.append(layer);
+  document.body.style.overflow = 'hidden';
+  const welcome = createWelcome(layer, {
+    name: profile.full_name.split(' ')[0],
+    tasks: getWelcomeTasks(clients),
+    mascotSrc: profile.equipped_skin === 'skeleton' ? '/skins/skeleton/happy.png' : mascotImages.happy,
+    onClose: async () => {
+      await motion.welcomeExit(welcome.element);
+      layer.remove();
+      document.body.style.overflow = '';
+      entry = 'view';
+      render();
+      document.querySelector('#page h1')?.focus({ preventScroll: true });
+    },
+  });
+  welcome.play();
 }
 function stopHalloweenSync() {
   window.clearInterval(halloweenTimer);
