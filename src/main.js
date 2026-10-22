@@ -11,6 +11,9 @@ import { clearMascotFeedback, showMascotFeedback } from './mascot-feedback.js';
 import { clearAdvisorEntrance, playAdvisorEntrance, resetAdvisorEntrance } from './advisor-entrance.js';
 import { clearAdvisorEffects, celebrateTask, celebrateSale, revealRecommendation } from './advisor-effects.js';
 import { isValidProfileImage, profileImageExtension } from './profile.js';
+import { createProfileAvatar, createProfilePhotoPicker, renderAdvisorProfile, playProfileEntrance, clearProfileEntrance } from './profile-view.js';
+import { showLoadingScreen, clearLoadingScreen } from './loading-screen.js';
+import { attachRankingAvatars } from './ranking-avatars.js';
 
 const db = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
   ? createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY) : null;
@@ -23,6 +26,8 @@ let halloweenTimer = null, halloweenRequest = 0;
 let noticeTimer = null;
 let profilePhotoPromptPending = false;
 let profilePhotoUrlTimer = null;
+let profilePhotoSaving = false;
+let profileKeyboardNavigation = false;
 document.documentElement.dataset.theme = theme;
 const taskOrder = ['Preparar una visita', 'Contactar al cliente', 'Revisar una cotización', 'Planear el siguiente paso'];
 
@@ -51,13 +56,7 @@ function field(label, control) {
   return wrap;
 }
 function profileAvatar(className = 'profile-avatar') {
-  if (profile.avatar_url) {
-    const image = el('img', className);
-    image.src = profile.avatar_url;
-    image.alt = `Foto de ${profile.full_name}`;
-    return image;
-  }
-  return el('span', `${className} profile-avatar-placeholder`, profile.full_name.slice(0, 1).toUpperCase());
+  return createProfileAvatar(profile, className === 'profile-avatar' ? '' : className);
 }
 async function signOut() {
   const result = await db.auth.signOut();
@@ -72,15 +71,26 @@ async function signOut() {
 function scheduleProfilePhotoUrlRefresh() {
   window.clearInterval(profilePhotoUrlTimer);
   profilePhotoUrlTimer = null;
-  if (!profile.avatar_path) return;
+  if (!profile.avatar_path && !ranking.some(row => row.avatar_url)) return;
   profilePhotoUrlTimer = window.setInterval(async () => {
-    const signed = await db.storage.from('advisor-profile-photos').createSignedUrl(profile.avatar_path, 3600);
-    if (!signed.error && signed.data?.signedUrl) {
-      profile.avatar_url = signed.data.signedUrl;
+    const viewerId = user?.id;
+    const ownPath = profile?.avatar_path;
+    if (!profile || !viewerId) return;
+    try {
+      const [signed, photos] = await Promise.all([
+        ownPath ? db.storage.from('advisor-profile-photos').createSignedUrl(ownPath, 3600) : null,
+        attachRankingAvatars(db, ranking, profile),
+      ]);
+      if (user?.id !== viewerId || !profile) return;
+      if (profile.avatar_path === ownPath && signed?.data?.signedUrl) profile.avatar_url = signed.data.signedUrl;
+      ranking = photos.map(row => row.advisor_id === viewerId ? { ...row, avatar_url: profile.avatar_url } : row);
       document.querySelectorAll('.profile-avatar').forEach(node => {
-        if (node.tagName === 'IMG') node.src = profile.avatar_url;
+        if (node.classList.contains('ranking-avatar')) {
+          const row = ranking.find(item => item.advisor_id === node.dataset.advisorId);
+          if (row) node.replaceWith(createProfileAvatar(row, 'ranking-avatar'));
+        } else if (node.tagName === 'IMG' && profile.avatar_url) node.src = profile.avatar_url;
       });
-    }
+    } catch { /* Keep existing photos if background renewal is unavailable. */ }
   }, 50 * 60 * 1000);
 }
 async function markProfilePhotoPrompted() {
@@ -89,31 +99,48 @@ async function markProfilePhotoPrompted() {
   profilePhotoPromptPending = false;
 }
 async function uploadProfilePhoto(file) {
+  if (profilePhotoSaving) return;
   if (!isValidProfileImage(file)) {
     notice('Selecciona una imagen JPG, PNG o WebP de máximo 5 MB.', true);
     return;
   }
-  const path = `${user.id}/${crypto.randomUUID()}.${profileImageExtension(file)}`;
-  const upload = await db.storage.from('advisor-profile-photos').upload(path, file, { contentType: file.type, upsert: false });
-  if (upload.error) { notice('No se pudo guardar la foto. Intenta de nuevo.', true); return; }
-  const previousPath = profile.avatar_path;
-  const update = await db.from('mvp_profiles').update({ avatar_path: path, photo_prompted_at: new Date().toISOString() }).eq('user_id', user.id);
-  if (update.error) {
-    await db.storage.from('advisor-profile-photos').remove([path]);
+  setProfilePhotoBusy(true);
+  try {
+    const path = `${user.id}/${crypto.randomUUID()}.${profileImageExtension(file)}`;
+    const upload = await db.storage.from('advisor-profile-photos').upload(path, file, { contentType: file.type, upsert: false });
+    if (upload.error) { notice('No se pudo guardar la foto. Intenta de nuevo.', true); return; }
+    const previousPath = profile.avatar_path;
+    const update = await db.from('mvp_profiles').update({ avatar_path: path, photo_prompted_at: new Date().toISOString() }).eq('user_id', user.id);
+    if (update.error) {
+      await db.storage.from('advisor-profile-photos').remove([path]);
+      notice('No se pudo guardar la foto. Intenta de nuevo.', true);
+      return;
+    }
+    if (previousPath) await db.storage.from('advisor-profile-photos').remove([previousPath]);
+    const signed = await db.storage.from('advisor-profile-photos').createSignedUrl(path, 3600);
+    profile.avatar_path = path;
+    profile.avatar_url = signed.data?.signedUrl || '';
+    ranking = ranking.map(row => row.advisor_id === user.id ? { ...row, avatar_url: profile.avatar_url } : row);
+    scheduleProfilePhotoUrlRefresh();
+    profilePhotoPromptPending = false;
+    document.querySelector('.profile-dialog-backdrop')?.remove();
+    render();
+    notice('Foto de perfil actualizada.');
+  } catch {
     notice('No se pudo guardar la foto. Intenta de nuevo.', true);
-    return;
+  } finally {
+    setProfilePhotoBusy(false);
   }
-  if (previousPath) await db.storage.from('advisor-profile-photos').remove([previousPath]);
-  const signed = await db.storage.from('advisor-profile-photos').createSignedUrl(path, 3600);
-  profile.avatar_path = path;
-  profile.avatar_url = signed.data?.signedUrl || '';
-  scheduleProfilePhotoUrlRefresh();
-  profilePhotoPromptPending = false;
-  document.querySelector('.profile-dialog-backdrop')?.remove();
-  render();
+}
+function setProfilePhotoBusy(busy) {
+  profilePhotoSaving = busy;
+  document.querySelectorAll('.profile-photo-action').forEach(control => { control.disabled = busy; });
+  document.querySelectorAll('.profile-upload-label').forEach(label => { label.textContent = busy ? 'Guardando foto…' : label.dataset.defaultLabel; });
+  document.querySelectorAll('.profile-upload-status').forEach(status => { status.textContent = busy ? 'Guardando foto…' : ''; });
+  document.querySelector('.profile-photo-settings')?.setAttribute('aria-busy', String(busy));
 }
 async function removeProfilePhoto() {
-  if (!profile.avatar_path) return;
+  if (profilePhotoSaving || !profile.avatar_path) return;
   if (!window.confirm('¿Quitar tu foto de perfil?')) return;
   const removed = await db.storage.from('advisor-profile-photos').remove([profile.avatar_path]);
   if (removed.error) { notice('No se pudo quitar la foto. Intenta de nuevo.', true); return; }
@@ -121,7 +148,9 @@ async function removeProfilePhoto() {
   if (update.error) { notice('No se pudo actualizar el perfil. Intenta de nuevo.', true); return; }
   profile.avatar_path = null;
   profile.avatar_url = '';
+  ranking = ranking.map(row => row.advisor_id === user.id ? { ...row, avatar_url: '' } : row);
   render();
+  notice('Foto de perfil eliminada.');
 }
 async function deleteAccount() {
   if (!window.confirm('¿Borrar tu cuenta, clientes, tareas, ventas y progreso? Esta acción no se puede deshacer.')) return;
@@ -141,12 +170,8 @@ function openProfilePanel(prompt = false) {
   const title = el('h2', '', prompt ? 'Añade tu foto' : 'Tu perfil');
   title.id = 'profile-dialog-title';
   dialog.append(profileAvatar('profile-dialog-avatar'), title, el('p', 'muted', prompt ? 'Elige una foto desde tu dispositivo o continúa sin foto.' : 'Actualiza tu foto cuando quieras.'));
-  const inputNode = el('input');
-  inputNode.type = 'file'; inputNode.accept = 'image/jpeg,image/png,image/webp'; inputNode.hidden = true;
-  const choose = button(prompt ? 'Elegir foto' : 'Cambiar foto', 'primary', () => inputNode.click());
-  inputNode.addEventListener('change', () => inputNode.files[0] && uploadProfilePhoto(inputNode.files[0]));
-  dialog.append(choose, inputNode);
-  if (prompt) dialog.append(button('Continuar sin foto', 'text-button', async () => { try { await markProfilePhotoPrompted(); backdrop.remove(); } catch (cause) { notice(cause.message, true); } }));
+  dialog.append(createProfilePhotoPicker(uploadProfilePhoto, { prompt, busy: profilePhotoSaving }));
+  if (prompt) dialog.append(button('Continuar sin foto', 'text-button profile-photo-action', async () => { try { await markProfilePhotoPrompted(); backdrop.remove(); } catch (cause) { notice(cause.message, true); } }));
   else dialog.append(button('Cerrar sesión', 'text-button profile-signout', signOut));
   backdrop.append(dialog);
   backdrop.addEventListener('click', event => { if (event.target === backdrop && !prompt) backdrop.remove(); });
@@ -156,7 +181,7 @@ function openProfilePanel(prompt = false) {
 function advisorProfileCard() {
   const card = el('section', 'advisor-profile-card');
   card.append(profileAvatar(), el('div', 'advisor-profile-copy', profile.full_name));
-  card.append(button('Perfil', 'profile-button', () => { advisorView = 'profile'; render(); }));
+  card.append(button('Perfil', 'profile-button', event => { profileKeyboardNavigation = event.detail === 0; advisorView = 'profile'; render(); }));
   return card;
 }
 function notice(text, error = false) {
@@ -165,8 +190,11 @@ function notice(text, error = false) {
   node.textContent = text;
   node.hidden = !text;
   node.classList.toggle('error-notice', error);
-  node.classList.toggle('success-notice', !error && text === 'Skin equipada.');
-  if (!error && text === 'Skin equipada.') noticeTimer = window.setTimeout(() => { node.hidden = true; }, 3200);
+  const successToast = !error && ['Skin equipada.', 'Foto de perfil actualizada.', 'Foto de perfil eliminada.'].includes(text);
+  const validationToast = error && text === 'Selecciona una imagen JPG, PNG o WebP de máximo 5 MB.';
+  node.classList.toggle('success-notice', successToast);
+  node.classList.toggle('validation-notice', validationToast);
+  if (successToast || validationToast) noticeTimer = window.setTimeout(() => { node.hidden = true; }, validationToast ? 6000 : 3200);
 }
 function authError(cause) {
   if (cause.code === 'invalid_credentials') return 'Correo o contraseña incorrectos.';
@@ -178,6 +206,7 @@ function authError(cause) {
   return cause.message || 'No se pudo acceder.';
 }
 function shell() {
+  clearLoadingScreen(root);
   clearAdvisorEffects();
   clearAdvisorEntrance();
   clearMascotFeedback();
@@ -194,7 +223,8 @@ function shell() {
     caption.after(el('span', 'sidebar-mvp', 'MVP'));
     sidebar.prepend(brand);
     sidebar.append(el('p', 'sidebar-motto', 'CONSTRUYENDO UN MUNDO MÁS FUERTE'), advisorProfileCard());
-    const navigate = view => {
+    const navigate = (view, event) => {
+      profileKeyboardNavigation = event.detail === 0;
       advisorView = view;
       render();
       if (view === 'shop') refreshHalloween();
@@ -211,7 +241,7 @@ function shell() {
     mobileNav.setAttribute('aria-label', 'Portal del asesor');
     for (const [view, label, icon] of [['dashboard', 'Inicio', 'home'], ['shop', 'Tienda', 'shop'], ['map', 'Mapa clientela', 'map'], ['profile', 'Perfil', 'profile']]) {
       for (const [container, className] of [[nav, 'sidebar-item'], [mobileNav, '']]) {
-        const control = button(label, className, () => navigate(view));
+        const control = button(label, className, event => navigate(view, event));
         const navIcon = el('span', 'advisor-nav-icon');
         navIcon.innerHTML = advisorIcon(icon);
         control.prepend(navIcon);
@@ -316,7 +346,6 @@ async function loadData() {
     const signed = await db.storage.from('advisor-profile-photos').createSignedUrl(profile.avatar_path, 3600);
     profile.avatar_url = signed.data?.signedUrl || '';
   }
-  scheduleProfilePhotoUrlRefresh();
   profilePhotoPromptPending = profile.role === 'advisor' && !profile.photo_prompted_at;
   if (profile.role === 'admin') {
     const list = await db.rpc('get_mvp_advisors');
@@ -340,16 +369,18 @@ async function loadData() {
   sales = salesResult.data ?? [];
   const rankingResult = await db.rpc('get_mvp_advisor_ranking');
   if (rankingResult.error) throw rankingResult.error;
-  ranking = rankingResult.data ?? [];
+  ranking = await attachRankingAvatars(db, rankingResult.data ?? [], profile);
+  scheduleProfilePhotoUrlRefresh();
   if (!clients.some(client => client.id === selectedId)) selectedId = clients[0]?.id ?? null;
 }
 async function boot() {
   stopHalloweenSync();
-  shell(); notice('Cargando datos…');
-  const result = await db.auth.getUser();
-  user = result.data.user;
-  if (!user) { resetAdvisorEntrance(); profile = null; render(); return; }
+  shell();
+  showLoadingScreen(root);
   try {
+    const result = await db.auth.getUser();
+    user = result.data.user;
+    if (!user) { resetAdvisorEntrance(); profile = null; render(); return; }
     await loadData();
     await refreshHalloween();
     render();
@@ -478,6 +509,9 @@ function rankingSection(advisor = false) {
     const confirmedSales = Number(row.confirmed_sales ?? row.sales ?? 0);
     const item = el('li', 'ranking-row' + (row.advisor_id === user?.id ? ' current' : ''));
     const identity = el('div', 'ranking-identity');
+    const person = el('div', 'ranking-person');
+    if (!row.placeholder) person.append(createProfileAvatar(row, 'ranking-avatar'));
+    person.append(identity);
     if (advisor) {
       item.classList.toggle('ranking-placeholder', Boolean(row.placeholder));
       const rank = el('span', 'rank-medal', String(row.position));
@@ -487,11 +521,11 @@ function rankingSection(advisor = false) {
       count.append(el('small', '', 'ventas'));
       const tons = el('span', 'ranking-tons-value', row.placeholder ? '—' : `${Number(row.confirmed_tons || 0).toLocaleString('es-CO')} t`);
       tons.append(el('small', '', 'vendidas'));
-      values.append(count, tons); item.append(rank, identity, values); list.append(item);
+      values.append(count, tons); item.append(rank, person, values); list.append(item);
       continue;
     }
     identity.append(el('strong', '', `${row.position}. ${row.full_name}`), el('span', 'muted', `${confirmedSales} ventas · ${Number(row.confirmed_tons || 0).toLocaleString('es-CO')} toneladas`));
-    item.append(identity, el('strong', 'ranking-xp', `${confirmedSales} ventas`));
+    item.append(person, el('strong', 'ranking-xp', `${confirmedSales} ventas`));
     list.append(item);
   }
   section.append(list);
@@ -684,20 +718,8 @@ function advisorMapPage(page) {
   page.append(welcome, preview);
 }
 function advisorProfilePage(page) {
-  page.className = 'advisor-page profile-page';
-  const welcome = el('header', 'advisor-welcome');
-  welcome.append(el('h1', '', 'Perfil'), el('p', '', 'Administra tu foto y tu sesión.'));
-  const panel = el('section', 'profile-view-panel');
-  panel.append(profileAvatar('profile-page-avatar'));
-  const copy = el('div', 'profile-view-copy');
-  copy.append(el('h2', '', profile.full_name), el('p', 'muted', profile.role === 'advisor' ? 'Asesor comercial' : 'Administrador'));
-  const actions = el('div', 'profile-view-actions');
-  actions.append(button('Cambiar foto', 'primary', () => openProfilePanel()));
-  if (profile.avatar_path) actions.append(button('Quitar foto', 'secondary', removeProfilePhoto));
-  if (profile.role === 'advisor') actions.append(button('Cerrar sesión', 'text-button profile-signout', signOut));
-  if (profile.role === 'advisor') actions.append(button('Borrar cuenta', 'text-button profile-delete', deleteAccount));
-  panel.append(copy, actions);
-  page.append(welcome, panel);
+  renderAdvisorProfile(page, profile, { upload: uploadProfilePhoto, remove: removeProfilePhoto, signOut, deleteAccount }, profilePhotoSaving);
+  playProfileEntrance(page, profileKeyboardNavigation);
 }
 function advisorPage(page) {
   page.className = 'advisor-page';
@@ -921,6 +943,7 @@ async function refresh(text) {
   catch (cause) { notice(`El cambio se guardó, pero no se pudo actualizar la vista: ${cause.message}`, true); }
 }
 function render() {
+  clearProfileEntrance(!profile || profile.role !== 'advisor' || advisorView !== 'profile');
   shell();
   const page = document.querySelector('#page');
   if (!db) page.replaceChildren(el('p', 'empty-state', 'Falta configurar Supabase en .env.local.'));
