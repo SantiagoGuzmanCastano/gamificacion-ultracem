@@ -10,6 +10,7 @@ import { advisorIcon } from './advisor-icons.js';
 import { clearMascotFeedback, showMascotFeedback } from './mascot-feedback.js';
 import { clearAdvisorEntrance, playAdvisorEntrance, resetAdvisorEntrance } from './advisor-entrance.js';
 import { clearAdvisorEffects, celebrateTask, celebrateSale, revealRecommendation } from './advisor-effects.js';
+import { isValidProfileImage, profileImageExtension } from './profile.js';
 
 const db = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
   ? createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY) : null;
@@ -20,6 +21,8 @@ let advisorView = 'dashboard', adminView = 'dashboard';
 let halloweenEnabled = false, halloweenReady = false, halloweenSaving = false, halloweenError = '';
 let halloweenTimer = null, halloweenRequest = 0;
 let noticeTimer = null;
+let profilePhotoPromptPending = false;
+let profilePhotoUrlTimer = null;
 document.documentElement.dataset.theme = theme;
 const taskOrder = ['Preparar una visita', 'Contactar al cliente', 'Revisar una cotización', 'Planear el siguiente paso'];
 
@@ -46,6 +49,96 @@ function field(label, control) {
   const wrap = el('label', 'field', label);
   wrap.append(control);
   return wrap;
+}
+function profileAvatar(className = 'profile-avatar') {
+  if (profile.avatar_url) {
+    const image = el('img', className);
+    image.src = profile.avatar_url;
+    image.alt = `Foto de ${profile.full_name}`;
+    return image;
+  }
+  return el('span', `${className} profile-avatar-placeholder`, profile.full_name.slice(0, 1).toUpperCase());
+}
+async function signOut() {
+  const result = await db.auth.signOut();
+  if (result.error) { notice('No se pudo cerrar la sesión. Intenta de nuevo.', true); return; }
+  resetAdvisorEntrance();
+  stopHalloweenSync();
+  window.clearInterval(profilePhotoUrlTimer);
+  profilePhotoUrlTimer = null;
+  user = profile = null; advisors = clients = sales = ranking = []; aiRecommendation = ''; saleNotice = ''; advisorView = 'dashboard'; adminView = 'dashboard';
+  render();
+}
+function scheduleProfilePhotoUrlRefresh() {
+  window.clearInterval(profilePhotoUrlTimer);
+  profilePhotoUrlTimer = null;
+  if (!profile.avatar_path) return;
+  profilePhotoUrlTimer = window.setInterval(async () => {
+    const signed = await db.storage.from('advisor-profile-photos').createSignedUrl(profile.avatar_path, 3600);
+    if (!signed.error && signed.data?.signedUrl) {
+      profile.avatar_url = signed.data.signedUrl;
+      document.querySelectorAll('.profile-avatar').forEach(node => {
+        if (node.tagName === 'IMG') node.src = profile.avatar_url;
+      });
+    }
+  }, 50 * 60 * 1000);
+}
+async function markProfilePhotoPrompted() {
+  const result = await db.from('mvp_profiles').update({ photo_prompted_at: new Date().toISOString() }).eq('user_id', user.id);
+  if (result.error) throw result.error;
+  profilePhotoPromptPending = false;
+}
+async function uploadProfilePhoto(file) {
+  if (!isValidProfileImage(file)) {
+    notice('Selecciona una imagen JPG, PNG o WebP de máximo 5 MB.', true);
+    return;
+  }
+  const path = `${user.id}/${crypto.randomUUID()}.${profileImageExtension(file)}`;
+  const upload = await db.storage.from('advisor-profile-photos').upload(path, file, { contentType: file.type, upsert: false });
+  if (upload.error) { notice('No se pudo guardar la foto. Intenta de nuevo.', true); return; }
+  const previousPath = profile.avatar_path;
+  const update = await db.from('mvp_profiles').update({ avatar_path: path, photo_prompted_at: new Date().toISOString() }).eq('user_id', user.id);
+  if (update.error) {
+    await db.storage.from('advisor-profile-photos').remove([path]);
+    notice('No se pudo guardar la foto. Intenta de nuevo.', true);
+    return;
+  }
+  if (previousPath) await db.storage.from('advisor-profile-photos').remove([previousPath]);
+  const signed = await db.storage.from('advisor-profile-photos').createSignedUrl(path, 3600);
+  profile.avatar_path = path;
+  profile.avatar_url = signed.data?.signedUrl || '';
+  scheduleProfilePhotoUrlRefresh();
+  profilePhotoPromptPending = false;
+  document.querySelector('.profile-dialog-backdrop')?.remove();
+  render();
+}
+function openProfilePanel(prompt = false) {
+  document.querySelector('.profile-dialog-backdrop')?.remove();
+  const backdrop = el('div', 'profile-dialog-backdrop');
+  const dialog = el('section', 'profile-dialog');
+  dialog.setAttribute('role', 'dialog');
+  dialog.setAttribute('aria-modal', 'true');
+  dialog.setAttribute('aria-labelledby', 'profile-dialog-title');
+  const title = el('h2', '', prompt ? 'Añade tu foto' : 'Tu perfil');
+  title.id = 'profile-dialog-title';
+  dialog.append(profileAvatar('profile-dialog-avatar'), title, el('p', 'muted', prompt ? 'Elige una foto desde tu dispositivo o continúa sin foto.' : 'Actualiza tu foto cuando quieras.'));
+  const inputNode = el('input');
+  inputNode.type = 'file'; inputNode.accept = 'image/jpeg,image/png,image/webp'; inputNode.hidden = true;
+  const choose = button(prompt ? 'Elegir foto' : 'Cambiar foto', 'primary', () => inputNode.click());
+  inputNode.addEventListener('change', () => inputNode.files[0] && uploadProfilePhoto(inputNode.files[0]));
+  dialog.append(choose, inputNode);
+  if (prompt) dialog.append(button('Continuar sin foto', 'text-button', async () => { try { await markProfilePhotoPrompted(); backdrop.remove(); } catch (cause) { notice(cause.message, true); } }));
+  else dialog.append(button('Cerrar sesión', 'text-button profile-signout', signOut));
+  backdrop.append(dialog);
+  backdrop.addEventListener('click', event => { if (event.target === backdrop && !prompt) backdrop.remove(); });
+  document.body.append(backdrop);
+  dialog.querySelector('button')?.focus();
+}
+function advisorProfileCard() {
+  const card = el('section', 'advisor-profile-card');
+  card.append(profileAvatar(), el('div', 'advisor-profile-copy', profile.full_name));
+  card.append(button('Perfil', 'profile-button', () => openProfilePanel()));
+  return card;
 }
 function notice(text, error = false) {
   const node = document.querySelector('#notice');
@@ -81,7 +174,7 @@ function shell() {
     caption.textContent = 'GAMIFICACIÓN';
     caption.after(el('span', 'sidebar-mvp', 'MVP'));
     sidebar.prepend(brand);
-    sidebar.append(el('p', 'sidebar-motto', 'CONSTRUYENDO UN MUNDO MÁS FUERTE'));
+    sidebar.append(el('p', 'sidebar-motto', 'CONSTRUYENDO UN MUNDO MÁS FUERTE'), advisorProfileCard());
     const navigate = view => {
       advisorView = view;
       render();
@@ -110,6 +203,7 @@ function shell() {
         container.append(control);
       }
     }
+    mobileNav.append(button('Perfil', '', () => openProfilePanel()));
     document.querySelector('main').prepend(mobileNav);
   } else if (profile?.role === 'admin') {
     const sidebar = root.querySelector('.app-sidebar');
@@ -125,7 +219,7 @@ function shell() {
   }
   if (profile) {
     const actions = document.querySelector('#actions');
-    actions.append(el('span', 'session-name', `${profile.full_name} · ${profile.role === 'admin' ? 'Administrador' : 'Asesor'}`));
+    if (profile.role === 'admin') actions.append(el('span', 'session-name', `${profile.full_name} · Administrador`));
     const themeToggle = button('', 'theme-button', () => {
       const applyTheme = () => {
         theme = theme === 'dark' ? 'light' : 'dark';
@@ -142,14 +236,7 @@ function shell() {
     themeToggle.setAttribute('aria-label', `Cambiar a modo ${theme === 'dark' ? 'claro' : 'oscuro'}`);
     themeToggle.setAttribute('aria-pressed', String(theme === 'dark'));
     actions.append(themeToggle);
-    actions.append(button('Cerrar sesión', 'text-button', async () => {
-      const result = await db.auth.signOut();
-      if (result.error) { notice('No se pudo cerrar la sesión. Intenta de nuevo.', true); return; }
-      resetAdvisorEntrance();
-      stopHalloweenSync();
-      user = profile = null; advisors = clients = sales = ranking = []; aiRecommendation = ''; saleNotice = ''; advisorView = 'dashboard'; adminView = 'dashboard';
-      render();
-    }));
+    if (profile.role === 'admin') actions.append(button('Cerrar sesión', 'text-button', signOut));
   }
 }
 function authPage(mode = 'login') {
@@ -199,9 +286,20 @@ function authPage(mode = 'login') {
   page.replaceChildren(form, button(mode === 'login' ? 'Crear cuenta de asesor' : 'Ya tengo cuenta', 'text-button auth-toggle', () => authPage(mode === 'login' ? 'signup' : 'login')));
 }
 async function loadData() {
-  const own = await db.from('mvp_profiles').select('user_id,full_name,role,equipped_skin').eq('user_id', user.id).single();
+  let own = await db.from('mvp_profiles').select('user_id,full_name,role,equipped_skin,avatar_path,photo_prompted_at').eq('user_id', user.id).single();
+  if (own.error && /avatar_path|photo_prompted_at|column/i.test(own.error.message || '')) {
+    own = await db.from('mvp_profiles').select('user_id,full_name,role,equipped_skin').eq('user_id', user.id).single();
+    if (!own.error) own.data.photo_prompted_at = new Date().toISOString();
+  }
   if (own.error) throw own.error;
   profile = own.data;
+  profile.avatar_url = '';
+  if (profile.avatar_path) {
+    const signed = await db.storage.from('advisor-profile-photos').createSignedUrl(profile.avatar_path, 3600);
+    profile.avatar_url = signed.data?.signedUrl || '';
+  }
+  scheduleProfilePhotoUrlRefresh();
+  profilePhotoPromptPending = profile.role === 'advisor' && !profile.photo_prompted_at;
   if (profile.role === 'admin') {
     const list = await db.rpc('get_mvp_advisors');
     if (list.error) throw list.error;
@@ -802,5 +900,6 @@ function render() {
     playAdvisorEntrance(root);
   }
   paintHalloween();
+  if (profilePhotoPromptPending && profile?.role === 'advisor') openProfilePanel(true);
 }
 if (db) boot(); else render();
