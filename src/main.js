@@ -137,7 +137,7 @@ function openProfilePanel(prompt = false) {
 function advisorProfileCard() {
   const card = el('section', 'advisor-profile-card');
   card.append(profileAvatar(), el('div', 'advisor-profile-copy', profile.full_name));
-  card.append(button('Perfil', 'profile-button', () => openProfilePanel()));
+  card.append(button('Perfil', 'profile-button', () => { advisorView = 'profile'; render(); }));
   return card;
 }
 function notice(text, error = false) {
@@ -190,7 +190,7 @@ function shell() {
     nav.replaceChildren();
     const mobileNav = el('nav', 'advisor-nav');
     mobileNav.setAttribute('aria-label', 'Portal del asesor');
-    for (const [view, label, icon] of [['dashboard', 'Inicio', 'home'], ['shop', 'Tienda', 'shop'], ['map', 'Mapa clientela', 'map']]) {
+    for (const [view, label, icon] of [['dashboard', 'Inicio', 'home'], ['shop', 'Tienda', 'shop'], ['map', 'Mapa clientela', 'map'], ['profile', 'Perfil', 'profile']]) {
       for (const [container, className] of [[nav, 'sidebar-item'], [mobileNav, '']]) {
         const control = button(label, className, () => navigate(view));
         const navIcon = el('span', 'advisor-nav-icon');
@@ -203,7 +203,6 @@ function shell() {
         container.append(control);
       }
     }
-    mobileNav.append(button('Perfil', '', () => openProfilePanel()));
     document.querySelector('main').prepend(mobileNav);
   } else if (profile?.role === 'admin') {
     const sidebar = root.querySelector('.app-sidebar');
@@ -665,6 +664,20 @@ function advisorMapPage(page) {
   preview.append(mascot, copy);
   page.append(welcome, preview);
 }
+function advisorProfilePage(page) {
+  page.className = 'advisor-page profile-page';
+  const welcome = el('header', 'advisor-welcome');
+  welcome.append(el('h1', '', 'Perfil'), el('p', '', 'Administra tu foto y tu sesión.'));
+  const panel = el('section', 'profile-view-panel');
+  panel.append(profileAvatar('profile-page-avatar'));
+  const copy = el('div', 'profile-view-copy');
+  copy.append(el('h2', '', profile.full_name), el('p', 'muted', profile.role === 'advisor' ? 'Asesor comercial' : 'Administrador'));
+  const actions = el('div', 'profile-view-actions');
+  actions.append(button('Cambiar foto', 'primary', () => openProfilePanel()));
+  if (profile.role === 'advisor') actions.append(button('Cerrar sesión', 'text-button profile-signout', signOut));
+  panel.append(copy, actions);
+  page.append(welcome, panel);
+}
 function advisorPage(page) {
   page.className = 'advisor-page';
   const portfolio = getPortfolioProgress(clients, sales);
@@ -895,6 +908,7 @@ function render() {
   else if (profile.role === 'admin') adminPage(page);
   else if (advisorView === 'shop') renderShop(page, sales.filter(sale => sale.advisor_id === user?.id && sale.confirmed).length, halloweenReady && halloweenEnabled, profile.equipped_skin, equipSkin);
   else if (advisorView === 'map') advisorMapPage(page);
+  else if (advisorView === 'profile') advisorProfilePage(page);
   else {
     advisorPage(page);
     playAdvisorEntrance(root);

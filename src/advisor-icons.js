@@ -5,6 +5,7 @@ const paths = {
   shop: '<path d="M3 9h18l-2-6H5zM4 9v12h16V9M9 21v-8h6v8"/>',
   map: '<path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3ZM9 3v15M15 6v15"/>',
   clients: '<circle cx="8" cy="7" r="3"/><circle cx="17" cy="7" r="3"/><path d="M2 21v-3a6 6 0 0 1 12 0v3M17 12a5 5 0 0 1 5 5v4"/>',
+  profile: '<circle cx="12" cy="7" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
   truck: '<path d="M2 4h12v13H2zM14 9h5l3 4v4h-8"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="18" r="3"/>',
   sales: '<path d="M5 20v-6M12 20V8M19 20V3" stroke-width="4"/>',
   trophy: '<path d="M7 3h10v6a5 5 0 0 1-10 0zM7 5H3v3a4 4 0 0 0 5 4M17 5h4v3a4 4 0 0 1-5 4M12 14v7M7 21h10"/>',
