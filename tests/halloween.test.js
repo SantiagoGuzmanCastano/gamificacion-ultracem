@@ -2,7 +2,28 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { halloweenOutfits, outfits } from '../src/shop.js';
+import { halloweenOutfits, outfits, renderShop } from '../src/shop.js';
+
+test('skeleton requires two confirmed sales and displays the same requirement', () => {
+  const previousDocument = globalThis.document;
+  const node = () => ({ children: [], append(child) { this.children.push(child); }, setAttribute() {}, querySelector() { return { addEventListener() {} }; } });
+  globalThis.document = { createElement: node };
+  try {
+    for (const sales of [0, 1, 2]) {
+      const normal = node(), halloween = node();
+      globalThis.document.createElement = tag => tag === 'section' ? { ...node(), querySelector: () => halloween } : node();
+      const page = { querySelector(selector) {
+        if (selector === '.shop-grid') return normal;
+        if (selector === '#halloween-collection') return null;
+        return { before() {} };
+      } };
+      renderShop(page, sales, true);
+      const skeleton = halloween.children.find(card => card.className.includes('shop-card-esqueleto'));
+      assert.match(skeleton.innerHTML, /<strong>2 ventas<\/strong>/);
+      assert.match(skeleton.innerHTML, sales < 2 ? /disabled>Bloqueado · 2 ventas/ : />Equipar<\/button>/);
+    }
+  } finally { globalThis.document = previousDocument; }
+});
 
 test('Halloween adds only the supplied exclusive outfits and preserves the normal catalog', () => {
   assert.deepEqual(halloweenOutfits.map(outfit => [outfit.id, outfit.name]), [

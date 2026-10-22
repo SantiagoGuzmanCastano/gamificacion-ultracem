@@ -10,7 +10,7 @@ export const outfits = collection.map(([id, name], index) => ({
 
 export const halloweenOutfits = [
   ['zombie', 'Zombie', 300],
-  ['esqueleto', 'Esqueleto', 40],
+  ['esqueleto', 'Esqueleto', 2],
 ].map(([id, name, price]) => ({ id, name: `Pingüino ${name}`, price, image: `/skins/${id}.png`, frame: `/shop/frames/skins/${id}-frame.png` }));
 
 export function renderShop(page, sales, halloweenEnabled = false, equippedSkin = 'classic', onEquip = () => {}) {
@@ -60,7 +60,7 @@ function appendCards(grid, collection, equippedSkin, sales, onEquip) {
     const classic = outfit.id === 'clasico';
     const skeleton = outfit.id === 'esqueleto';
     const equipped = classic && equippedSkin === 'classic' || skeleton && equippedSkin === 'skeleton';
-    const unlocked = skeleton && Number(sales) >= 1;
+    const unlocked = skeleton && Number(sales) >= outfit.price;
     const canEquip = classic && !equipped || skeleton && unlocked && !equipped;
     const card = document.createElement('li');
     card.className = `shop-card shop-card-${outfit.id}${classic ? ' shop-card-classic' : ''}${outfit.id === 'zombie' || outfit.id === 'esqueleto' ? ' shop-card-halloween' : ''}${equipped ? ' shop-card-equipped' : ''}`;
@@ -72,7 +72,7 @@ function appendCards(grid, collection, equippedSkin, sales, onEquip) {
         ${classic
           ? '<p class="shop-included">Incluido</p>'
           : `<p class="shop-price"><strong>${outfit.price} ventas</strong><span>para desbloquear</span></p>`}
-        <button type="button" class="shop-card-action${canEquip ? ' shop-card-action-ready' : ''}${equipped ? ' shop-card-action-equipped' : ''}" aria-pressed="${equipped}" ${canEquip || equipped ? '' : 'disabled'}>${equipped ? '✓ Equipado' : canEquip ? 'Equipar' : skeleton ? 'Bloqueado · 1 venta' : 'Próximamente'}</button>
+        <button type="button" class="shop-card-action${canEquip ? ' shop-card-action-ready' : ''}${equipped ? ' shop-card-action-equipped' : ''}" aria-pressed="${equipped}" ${canEquip || equipped ? '' : 'disabled'}>${equipped ? '✓ Equipado' : canEquip ? 'Equipar' : skeleton ? `Bloqueado · ${outfit.price} ventas` : 'Próximamente'}</button>
       </div>`;
     if (canEquip) card.querySelector('button').addEventListener('click', () => onEquip(classic ? 'classic' : 'skeleton'));
     grid.append(card);
