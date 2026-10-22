@@ -1,6 +1,52 @@
 # CLAUDE.md — Gamificación Ultracem
 
-Contexto para asistentes de IA (Claude Code, Codex, etc.) y para el equipo. Describe el estado de `origin/main` en el commit `eb22f58` (PR #10, 2026-10-21).
+Contexto para asistentes de IA (Claude Code, Codex, etc.) y para el equipo.
+
+- **Secciones 1–10:** el código que existe hoy (`origin/main` en `eb22f58`, más la rama `interfaz`).
+- **Secciones 11–17:** el producto objetivo según el documento *Contexto de desarrollo · Copiloto comercial gamificado Ultracem v1.0* (21 oct 2026).
+
+Las dos versiones **no coinciden** (ver §15). Antes de construir algo, decide con el responsable hacia cuál se avanza.
+
+## 0. PROTOCOLO DE TRABAJO (PRIORIDAD MÁXIMA)
+
+**No se hace ningún cambio sin confirmación explícita del responsable del proyecto.** Esta regla manda sobre cualquier otra de este archivo.
+
+**Qué cuenta como cambio:**
+- Crear, modificar, mover o borrar archivos o carpetas.
+- Instalar, actualizar o quitar dependencias.
+- Tocar el esquema de datos, las migraciones o los datos de muestra.
+- Cambiar tokens de diseño, textos de la interfaz o nombres del juego.
+- Cambiar reglas de negocio, fórmulas, puntos, umbrales o textos de la mascota.
+- Cambiar el alcance (pantallas, historias o mecánicas).
+- Ejecutar comandos que escriban, borren o envíen datos fuera del entorno local (push, PR, merge, deploy, SQL remoto).
+
+**Qué sí se puede hacer sin preguntar:**
+- Leer y explorar el repositorio.
+- Analizar, resumir, listar riesgos y proponer opciones.
+- Ejecutar comandos de solo lectura y pruebas que no modifiquen datos (`npm test`, `npm run build`, `git log/diff/status`).
+
+**Cómo preguntar:**
+1. Describe el cambio y su motivo en una línea.
+2. Ofrece opciones A/B/C con ventajas y costos, y di cuál recomiendas y por qué.
+3. Lista qué se tocaría (archivos, tablas, pantallas) y qué no.
+4. Espera la respuesta. Si es ambigua, vuelve a preguntar; no asumas.
+5. Haz una sola ronda de preguntas a la vez, agrupadas por tema, con máximo 4 preguntas.
+6. Tras la aprobación, haz solo lo aprobado y reporta qué cambió.
+
+**Conflictos y datos:**
+- Si el contexto contradice el PRD, **gana el PRD**, y se pregunta antes de seguir.
+- Las contradicciones entre pantallas o datos se señalan y se preguntan; no se arreglan en silencio.
+- No se inventan cifras, razones ni clientes. Si falta un dato, se dice.
+- Todo lo marcado **Propuesta** está sin validar y no es requisito.
+
+Etiquetas usadas en §11–17:
+
+| Etiqueta | Significado |
+|---|---|
+| **PRD** | Requisito del cliente |
+| **Propuesta** | Idea del equipo, por validar |
+| **Muestra** | Dato ficticio para diseño y demo |
+| **Por confirmar** | Abierto; requiere decisión |
 
 ## 1. Qué es
 
@@ -144,7 +190,9 @@ Todas las ramas remotas ya están fusionadas en `main` (0 commits por delante).
 | `feat/task-completion-confetti` | #7 | confeti, corazones y mensajes de ánimo |
 | `feat/tienda-cosmeticos` | #8 | catálogo de la tienda |
 | `codex/halloween-tienda` | #9, #10 | modo Halloween global, ventas confirmadas, skin esqueleto |
-| `interfaz` (solo local) | — | rama de trabajo de interfaz y animaciones; actualizada sobre `eb22f58` (PR #10). Ver `animaciones.md` |
+| `interfaz` | #11 (abierto) | animaciones GSAP (`animaciones.md`) + este `CLAUDE.md`, sobre `eb22f58`. **Sin merge**: requiere autorización |
+
+Nota de acceso: el remoto `origin` usa SSH y la llave local es rechazada. Push y fetch funcionan por HTTPS con Git Credential Manager. Solo se hacen con autorización.
 
 Convenciones (`DECISIONES.md`, Decisión 9):
 - `main` está protegida y solo recibe PRs.
@@ -174,3 +222,289 @@ Convenciones (`DECISIONES.md`, Decisión 9):
 - No subir secretos. `.env.local` está en `.gitignore`.
 - No hacer push, merge a `main` ni deploy sin autorización explícita. Trabajar en rama y abrir PR.
 - Verificar con `npm test` y `npm run build` antes de proponer un commit.
+- Ante cualquier duda, cambio no previsto o contradicción entre fuentes: **detenerse y preguntar** con el formato de §0.
+
+---
+
+## 11. Producto objetivo: Copiloto comercial gamificado (contexto v1.0)
+
+Fuentes del contexto:
+- el PRD MVP v2 (PDF, **fuente de verdad**);
+- el brief de gamificación y las guías de diseño y de marca;
+- los prompts y pantallas de Stitch (2 de 10 generadas);
+- el guion del pitch de 7 minutos.
+
+Estado: diseño en curso, desarrollo por iniciar.
+
+**Qué es:** un copiloto complementario al CRM. Convierte los datos del CRM, cargados desde un **archivo**, en una **tarea diaria por asesor**: una lista corta de clientes a visitar, cada uno con su razón. Cada avance suma **UltraPuntos**, racha y niveles. La mascota es **Cemi la Hormiga**.
+
+**Vistas:**
+- **Vendedor:** mobile first, referencia de 390 px.
+- **Administrador:** escritorio de 1280 px, responsive.
+
+**Problema (PRD):**
+- Hay que vender unas 55.000 t al mes con 18 asesores, y unos 7 no llegan a su presupuesto.
+- El seguimiento actual llega tarde y solo dice "cumpliste o no".
+
+**Meta de negocio (PRD):** subir la participación en el canal distribución del **7,83 % al 10 %**.
+
+| Cifra | Valor | Origen |
+|---|---|---|
+| Mercado total | 4.653.177 t | PRD |
+| Ventas Ultracem | 364.322 t | PRD |
+| Brecha | 2,17 pp | PRD |
+| Oportunidad | ≈100.996 t (el PRD pide confirmar contra 100.974) | PRD / Por confirmar |
+| Aporte por asesor | ≈5.611 t (oportunidad / 18) | PRD |
+
+`Oportunidad = (0,10 − 0,0783) × Mercado total`.
+
+**Resultado esperado (PRD):** que un asesor que sigue el sistema llegue a más del 80 % de su objetivo. No se promete más.
+
+### 11.1 Alcance
+- **Dentro (PRD):**
+  - Vendedor: mi avance, clientes por color, tarea del día, puntos, racha, niveles y recordatorio amable.
+  - Admin: KPI nacional, avance por asesor, brecha por departamento, cobertura por municipio y metas.
+  - Datos desde un archivo cargado; IA para elegir y explicar clientes y redactar ánimo.
+  - Recálculo al editar una meta y demo de 6 pasos sin intervención manual.
+- **Extras (Propuesta):** ranking por zona, insignias, premios simbólicos y Cemi con 3 estados.
+- **Fuera (PRD):**
+  - Conexión automática al CRM y app nativa.
+  - Puntos convertibles en dinero o comisión.
+  - Promociones a clientes y variables extra.
+  - Puntos por SKU y bonos por leads de WhatsApp.
+
+### 11.2 Historias
+| ID | Historia | Origen |
+|---|---|---|
+| A1 | Avance por asesor ordenable (meta, venta, cumplimiento, brecha, clientes activos/nuevos/recuperados, estado) | PRD |
+| A2 | Brecha por departamento ordenada por oportunidad, con estado atacar/defender | PRD |
+| A3 | Cobertura por municipio (con y sin compra, %, alertas de concentración) | PRD |
+| A4 | KPI nacional de participación y oportunidad en toneladas | PRD |
+| A5 | Definir la meta de un asesor (participación y clientes objetivo) con recálculo | PRD |
+| V1 | Mi avance: meta, ventas, clientes, pedido promedio y aporte a la meta | PRD |
+| V2 | Clientes por color, filtro y detalle con historial | PRD |
+| V3 | Tarea del día: lista corta con la razón de cada cliente | PRD |
+| V4 | Puntos, racha y niveles | PRD |
+| V5 | Recordatorio amable | PRD |
+| V6 | Ranking de mi zona | Propuesta |
+| V7 | Insignias y canje simbólico | Propuesta |
+
+Los criterios Gherkin de V3–V7, A1 y A5 están en el documento de contexto (§9). **Falta redactar** los de V1, V2, A2, A3 y A4 con el responsable.
+
+### 11.3 Vistas
+| # | Vista | Rol | Stitch | MVP |
+|---|---|---|---|---|
+| 1 | Inicio (Cemi + tareas de hoy) | Vendedor | Generada | Obligatoria |
+| 2 | Mi avance | Vendedor | Prompt | Obligatoria (puede ser tarjeta en Inicio) |
+| 3 | Clientes (lista + detalle) | Vendedor | Prompt | Obligatoria |
+| 4 | Ranking y logros | Vendedor | Generada | Opcional |
+| 5 | Premios y canje | Vendedor | Prompt | Opcional |
+| 6 | Perfil | Vendedor | Por definir | Opcional (preguntar) |
+| 7 | Panel nacional | Admin | Prompt | Obligatoria |
+| 8 | Asesores | Admin | Prompt | Obligatoria |
+| 9 | Departamentos y municipios | Admin | Prompt | Obligatoria |
+| 10 | Metas | Admin | Prompt | Obligatoria |
+
+**Navegación:**
+- **Vendedor:** barra inferior con Inicio, Clientes, Ranking, Premios y Perfil.
+- **Admin:** barra lateral con Panel, Asesores, Departamentos y Metas.
+
+**Rutas sugeridas (Propuesta):** `/`, `/avance`, `/clientes/:id`, `/ranking`, `/premios`, `/perfil`, `/admin`, `/admin/asesores`, `/admin/departamentos/:id` y `/admin/metas`.
+
+**Demo de 6 pasos (PRD):**
+1. Admin · Panel nacional.
+2. Admin · Departamentos.
+3. Admin · Metas (editar y ver el recálculo).
+4. Vendedor · Mi avance + Clientes.
+5. Vendedor · Inicio con la tarea del día y Cemi seria.
+6. Vendedor · completar las tareas: Cemi feliz, suman puntos y sigue la racha.
+
+## 12. Reglas de negocio (PRD salvo indicación)
+
+| Semáforo | Regla |
+|---|---|
+| Participación | ≥10 % verde · 8–9,99 % amarillo · <8 % rojo |
+| Asesor | ≥100 % cumple · 80–99 % en riesgo · <80 % crítico |
+| Cliente | **Por confirmar** |
+| Zona | Supera su objetivo → oportunidad 0 y "Defender"; si no, "Atacar" |
+
+- **Referencia por asesor:** 50 clientes activos, 20 recuperados, 10 nuevos y el 80 % de sus municipios con compra.
+- **Regla de clientes:** para tener el 25 % del mercado de una zona hay que venderle al 25 % de sus clientes.
+- **Fórmulas** (confirmar con el PRD):
+  - `Pedido promedio necesario = Meta (t) / Clientes objetivo`
+  - `Cumplimiento = Venta / Meta × 100`
+  - `Brecha = Meta − Venta`
+- **Por confirmar:** cómo se deriva la meta en toneladas a partir de la participación objetivo.
+- **Arquitectura de cálculo:** con reglas exactas se calculan avance, oportunidad, semáforos, puntos, niveles, rankings y metas. La IA solo prioriza clientes, explica el porqué en una frase y redacta ánimo, siempre con los datos cargados. Si falta información, dice "Faltan datos de este cliente".
+
+## 13. Sistema de juego (valores = Propuesta)
+
+**UltraPuntos:**
+
+| Acción | Puntos |
+|---|---|
+| Completar la tarea del día | 50 (una vez al día) |
+| Recuperar un cliente | 150 |
+| Ganar un cliente nuevo | 200 |
+| Llegar a un municipio sin compra | 250 |
+| Subir el pedido promedio | 100 |
+| Hito de racha (5 / 10 / 20 días) | 100 / 200 / 400 |
+
+Los puntos se otorgan una sola vez por cliente y periodo, y nunca se convierten en dinero.
+
+**Niveles:**
+
+| Nivel | Rango | Puntos |
+|---|---|---|
+| 1 | Novato Ultra | 0 |
+| 2 | Aprendiz Ultra | 500 |
+| 3 | Asesor Ultra | 1.500 |
+| 4 | Experto Ultra | 3.500 |
+| 5 | Maestro Ultra | 7.000 |
+
+**Racha:** suma un día al completar la tarea del día y vuelve a 0 si se pierde un día hábil. Al perderla, solo ánimo, sin reproche. **Por confirmar:** si cuenta de lunes a viernes o hasta el sábado.
+
+**Recordatorio amable:** después de la hora de corte (Propuesta: 14:00), la tarjeta pasa a ámbar con un mensaje que no menciona a otros asesores.
+
+**Ranking (V6):**
+- Se agrupa por zona o región, no a nivel nacional.
+- Muestra el Top 3 y la posición propia con los 2 asesores de arriba y los 2 de abajo.
+- Ordena por **% de avance hacia la meta propia**.
+- **Nunca muestra los últimos puestos.**
+
+**Insignias:** Pionero de Mezcla Lista, Rayo Vanesa (requiere datos de leads), Aliado Brilla, Embajador Ruta 360 y Racha de fuego.
+
+**Premios simbólicos:**
+- Sello "Asesor Ultra Top" (800), boletín interno (1.000) y marco dorado (500).
+- Bono D1 y Día libre quedan bloqueados, sujetos a aprobación del cliente.
+
+**Principio:** el sistema **nunca regaña ni compara** de forma que exponga al vendedor.
+
+## 14. Diseño y marca (Propuesta; el manual oficial de Ultracem manda si existe)
+
+**Paleta desaturada:**
+
+| Token | Hex | Uso |
+|---|---|---|
+| `bg` | #F8F9FA | fondo |
+| `card` | #FFFFFF | tarjetas |
+| `border` | #E5E7EB | bordes |
+| `ink` | #1E293B | texto y estructura |
+| `ink-muted` | #64748B | texto secundario |
+| `progress` | #475569 | barras |
+| `accent` | #F59E0B | **solo** puntos, monedas, medallas y premios |
+| `accent-soft` | #FEF3C7 | fondos de puntos |
+| `ok` | #5E9C7E | al día, hecho |
+| `risk` | #C8A951 | en riesgo |
+| `alert` | #C9605A | crítico |
+
+**Reglas de color:** el color nunca va solo (siempre con ícono y etiqueta), el semáforo no se usa como fondo grande y el acento no marca errores.
+
+**Tipografía:**
+- **Montserrat** para títulos (24/700 y 18/600) y cifras.
+- **Inter** para el texto (16 y 14) y los metadatos (12/500); números tabulares en tablas.
+- Texto esencial de al menos 14 px.
+
+**Forma:**
+- Tarjetas con radio de 12 px, borde de 1 px y sombra suave; márgenes de 16 px y base de 8 px.
+- Zonas táctiles de 44 × 44 px.
+
+**Cemi la Hormiga:**
+- Cuerpo #334155, cara #F1F5F9, casco #E3C16F con "U" y chaleco reflectivo.
+- Estados: **Triste** al 0 %, **Serio** del 1 al 99 % y **Feliz** al 100 %.
+- Acompaña y anima; nunca critica. **Por confirmar:** la aprobación del cliente.
+
+**Movimiento (diferente a lo implementado):**
+- Transiciones de 200–300 ms.
+- Destello dorado de menos de 1,5 s, que se puede omitir.
+- Contador de puntos que sube número a número.
+- **Sin confeti saturado.**
+- Con "reducir movimiento", un cambio de color estático.
+
+**Voz:**
+- Habla de **tú**, con frases cortas.
+- Números con punto de miles y coma decimal (`1.480`, `7,83 %`) y unidades en "t".
+- Nunca regañar, prometer dinero ni inventar datos.
+
+## 15. Brechas entre el código actual y el producto objetivo
+
+Ninguna se resuelve sin preguntar (§0).
+
+| Tema | Código actual (§1–10) | Producto objetivo (§11–14) |
+|---|---|---|
+| Stack | Vite + JS vanilla + Supabase (ya construido) | Abierto en el contexto: Django+HTMX, Django/FastAPI+React o Next.js |
+| Datos | Clientes creados a mano por el admin; ventas simuladas aleatorias | Archivo cargado con toneladas, municipios y zonas (formato por definir) |
+| Tareas | 4 tareas fijas por cliente (trigger) | Tarea del día = lista corta de clientes con su razón (IA) |
+| Puntos | XP: 10 por tarea | UltraPuntos por acción (50/150/200/250/100) y 5 niveles |
+| Ranking | Global y por ventas confirmadas; muestra a todos y anuncia "sube al puesto 1" | Por zona, % de avance, Top 3 ±2, sin últimos puestos ni comparaciones expuestas |
+| Mascota | Pingüino **Topitín** con skins (PNG protegidos por hash en los tests) | **Cemi la Hormiga** con 3 estados |
+| Asistente IA | **Trompín** (elefante) sugiere la siguiente acción | IA sin personaje: prioriza clientes y redacta ánimo |
+| Tienda | Skins con precios en "ventas" y modo Halloween | Premios simbólicos canjeados con UltraPuntos |
+| Admin | Panorama, borrado de tareas/clientes/asesores y Halloween | Panel nacional KPI, Asesores, Departamentos/municipios y Metas con recálculo |
+| Diseño | Navy/amarillo, Poppins (guía `Copiloto Ultracem.html`) | Paleta desaturada, Montserrat + Inter |
+| Animación | GSAP con confeti (26/40 piezas), chip, FLIP y toast (rama `interfaz`, PR #11) | Animación sobria, destello <1,5 s, **sin confeti saturado** |
+| Navegación | SPA sin rutas; lateral (asesor) | Barra inferior de 5 destinos (vendedor) y rutas |
+| Niveles en guías | `Copiloto Ultracem.html`: Cimiento → Torre, 10 XP por tarea | Novato → Maestro Ultra, UltraPuntos |
+
+**Inconsistencias internas del contexto (§14 del documento):**
+1. Roberto C. es "Maestro Ultra · Nivel 5" con 1.480 puntos, pero ese rango exige 7.000.
+2. "Te faltan 220 puntos para tu próximo rango" aparece estando en el rango máximo.
+3. Los premios piden niveles 6 y 7, pero solo hay 5 niveles.
+4. Las tareas de Inicio dan +150/+80/+120/+100 puntos, pero el modelo da 50 por la tarea del día.
+5. El ranking es de la zona Bolívar, semana 3: hay que confirmar el agrupador y si es semanal o mensual.
+6. La oportunidad aparece como 100.974 o 100.996 t.
+
+## 16. Decisiones abiertas (preguntar al responsable)
+
+- **Tecnología:**
+  - ¿Se mantiene Vite + Supabase o se cambia de stack?
+  - ¿Dónde se despliega y con qué base de datos?
+  - ¿Qué proveedor de IA se usa, y se llama en vivo o se precalcula?
+  - ¿Cómo se maneja el acceso y los roles?
+- **Datos:**
+  - ¿Formato y columnas del archivo, y si existe uno real?
+  - ¿Cómo se deriva la meta en toneladas?
+  - ¿Cada cuánto se recarga el archivo y cuándo se otorgan los puntos?
+- **Juego:**
+  - Valores de puntos, niveles y racha (días y hora de corte).
+  - Umbrales de color de los clientes.
+  - Premios aprobados.
+  - Si Ranking, Premios y Perfil entran al MVP.
+- **Diseño:**
+  - Marca oficial.
+  - Aprobación de Cemi.
+  - **¿Topitín y Trompín se reemplazan o conviven?**
+  - ¿El admin usará escritorio o celular?
+- **Rama `interfaz` (PR #11):** ¿se fusiona tal cual o se ajusta antes a §14 (sin confeti saturado)?
+
+## 17. Plan sugerido (Propuesta; cada fase se aprueba antes)
+
+| Fase | Contenido |
+|---|---|
+| 0 | Resolver §15–16 |
+| 1 | Andamiaje, tokens y componentes base |
+| 2 | Datos de muestra y reglas de cálculo con pruebas |
+| 3 | Vendedor: Inicio, Mi avance y Clientes |
+| 4 | Admin: Panel, Asesores, Departamentos y Metas |
+| 5 | IA: tarea del día y mensajes |
+| 6 | Extras: Ranking, insignias, Premios y Perfil |
+| 7 | Ensayo de la demo de 6 pasos, accesibilidad y pulido |
+
+**Definición de terminado por vista:**
+- Coincide con Stitch y con los tokens de §14.
+- Cumple su Gherkin.
+- El color va siempre con ícono y texto.
+- Zonas táctiles ≥44 px y texto ≥14 px.
+- Funciona a 390 px o a 1280 px.
+- Respeta "reducir movimiento".
+- Usa el tono y el formato numérico definidos.
+- No tiene datos inventados.
+- Está probada con los datos de muestra.
+
+**Documentos del proyecto (fuera del repo):**
+- `PRD_Reto_Ultracem_MVP.pdf` (fuente de verdad).
+- `gamificacion-prd-ultracem.md`.
+- `guia-marca-ultracem-copiloto.md`.
+- `guia-diseno-stitch-ultracem-v2.md`. La v1, con colores saturados, está reemplazada: no usarla.
+- Los prompts de Stitch.
+- `pitch-7-minutos-reto-ultracem.md`.
