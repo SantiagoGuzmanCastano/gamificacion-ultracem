@@ -430,3 +430,40 @@ La guía v1.1 (p. 23) pide animaciones de 400 a 1.200 ms y solo desplazamiento y
 - Ningún paso supera 1,2 s.
 - Con "reducir movimiento" no hay vuelo ni letras animadas: el loader se quita al instante y la bienvenida aparece completa.
 - La capa frontal arranca oculta y solo GSAP la muestra, así que nunca tapa el contenido si no hay animación.
+
+---
+
+## 14. Spec: intro v2 (borrador, pendiente de respuestas)
+
+**Pedido del responsable (2026-10-22):** quitar "Tareas del día" de la bienvenida y dejar solo la animación de inmersión. En lugar del anillo "U" dibujado con CSS en el loader, usar el **logo oficial** de la marca.
+
+**Activo del logo:** `public/ultracem-logo.png` (de `main`), blanco sobre transparente. Pensado para fondo azul marino.
+
+### 14.1 Qué cambia
+| Pieza | Hoy (§13) | Intro v2 |
+|---|---|---|
+| Loader | Anillo "U" con CSS girando + "ULTRACEM" + barra | **Logo oficial** (`<img>` con alt "Ultracem") + barra de progreso; sin anillo CSS |
+| Fase 1 · Vuelo | La capa frontal muestra el anillo "U" y se atraviesa (×5) | La capa frontal muestra **el logo oficial** y se atraviesa (×5, 1,2 s) |
+| Fase 2 · Mensaje | "¡Hola, {nombre}! Estas son tus tareas de hoy." letra por letra | Texto **por confirmar (P2)**, letra por letra |
+| Fase 3 | Topitín + panel "Tareas del día" + botón "Ir a mi tablero" | **Sin panel de tareas.** Topitín y el cierre: **por confirmar (P1, P3)** |
+
+### 14.2 Tests que se escribirían en Red (`tests/welcome.spec.js`, `tests/loader.spec.js`)
+- El loader muestra `<img src="/ultracem-logo.png" alt="Ultracem">` y ya no tiene `.loader-ring`.
+- La capa frontal (`[data-layer="front"]`) contiene el logo oficial, decorativo (`alt=""`, dentro de `aria-hidden`).
+- No existe `[data-testid="welcome-tasks"]` ni `[data-testid="welcome-task"]`.
+- Etapas nuevas sin `tasks`: `['intro', 'mascot', 'done']` (o `['intro', 'done']` si se quita Topitín).
+- Cierre según P3 (botón, automático, o ambos), sin cambiar "una vez al día" ni Esc.
+- Se borran los tests de `getWelcomeTasks` y del panel.
+
+### 14.3 Preguntas abiertas
+- **P1.** ¿Topitín sigue apareciendo saludando después del texto, o la inmersión termina en el texto?
+- **P2.** ¿Qué dice el texto, ahora que no hay tareas? Propuesta: "¡Hola, {nombre}! Bienvenido a tu tablero."
+- **P3.** ¿Cómo pasa al tablero sin el panel? Propuesta: automático al terminar la animación (~1,5 s de pausa), con clic, toque o Esc para saltarla.
+- **P4.** ¿El logo también va en la capa frontal del vuelo (se atraviesa el logo), o solo en el loader?
+
+### 14.4 Respuestas (2026-10-22): spec cerrado
+- **P1:** Topitín **sí** saluda después del texto, con "¡Bienvenido!".
+- **P2:** el texto es **"¡Hola, {nombre}!"**; sin nombre, "¡Hola!".
+- **P3:** **automático + saltar.** Al terminar la animación espera 1,5 s y entra el tablero solo. Un clic, un toque o Esc la saltan en cualquier momento. Sin botón.
+- **P4:** el logo oficial va **en el loader y en la capa frontal del vuelo**.
+- Etapas: `['intro', 'mascot', 'done']`. Se eliminan `getWelcomeTasks`, el panel y el botón "Ir a mi tablero".

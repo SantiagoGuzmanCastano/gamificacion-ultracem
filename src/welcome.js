@@ -1,15 +1,11 @@
-// Pantalla de bienvenida inmersiva: mensaje letra a letra, Topitín saludando y panel "Tareas del día".
-// Spec: tests/welcome.spec.js. La estructura y la visibilidad viven aquí; la animación GSAP vive en
-// welcome-motion.js (welcomeSequence / welcomeExit).
+// Intro de bienvenida v2 (animaciones.md §14): vuelo a través del logo oficial, "¡Hola, {nombre}!" letra
+// por letra y Topitín saludando. Se cierra sola 1,5 s después de terminar, o con clic, toque o Esc.
+// Spec: tests/welcome.spec.js. La estructura vive aquí; la animación GSAP, en welcome-motion.js.
 import './welcome.css';
 
-export const WELCOME_STAGES = ['intro', 'mascot', 'tasks', 'done'];
-
-export function getWelcomeTasks(clients = []) {
-  return clients.flatMap(client => (client.tasks ?? [])
-    .filter(task => !task.completed)
-    .map(task => ({ id: task.id, title: task.title, clientName: client.name })));
-}
+export const WELCOME_STAGES = ['intro', 'mascot', 'done'];
+const AUTO_CLOSE_MS = 1500;
+const LOGO_SRC = '/ultracem-logo.png';
 
 // Se muestra una vez al día por dispositivo.
 export function welcomeDayKey(date = new Date()) {
@@ -28,10 +24,6 @@ function el(tag, className = '', value = '') {
   return node;
 }
 
-function messageFor(name) {
-  return `${name ? `¡Hola, ${name}!` : '¡Hola!'} Estas son tus tareas de hoy.`;
-}
-
 function messageHeading(text) {
   const heading = el('h1', 'welcome-message');
   heading.id = 'welcome-message';
@@ -47,31 +39,30 @@ function messageHeading(text) {
   return heading;
 }
 
-function taskPanel(tasks) {
-  const panel = el('section', 'welcome-tasks');
-  panel.dataset.testid = 'welcome-tasks';
-  panel.append(el('h2', '', 'Tareas del día'));
-  if (!tasks.length) {
-    panel.append(el('p', 'welcome-empty', 'No tienes tareas pendientes hoy.'));
-    return panel;
+// Capas planas del vuelo falso 3D; el frente lleva el logo oficial y es el que se atraviesa.
+function flightLayers() {
+  const layers = el('div', 'welcome-layers');
+  layers.dataset.testid = 'welcome-layers';
+  layers.setAttribute('aria-hidden', 'true');
+  for (const depth of ['back', 'mid', 'front']) {
+    const layer = el('div', `welcome-layer welcome-layer-${depth}`);
+    layer.dataset.layer = depth;
+    if (depth === 'front') {
+      const logo = el('img', 'welcome-logo');
+      logo.src = LOGO_SRC;
+      logo.alt = '';
+      layer.append(logo);
+    }
+    layers.append(layer);
   }
-  const list = el('ul', 'welcome-task-list');
-  for (const task of tasks) {
-    const item = el('li', 'welcome-task');
-    item.dataset.testid = 'welcome-task';
-    item.dataset.taskId = task.id;
-    item.append(el('strong', '', task.title), el('span', 'welcome-task-client', task.clientName));
-    list.append(item);
-  }
-  panel.append(list);
-  return panel;
+  return layers;
 }
 
-export function createWelcome(container, { name = '', tasks = [], mascotSrc = '/mascot/pinguino-feliz.png', onClose = () => {} } = {}) {
+export function createWelcome(container, { name = '', mascotSrc = '/mascot/pinguino-feliz.png', onClose = () => {} } = {}) {
   const element = el('section', 'welcome');
   element.setAttribute('role', 'dialog');
   element.setAttribute('aria-modal', 'true');
-  const heading = messageHeading(messageFor(name));
+  const heading = messageHeading(name ? `¡Hola, ${name}!` : '¡Hola!');
   element.setAttribute('aria-labelledby', heading.id);
 
   const mascot = el('div', 'welcome-mascot');
@@ -85,40 +76,23 @@ export function createWelcome(container, { name = '', tasks = [], mascotSrc = '/
   figure.append(image);
   mascot.append(figure, el('span', 'welcome-bubble', '¡Bienvenido!'));
 
-  const panel = taskPanel(tasks);
-  const close = el('button', 'primary welcome-close', 'Ir a mi tablero');
-  close.type = 'button';
-  close.dataset.testid = 'welcome-close';
-  panel.append(close);
-
-  // Fase 1 (vuelo falso 3D): capas planas detrás del contenido; welcome-motion.js las anima.
-  const layers = el('div', 'welcome-layers');
-  layers.dataset.testid = 'welcome-layers';
-  layers.setAttribute('aria-hidden', 'true');
-  for (const depth of ['back', 'mid', 'front']) {
-    const layer = el('div', `welcome-layer welcome-layer-${depth}`);
-    layer.dataset.layer = depth;
-    layers.append(layer);
-  }
-
-  const stage = el('div', 'welcome-stage');
-  stage.append(mascot, panel);
-  element.append(layers, heading, stage);
+  const hint = el('p', 'welcome-skip-hint sr-only', 'Toca o pulsa Esc para continuar');
+  element.append(flightLayers(), heading, mascot, hint);
   container.append(element);
 
-  let closed = false;
+  let closed = false, timer = null;
   const onKey = event => { if (event.key === 'Escape') finish(); };
   function finish() {
     if (closed) return;
     closed = true;
+    window.clearTimeout(timer);
     document.removeEventListener('keydown', onKey);
     onClose();
   }
-  close.addEventListener('click', finish);
+  element.addEventListener('click', finish);
   document.addEventListener('keydown', onKey);
 
-  // Desde qué etapa es visible cada parte.
-  const parts = [[mascot, 'mascot'], [panel, 'tasks'], [close, 'done']];
+  const parts = [[mascot, 'mascot']];
   const welcome = {
     element,
     stage: 'intro',
@@ -133,13 +107,15 @@ export function createWelcome(container, { name = '', tasks = [], mascotSrc = '/
         node.dataset.visible = String(shown);
         node.setAttribute('aria-hidden', String(!shown));
       }
-      if (next === 'done' && !closed) close.focus({ preventScroll: true });
     },
     // Con animate: false (movimiento reducido o tests) salta al final sin cargar GSAP.
     async play({ animate = true } = {}) {
-      if (!animate) { welcome.setStage('done'); return; }
-      const { welcomeSequence } = await import('./welcome-motion.js');
-      await welcomeSequence(element, welcome.setStage);
+      if (animate) {
+        const { welcomeSequence } = await import('./welcome-motion.js');
+        await welcomeSequence(element, welcome.setStage);
+      }
+      welcome.setStage('done');
+      if (!closed) timer = window.setTimeout(finish, AUTO_CLOSE_MS);
     },
     close: finish,
   };

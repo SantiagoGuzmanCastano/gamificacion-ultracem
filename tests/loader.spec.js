@@ -19,11 +19,12 @@ describe('createLoader', () => {
     expect(node.getAttribute('aria-label')).toBe('Cargando Ultracem');
   });
 
-  it('lleva el logo: el anillo "U" decorativo y el nombre ULTRACEM', () => {
+  it('lleva el logo oficial de la marca, no el anillo dibujado con CSS', () => {
     const logo = loader.element.querySelector('[data-testid="loader-logo"]');
-    expect(logo).not.toBeNull();
-    expect(logo.querySelector('.loader-ring').getAttribute('aria-hidden')).toBe('true');
-    expect(logo.textContent).toContain('ULTRACEM');
+    expect(logo.tagName).toBe('IMG');
+    expect(logo.getAttribute('src')).toBe('/ultracem-logo.png');
+    expect(logo.getAttribute('alt')).toBe('Ultracem');
+    expect(loader.element.querySelector('.loader-ring')).toBeNull();
   });
 
   it('no crea un segundo loader si ya hay uno en pantalla', () => {

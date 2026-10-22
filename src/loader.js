@@ -1,5 +1,5 @@
 // Loader con el logo de Ultracem mientras cargan los datos. Spec: tests/loader.spec.js.
-// El logo es el anillo "U" del sidebar; reemplazar por el vectorial oficial cuando Ultracem lo entregue.
+// Usa el logo oficial de la marca (public/ultracem-logo.png, blanco para fondo azul marino).
 import './loader.css';
 
 const controllers = new WeakMap();
@@ -16,11 +16,7 @@ export function createLoader(container = document.body) {
   element.setAttribute('aria-live', 'polite');
   element.setAttribute('aria-label', 'Cargando Ultracem');
   element.innerHTML = `
-    <div class="loader-logo" data-testid="loader-logo">
-      <span class="loader-ring" aria-hidden="true"></span>
-      <span class="loader-name">ULTRACEM</span>
-      <span class="loader-tag">GAMIFICACIÓN</span>
-    </div>
+    <img class="loader-logo" data-testid="loader-logo" src="/ultracem-logo.png" alt="Ultracem">
     <span class="loader-bar" aria-hidden="true"><i></i></span>`;
   container.append(element);
 

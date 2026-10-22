@@ -11,7 +11,7 @@ import { clearMascotFeedback, showMascotFeedback } from './mascot-feedback.js';
 import { clearAdvisorEntrance, playAdvisorEntrance, resetAdvisorEntrance } from './advisor-entrance.js';
 import { clearAdvisorEffects, celebrateTask, celebrateSale, revealRecommendation } from './advisor-effects.js';
 import { isValidProfileImage, profileImageExtension } from './profile.js';
-import { createWelcome, getWelcomeTasks, shouldShowWelcome, welcomeDayKey } from './welcome.js';
+import { createWelcome, shouldShowWelcome, welcomeDayKey } from './welcome.js';
 import { createLoader } from './loader.js';
 import { createDemoClient } from './demo-client.js';
 
@@ -401,7 +401,6 @@ function showWelcome() {
   document.body.style.overflow = 'hidden';
   const welcome = createWelcome(layer, {
     name: profile.full_name.split(' ')[0],
-    tasks: getWelcomeTasks(clients),
     mascotSrc: profile.equipped_skin === 'skeleton' ? '/skins/skeleton/happy.png' : mascotImages.happy,
     onClose: async () => {
       const { welcomeExit } = await import('./welcome-motion.js');

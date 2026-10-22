@@ -104,8 +104,8 @@ src/advisor.css            # tablero oscuro del asesor (de main)
 src/advisor-*.js           # métricas (toneladas, ventas semanales, cartera), íconos, entrada y confeti con GSAP (de main)
 src/mascot-feedback.js     # mensajes de la mascota en el tablero (de main)
 src/profile.js             # validación de la foto de perfil (de main)
-src/loader.js / loader.css # loader con el logo mientras cargan los datos
-src/welcome.js / .css      # bienvenida del asesor: capas, mensaje, Topitín, "Tareas del día" (una vez al día)
+src/loader.js / loader.css # loader con el logo oficial (public/ultracem-logo.png) mientras cargan los datos
+src/welcome.js / .css      # intro v2: vuelo a través del logo, "¡Hola, {nombre}!", Topitín; se cierra sola a los 1,5 s o con clic/Esc (una vez al día)
 src/welcome-motion.js      # timeline GSAP de la bienvenida (vuelo falso 3D); se importa de forma dinámica
 public/mascot/             # pingüino base: feliz / serio / sad
 public/skins/              # skins de la tienda (+ skeleton/happy|sad|serious.png)
@@ -513,3 +513,35 @@ Ninguna se resuelve sin preguntar (§0).
 - `guia-diseno-stitch-ultracem-v2.md`. La v1, con colores saturados, está reemplazada: no usarla.
 - Los prompts de Stitch.
 - `pitch-7-minutos-reto-ultracem.md`.
+
+---
+
+## 18. Estado de trabajo y traspaso (actualizado 2026-10-22)
+
+**Ramas y remotos**
+- Rama de trabajo: **`interfaz`** (local). Sigue a **`fork/interfaz`**.
+- `fork` = `https://github.com/jesus123-git/gamificacion-ultracem.git` (fork de Jesus14, para su Vercel). Último push: `03d4334` (modo demo).
+- `origin` = repo de SantiagoGuzmanCastano (SSH falla; usar HTTPS con Git Credential Manager: `GCM_INTERACTIVE=never git push https://github.com/SantiagoGuzmanCastano/gamificacion-ultracem.git interfaz`). Su `interfaz` y el **PR #11** siguen en `87d0aae` (antes de fusionar con `main`), con conflictos. **Preguntar siempre a qué remoto subir.**
+- Historial de `interfaz`: animaciones GSAP → bienvenida → loader + vuelo 3D → bento (descartado) → `e557e11` fusión con `main` `d0d07f1` (gana el tablero de `main`) → `03d4334` modo demo.
+- `.env.example` tiene una línea en blanco sin commit: **nunca incluirla** en commits.
+
+**Vercel (cuenta jesus-project-jm, proyecto `gamificacion-ultracem`, conectado al fork)**
+- Production sigue `main` → `gamificacion-ultracem-nine.vercel.app`, **sin** modo demo. `interfaz` sale como **Preview**.
+- Para la demo: variable `VITE_DEMO=true` de tipo **Config** (no Secret) en Preview, y luego **Deployments → deploy de `interfaz` → ⋯ → Redeploy**.
+- La app real necesita `VITE_SUPABASE_URL` + `VITE_SUPABASE_PUBLISHABLE_KEY`. El responsable **no tiene acceso a Supabase**; la clave la tiene Santiago. Su `.env.local` local todavía tiene `your_publishable_key`.
+
+**Pruebas y demo local**
+- `npm test` = `node --test` (25) + Vitest `*.spec.js` (40: welcome, loader, demo-client). `npm run build` debe pasar.
+- Demo local sin Supabase: `set VITE_DEMO=true&& npm run dev` (Windows cmd). Con `?rol=admin` entra el administrador.
+- **No dejar servidores de Vite corriendo** al terminar: bloquean `node_modules` y `npm ci` falla con EPERM.
+
+**Preferencias del responsable**
+- Responder en español, paso a paso, con capturas cuando las pide.
+- Una sola rama con todo; nada de ramas apiladas.
+- TDD: spec en Red, mostrarlo y preguntar antes de implementar (Green).
+- Preguntar antes de cualquier cambio (§0); push, PR y deploy solo con orden explícita.
+
+**Pendiente**
+- Intro v2 (`animaciones.md` §14): implementada en Green (Vitest 31/31, node 25/25, build OK), **sin commit**, sin probar en el navegador ni subir al fork. Si Vitest falla con "Failed to start worker", correr `npx vitest run .spec. --pool=forks --no-file-parallelism`.
+- Actualizar §5 y §7 con las migraciones de `main` (toneladas, fotos, skeleton con 2 ventas).
+- Decidir si se suben `e557e11` y `03d4334` al repo de Santiago para resolver los conflictos del PR #11.
