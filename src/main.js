@@ -112,6 +112,25 @@ async function uploadProfilePhoto(file) {
   document.querySelector('.profile-dialog-backdrop')?.remove();
   render();
 }
+async function removeProfilePhoto() {
+  if (!profile.avatar_path) return;
+  if (!window.confirm('¿Quitar tu foto de perfil?')) return;
+  const removed = await db.storage.from('advisor-profile-photos').remove([profile.avatar_path]);
+  if (removed.error) { notice('No se pudo quitar la foto. Intenta de nuevo.', true); return; }
+  const update = await db.from('mvp_profiles').update({ avatar_path: null }).eq('user_id', user.id);
+  if (update.error) { notice('No se pudo actualizar el perfil. Intenta de nuevo.', true); return; }
+  profile.avatar_path = null;
+  profile.avatar_url = '';
+  render();
+}
+async function deleteAccount() {
+  if (!window.confirm('¿Borrar tu cuenta, clientes, tareas, ventas y progreso? Esta acción no se puede deshacer.')) return;
+  if (!window.confirm('Confirma nuevamente: borrar todo definitivamente.')) return;
+  const result = await db.rpc('delete_mvp_own_account');
+  if (result.error) { notice('No se pudo borrar la cuenta. Intenta de nuevo.', true); return; }
+  user = profile = null; advisors = clients = sales = ranking = []; aiRecommendation = ''; saleNotice = '';
+  render();
+}
 function openProfilePanel(prompt = false) {
   document.querySelector('.profile-dialog-backdrop')?.remove();
   const backdrop = el('div', 'profile-dialog-backdrop');
@@ -674,7 +693,9 @@ function advisorProfilePage(page) {
   copy.append(el('h2', '', profile.full_name), el('p', 'muted', profile.role === 'advisor' ? 'Asesor comercial' : 'Administrador'));
   const actions = el('div', 'profile-view-actions');
   actions.append(button('Cambiar foto', 'primary', () => openProfilePanel()));
+  if (profile.avatar_path) actions.append(button('Quitar foto', 'secondary', removeProfilePhoto));
   if (profile.role === 'advisor') actions.append(button('Cerrar sesión', 'text-button profile-signout', signOut));
+  if (profile.role === 'advisor') actions.append(button('Borrar cuenta', 'text-button profile-delete', deleteAccount));
   panel.append(copy, actions);
   page.append(welcome, panel);
 }

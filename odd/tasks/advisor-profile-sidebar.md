@@ -31,3 +31,5 @@ L7: Independent verification found expiring signed avatar URLs; added a 50-minut
 L8: Final verifier recheck confirmed signed URL renewal starts after upload and clears on sign-out. 
 pm test passed 25/25 after the correction; git diff --check passed.
 L9: User clarified that Perfil must be a first-class advisor navigation view like Inicio, Tienda, and Mapa clientela. Added active Perfil navigation and dedicated profile page; photo editing remains available from that page.
+L10: Added Quitar foto and advisor-only Borrar cuenta with two confirmations; deletion RPC removes private photo objects, clients, tasks, sales, profile, and auth user. 
+pm test passed 25/25 and build passed. Remote migration remains pending explicit deployment of destructive RPC.
