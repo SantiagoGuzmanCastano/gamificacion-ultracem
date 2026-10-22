@@ -79,6 +79,8 @@ npm run build              # build de producción a dist/
 ```
 
 Sin `.env.local` la app solo muestra "Falta configurar Supabase en .env.local.".
+
+**Modo demo (sin Supabase):** con `VITE_DEMO=true` (en Vercel, o `set VITE_DEMO=true&& npm run dev` en Windows) la app usa `src/demo-client.js`, que imita la forma del cliente de Supabase con datos de muestra en memoria. No hace llamadas de red, se reinicia al recargar y muestra la franja "Modo demo · datos de muestra". Por defecto entra como asesor; con `?rol=admin` entra como administrador. Las fotos, crear cuentas y borrar la cuenta quedan desactivados, y la sugerencia de Trompín sale de la primera tarea pendiente, sin IA. Spec: `tests/demo-client.spec.js`.
 Variables: `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`. **Nunca** usar `service_role` ni claves secretas en Vite.
 
 Edge Function (secretos en Supabase, nunca en el frontend):

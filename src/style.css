@@ -235,3 +235,7 @@ footer { border-top: 1px solid var(--line); padding: 22px 0 30px; margin-top: 56
 @media (prefers-reduced-motion: reduce) {
   button { transition: none; }
 }
+
+/* Modo demo (VITE_DEMO=true): aviso fijo de que los datos son de muestra. */
+.demo-banner { position: fixed; left: 50%; bottom: 14px; z-index: 95; translate: -50% 0; margin: 0; padding: 6px 14px; border-radius: 999px; background: #FFC20E; color: #0A2A5E; font: 700 12px/1.4 "Poppins", "Segoe UI", sans-serif; box-shadow: 0 6px 18px rgb(10 42 94 / 22%); pointer-events: none; white-space: nowrap; }
+@media (max-width: 780px) { .demo-banner { bottom: 76px; } }

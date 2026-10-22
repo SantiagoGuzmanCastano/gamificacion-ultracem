@@ -13,9 +13,21 @@ import { clearAdvisorEffects, celebrateTask, celebrateSale, revealRecommendation
 import { isValidProfileImage, profileImageExtension } from './profile.js';
 import { createWelcome, getWelcomeTasks, shouldShowWelcome, welcomeDayKey } from './welcome.js';
 import { createLoader } from './loader.js';
+import { createDemoClient } from './demo-client.js';
 
-const db = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
-  ? createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY) : null;
+// Modo demo (VITE_DEMO=true): datos de muestra en memoria, sin Supabase. Con ?rol=admin se entra como administrador.
+const demoMode = import.meta.env.VITE_DEMO === 'true';
+const db = demoMode
+  ? createDemoClient({ role: new URLSearchParams(location.search).get('rol') === 'admin' ? 'admin' : 'advisor' })
+  : import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
+    ? createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY) : null;
+if (demoMode) {
+  const banner = document.createElement('p');
+  banner.className = 'demo-banner';
+  banner.setAttribute('role', 'note');
+  banner.textContent = 'Modo demo · datos de muestra, se reinician al recargar';
+  document.body.append(banner);
+}
 const root = document.querySelector('#app');
 let user = null, profile = null, advisors = [], clients = [], sales = [], ranking = [], selectedId = null, aiRecommendation = '', saleNotice = '';
 let theme = localStorage.getItem('ultracem-theme') || 'light';
