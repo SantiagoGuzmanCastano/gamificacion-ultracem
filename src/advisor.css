@@ -33,6 +33,24 @@
 .advisor-shell svg { flex-shrink: 0; }
 .advisor-shell .sidebar-bottom { display: none; }
 .advisor-shell .sidebar-motto { display: block; margin: auto 12px 10px; padding-top: 80px; max-width: 19ch; color: #d8e9fb; font-size: .65rem; letter-spacing: .2em; line-height: 1.7; }
+.advisor-profile-card { display: grid; grid-template-columns: auto 1fr; gap: 8px 10px; align-items: center; margin: 0 12px; padding: 12px; border: 1px solid rgb(177 220 249 / 28%); border-radius: 14px; color: #fff; }
+.profile-avatar { display: grid; place-items: center; width: 42px; height: 42px; overflow: hidden; border-radius: 50%; background: #ffd124; color: #00243b; font-size: 1.1rem; font-weight: 800; object-fit: cover; }
+.advisor-profile-copy { overflow: hidden; color: #fff; font-size: .78rem; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
+.profile-button { grid-column: 1 / -1; width: 100%; padding: 7px 10px; border: 1px solid rgb(255 255 255 / 30%); border-radius: 8px; background: transparent; color: #fff; font-size: .76rem; font-weight: 700; }
+.profile-button:hover { background: rgb(255 255 255 / 12%); }
+.profile-dialog-backdrop { position: fixed; z-index: 20; inset: 0; display: grid; place-items: center; padding: 20px; background: rgb(4 22 39 / 66%); }
+.profile-dialog { display: grid; justify-items: center; gap: 12px; width: min(100%, 360px); padding: 28px; border: 1px solid #d2e5f6; border-radius: 18px; background: #fff; box-shadow: 0 20px 60px rgb(4 36 68 / 25%); text-align: center; }
+.profile-dialog h2 { color: #08264e; }
+.profile-dialog .muted { margin: 0; }
+.profile-dialog-avatar { width: 74px; height: 74px; font-size: 1.6rem; }
+.profile-dialog .primary, .profile-dialog .text-button { width: 100%; }
+.profile-signout { color: #a33a3a; }
+.profile-delete { color: #c52f46; }
+.profile-view-panel { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 24px; align-items: center; max-width: 680px; padding: 32px; border: 1px solid var(--dashboard-line); border-radius: 22px; background: var(--dashboard-panel); box-shadow: 0 14px 32px rgb(0 34 60 / 10%); }
+.profile-page-avatar { width: 112px; height: 112px; font-size: 2.5rem; }
+.profile-view-copy h2 { color: var(--dashboard-ink); font-size: 1.6rem; }
+.profile-view-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+.profile-view-actions .text-button { padding: 10px 14px; }
 .advisor-shell main { grid-column: 2; grid-row: 2; align-self: start; max-width: 1500px; margin: 0 auto; padding: 0 28px; min-width: 0; }
 .advisor-shell .advisor-nav { display: none; }
 .advisor-shell .advisor-page { margin: 0; padding: 0; background: none; color: var(--dashboard-ink); }
@@ -291,8 +309,13 @@
   .advisor-shell .advisor-nav { display: flex; flex-wrap: wrap; gap: 8px; padding: 14px 0; }
   .advisor-nav button { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--dashboard-line); border-radius: 999px; padding: 8px 12px; background: var(--dashboard-panel); color: var(--dashboard-ink); }
   .advisor-nav button.active { background: #ffd124; color: #00243b; border-color: #ffd124; }
+  .advisor-nav button:last-child { margin-left: auto; }
+  .profile-view-panel { grid-template-columns: 1fr; justify-items: center; text-align: center; }
+  .profile-view-actions { justify-content: center; }
   .advisor-shell .advisor-welcome { margin-top: 4px; }
 }
+:root[data-theme="dark"] .profile-dialog { border-color: #12465e; background: #00263b; }
+:root[data-theme="dark"] .profile-dialog h2 { color: #edf6ff; }
 @media (max-width: 420px) {
   .theme-toggle-label { display: none; }
   .advisor-shell .topbar .text-button { font-size: .7rem; }
