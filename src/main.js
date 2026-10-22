@@ -3,9 +3,9 @@ import './shop.css';
 import './advisor.css';
 import { renderShop, renderHalloweenCollection } from './shop.js';
 import { createClient } from '@supabase/supabase-js';
-import { getProgress, getXp, isTaskCompletionConfirmed } from './game.js';
+import { getMascotStateForCurrentClient, getProgress, getXp, isTaskCompletionConfirmed } from './game.js';
 import { mascotImages, mascotLabels } from './mascot.js';
-import { getMonthlyTons, getSalesStreak, getWeeklySales, getRankingSlots, getPortfolioProgress, getMonthlyGoal, getClientSaleState } from './advisor-metrics.js';
+import { getMonthlyTons, getSalesStreak, getWeeklySales, getRankingSlots, getPortfolioProgress, getMonthlyGoal, getClientSaleState, getClientHistoryStatus, isCurrentClient } from './advisor-metrics.js';
 import { advisorIcon } from './advisor-icons.js';
 import { clearMascotFeedback, showMascotFeedback } from './mascot-feedback.js';
 import { clearAdvisorEntrance, playAdvisorEntrance, resetAdvisorEntrance } from './advisor-entrance.js';
@@ -240,7 +240,7 @@ function shell() {
     nav.replaceChildren();
     const mobileNav = el('nav', 'advisor-nav');
     mobileNav.setAttribute('aria-label', 'Portal del asesor');
-    for (const [view, label, icon] of [['dashboard', 'Inicio', 'home'], ['map', 'Mapa clientela', 'map'], ['shop', 'Tienda', 'shop'], ['profile', 'Perfil', 'profile']]) {
+    for (const [view, label, icon] of [['dashboard', 'Inicio', 'home'], ['history', 'Historial clientes', 'clients'], ['map', 'Mapa clientela', 'map'], ['shop', 'Tienda', 'shop'], ['profile', 'Perfil', 'profile']]) {
       for (const [container, className] of [[nav, 'sidebar-item'], [mobileNav, '']]) {
         const control = button(label, className, event => navigate(view, event));
         const navIcon = el('span', 'advisor-nav-icon');
@@ -755,14 +755,50 @@ function advisorProfilePage(page) {
   renderAdvisorProfile(page, profile, { upload: uploadProfilePhoto, remove: removeProfilePhoto, signOut, deleteAccount }, profilePhotoSaving);
   playProfileEntrance(page, profileKeyboardNavigation);
 }
+function advisorHistoryPage(page) {
+  page.className = 'advisor-page';
+  const ownClients = clients.filter(client => client.advisor_id === user?.id);
+  const welcome = el('header', 'advisor-welcome');
+  welcome.append(el('h1', '', 'Historial de clientes'), el('p', '', 'Consulta el avance y las ventas de toda tu cartera.'));
+  page.append(welcome);
+  if (!ownClients.length) {
+    page.append(el('p', 'empty-state', 'Aún no tienes clientes en tu historial.'));
+    return;
+  }
+  const list = el('section', 'client-history-list');
+  for (const client of ownClients) {
+    const status = getClientHistoryStatus(client, sales);
+    const progress = getProgress(client.tasks);
+    const item = el('article', 'client-history-item');
+    const head = el('div', 'client-history-head');
+    const location = client.city && client.department ? ` · ${client.city}, ${client.department}` : '';
+    const copy = el('div', 'client-history-copy');
+    copy.append(el('h2', '', client.name), el('p', 'muted', `${client.type}${location}`));
+    const summary = el('div', 'client-history-summary');
+    summary.append(
+      el('span', `client-history-status${status.current ? '' : ' confirmed'}`, status.label),
+      advisorProgressRing(status.percentage, 'avance del cliente', 'portfolio-ring client-history-ring'),
+    );
+    head.append(copy, summary);
+    const details = el('details', 'client-history-tasks');
+    details.append(el('summary', '', 'Ver tareas'));
+    const tasks = el('ul');
+    for (const task of client.tasks) tasks.append(el('li', '', `${task.completed ? '✓' : '○'} ${task.title}`));
+    details.append(tasks);
+    item.append(head, details); list.append(item);
+  }
+  page.append(list);
+}
 function advisorPage(page) {
   page.className = 'advisor-page';
   const portfolio = getPortfolioProgress(clients, sales);
+  const currentClients = clients.filter(client => isCurrentClient(client, sales));
   const ownRanking = ranking.find(row => row.advisor_id === user?.id);
   const ownConfirmedSales = sales.filter(sale => sale.advisor_id === user?.id && sale.confirmed);
   const ownTons = ownConfirmedSales.reduce((total, sale) => total + Number(sale.tons_sold || 0), 0);
-  const activeClient = clients.find(item => item.id === selectedId) ?? clients[0] ?? null;
+  const activeClient = currentClients.find(item => item.id === selectedId) ?? currentClients[0] ?? null;
   const activeProgress = getProgress(activeClient?.tasks ?? []);
+  const mascotMood = getMascotStateForCurrentClient(activeClient);
   const monthlyGoal = 100;
   const monthlyTons = getMonthlyTons(sales, user?.id);
   const weeklySales = getWeeklySales(sales, user?.id);
@@ -796,14 +832,14 @@ function advisorPage(page) {
   heroCopy.append(heroStats, button('Ver mis tareas hoy', 'hero-cta', () => document.querySelector('#advisor-actions')?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' })));
   const mascot = el('div', 'mascot advisor-hero-mascot');
   const mascotImage = el('img', 'mascot-image');
-  mascotImage.src = mascotImagesForSkin[activeProgress.mascot];
-  mascotImage.alt = `Mascota: ${mascotLabels[activeProgress.mascot]}`;
+  mascotImage.src = mascotImagesForSkin[mascotMood];
+  mascotImage.alt = `Mascota: ${mascotLabels[mascotMood]}`;
   mascot.append(mascotImage);
   hero.append(ring, heroCopy, mascot);
   page.append(hero);
 
   page.append(metrics([
-    ['Clientes activos', clients.length, 'negocios asignados', clients.length],
+    ['Clientes actuales', currentClients.length, 'con acciones pendientes', currentClients.length],
     ['Toneladas vendidas', `${ownTons.toLocaleString('es-CO')} t`, 'volumen confirmado', ownTons],
     ['Ventas confirmadas', ownConfirmedSales.length, 'cierres registrados', ownConfirmedSales.length],
     ['Posición global', ownRanking ? `#${ownRanking.position}` : '—', 'ranking comercial'],
@@ -817,7 +853,7 @@ function advisorPage(page) {
   page.append(overview);
   const panel = el('section', 'advisor-client-panel');
   panel.id = 'advisor-actions';
-  panel.append(el('h2', 'section-title', 'Próximas acciones'), el('p', 'muted', 'Mantén el ritmo con las tareas de tus clientes.'));
+  panel.append(el('h2', 'section-title', 'Clientes actuales pendientes'), el('p', 'muted', 'Mantén el ritmo con las tareas y ventas pendientes de confirmar.'));
   if (!activeClient) {
     const empty = el('div', 'advisor-empty');
     const illustration = el('div', 'advisor-empty-illustration');
@@ -830,15 +866,15 @@ function advisorPage(page) {
     request.setAttribute('aria-describedby', 'request-client-hint');
     const hint = el('p', 'advisor-empty-hint', 'Próximamente · Esta opción aún no envía avisos.');
     hint.id = 'request-client-hint';
-    empty.append(illustration, el('h3', '', 'Tu próxima oportunidad empieza aquí'),
-      el('p', 'muted', 'Aún no tienes clientes asignados. El administrador puede asignarte uno para empezar tu ruta comercial.'), request, hint);
+    empty.append(illustration, el('h3', '', clients.length ? 'No tienes clientes actuales pendientes' : 'Tu próxima oportunidad empieza aquí'),
+      el('p', 'muted', clients.length ? 'Tus clientes con venta confirmada están en Historial de clientes.' : 'Aún no tienes clientes asignados. El administrador puede asignarte uno para empezar tu ruta comercial.'), request, hint);
     panel.append(empty);
     rightColumn.append(panel);
   } else {
     const rail = el('div', 'customer-rail');
-    if (clients.length === 1) panel.classList.add('single-client');
+    if (currentClients.length === 1) panel.classList.add('single-client');
   const list = el('ul', 'customer-list');
-  for (const client of clients) {
+  for (const client of currentClients) {
     const item = el('li');
     const control = button('', `customer-option${client.id === selectedId ? ' selected' : ''}`, () => { selectedId = client.id; aiRecommendation = ''; saleNotice = ''; render(); });
     control.setAttribute('aria-pressed', String(client.id === selectedId));
@@ -987,6 +1023,7 @@ function render() {
   else if (profile.role === 'admin' && adminView === 'shop') renderShop(page, sales.filter(sale => sale.confirmed).length, halloweenReady && halloweenEnabled, profile.equipped_skin, equipSkin);
   else if (profile.role === 'admin') adminPage(page);
   else if (advisorView === 'shop') renderShop(page, sales.filter(sale => sale.advisor_id === user?.id && sale.confirmed).length, halloweenReady && halloweenEnabled, profile.equipped_skin, equipSkin);
+  else if (advisorView === 'history') advisorHistoryPage(page);
   else if (advisorView === 'map') advisorMapPage(page);
   else if (advisorView === 'profile') advisorProfilePage(page);
   else {

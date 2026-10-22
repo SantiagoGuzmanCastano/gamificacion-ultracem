@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as game from '../src/game.js';
 
-const { getProgress, getXp } = game;
+const { getProgress, getXp, getMascotStateForCurrentClient } = game;
 
 test('el progreso refleja tareas guardadas en la base', () => {
   for (let completed = 0; completed <= 4; completed++) {
@@ -10,6 +10,16 @@ test('el progreso refleja tareas guardadas en la base', () => {
     assert.equal(getProgress(tasks).rounded, completed * 25);
   }
   assert.equal(getProgress([]).rounded, 0);
+});
+
+test('la mascota solo cambia de ánimo cuando hay cliente actual', () => {
+  const clientWith = completed => ({ tasks: Array.from({ length: 4 }, (_, index) => ({ completed: index < completed })) });
+
+  assert.equal(getMascotStateForCurrentClient(null), 'happy');
+  assert.equal(getMascotStateForCurrentClient(clientWith(0)), 'sad');
+  assert.equal(getMascotStateForCurrentClient(clientWith(1)), 'neutral');
+  assert.equal(getMascotStateForCurrentClient(clientWith(2)), 'neutral');
+  assert.equal(getMascotStateForCurrentClient(clientWith(4)), 'happy');
 });
 
 test('solo marca la última tarea pendiente para celebración en 3/4', () => {

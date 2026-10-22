@@ -417,3 +417,18 @@
 }
 .advisor-map-container .maplibregl-popup-content { color: #102f49; }
 .advisor-map-container .maplibregl-popup-close-button { color: #102f49; }
+.client-history-list { display: grid; gap: 12px; }
+.client-history-item { padding: 16px; border: 1px solid var(--dashboard-line); border-radius: 12px; background: var(--dashboard-panel); }
+.client-history-head { display: flex; justify-content: space-between; gap: 16px; align-items: center; }
+.client-history-copy { min-width: 0; }
+.client-history-head h2 { margin: 0; color: var(--dashboard-ink); font-size: 1rem; }
+.client-history-head p { margin: 5px 0 0; }
+.client-history-summary { display: flex; align-items: center; gap: 12px; flex: 0 0 auto; }
+.client-history-ring { width: 104px; }
+.client-history-ring .ring-copy { width: auto; }
+.client-history-ring .ring-copy span { display: none; }
+.client-history-status { flex: 0 0 auto; padding: 7px 10px; border: 1px solid #e6c779; border-radius: 999px; background: #fff2d9; color: #8a5700; font-size: .72rem; font-weight: 800; line-height: 1.15; text-align: center; }
+.client-history-status.confirmed { border-color: #79cdb1; background: #d3f5e8; color: #075f46; box-shadow: 0 4px 12px #075f4614; }
+.client-history-tasks { margin-top: 12px; color: var(--dashboard-ink); font-size: .84rem; }
+.client-history-tasks summary { cursor: pointer; color: var(--dashboard-blue); font-weight: 700; }
+.client-history-tasks ul { display: grid; gap: 5px; margin: 10px 0 0; padding-left: 20px; }
