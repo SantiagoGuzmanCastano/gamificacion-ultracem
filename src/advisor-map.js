@@ -84,6 +84,11 @@ export async function renderAdvisorClientMap(container, clients = [], onStatus =
 
   hoverPopup = new Popup({ closeButton: false, closeOnClick: false });
   map.on('mousemove', 'departments-fill', event => {
+    if (detailPopup?.isOpen()) {
+      map.getCanvas().style.cursor = '';
+      hoverPopup.remove();
+      return;
+    }
     const code = event.features?.[0]?.properties?.divipola_dep;
     const state = states.get(code);
     if (!state) return;
@@ -101,6 +106,7 @@ export async function renderAdvisorClientMap(container, clients = [], onStatus =
     const code = event.features?.[0]?.properties?.divipola_dep;
     const state = states.get(code);
     if (!state) return;
+    hoverPopup.remove();
     detailPopup?.remove();
     const content = document.createElement('div');
     if (!state.clients.length) {
@@ -113,7 +119,7 @@ export async function renderAdvisorClientMap(container, clients = [], onStatus =
       for (const client of state.clients) {
         const city = client.city || 'Sin ciudad';
         if (!cities.has(city)) cities.set(city, []);
-        cities.get(city).push(client.name);
+        cities.get(city).push(`${client.name} · ${client.type}`);
       }
       for (const [city, names] of cities) {
         const item = document.createElement('li');
@@ -133,6 +139,7 @@ export async function renderAdvisorClientMap(container, clients = [], onStatus =
     control.setAttribute('aria-label', `${group.city}, ${group.department}: ${group.clients.length} clientes`);
     control.addEventListener('click', event => {
       event.stopPropagation();
+      hoverPopup.remove();
       detailPopup?.remove();
       const content = document.createElement('div');
       const title = document.createElement('strong');

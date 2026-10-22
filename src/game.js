@@ -4,6 +4,10 @@ export function getMascotState(percentage) {
   return 'happy';
 }
 
+export function getMascotStateForCurrentClient(client) {
+  return client ? getProgress(client.tasks).mascot : 'happy';
+}
+
 export function getProgress(tasks) {
   const completed = tasks.filter(task => task.completed).length;
   const total = tasks.length;
