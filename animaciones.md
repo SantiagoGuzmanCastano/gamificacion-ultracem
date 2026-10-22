@@ -4,7 +4,7 @@ Especificación de todas las animaciones de la interfaz. Cubre botón por botón
 
 - **Fuente de inspiración:** la guía de diseño `Copiloto Ultracem.html` (carpeta `tercera_entrega`), que anima todo con **GSAP 3.12.5**.
 - **Rama:** `interfaz`, actualizada con `origin/main` en `eb22f58` (incluye tienda, modo Halloween y "Confirmar venta").
-- **Estado:** implementado en `src/motion.js`, `src/motion.css` y `src/motion-utils.js`. En vez de atributos `data-a`, `main.js` usa listas de selectores (`viewEntry` y `clientEntry`).
+- **Estado (2026-10-22):** al fusionar `interfaz` con `main`, el equipo eligió las animaciones del tablero que ya estaban en `main` (`advisor-entrance.js` y `advisor-effects.js`). **§1–12 quedan como referencia histórica, sin código vigente.** Lo único implementado de este documento es la **§13 (intro de bienvenida)**, en `src/welcome-motion.js`, `src/welcome.js` y `src/loader.js`.
 
 Cada valor marcado **[Guía]** se copia tal cual del HTML. Lo marcado **[Adaptación]** es una propuesta para botones o flujos que la guía no tiene, construida con el mismo lenguaje de movimiento.
 

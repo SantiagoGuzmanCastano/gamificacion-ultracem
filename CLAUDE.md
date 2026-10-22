@@ -2,7 +2,7 @@
 
 Contexto para asistentes de IA (Claude Code, Codex, etc.) y para el equipo.
 
-- **Secciones 1–10:** el código que existe hoy (`origin/main` en `eb22f58`, más la rama `interfaz`).
+- **Secciones 1–10:** el código que existe hoy. Se escribieron sobre `eb22f58` (PR #10). El 2026-10-22 `interfaz` se fusionó con `main` en `d0d07f1` (PR #17): el tablero del asesor, la navegación, el perfil, la tienda y las animaciones del tablero son los de `main`. Las §4, §6 y §8 están actualizadas; **§5 y §7 todavía no reflejan** las migraciones de toneladas, fotos de perfil y skins de `main` (`20261022020000` en adelante).
 - **Secciones 11–17:** el producto objetivo según el documento *Contexto de desarrollo · Copiloto comercial gamificado Ultracem v1.0* (21 oct 2026).
 
 Las dos versiones **no coinciden** (ver §15). Antes de construir algo, decide con el responsable hacia cuál se avanza.
@@ -92,27 +92,31 @@ Variables opcionales: `OPENROUTER_MODEL` (por defecto `google/gemini-2.5-flash`)
 
 ```
 index.html                 # monta #app y carga src/main.js
-src/main.js                # TODA la UI y el estado (~620 líneas): auth, paneles, tienda, Halloween
+src/main.js                # TODA la UI y el estado (~990 líneas): auth, paneles, tienda, mapa, perfil, Halloween
 src/game.js                # lógica pura: progreso, XP, estado de mascota, ánimo (con tests)
 src/mascot.js              # rutas/etiquetas de imágenes del pingüino base
 src/shop.js                # catálogo de skins + render de la tienda (innerHTML)
 src/style.css              # estilos generales, tema claro/oscuro (data-theme)
 src/shop.css               # estilos de la tienda
-src/motion.js              # ÚNICO módulo que importa GSAP: entradas, contadores, confeti, toast, mascota, FLIP
-src/motion.css             # capa de efectos (#fx), toast, burbuja de Topitín, barra de progreso animable
-src/motion-utils.js        # lógica pura de animaciones (formato, confeti, temblor), testeable con node
+src/advisor.css            # tablero oscuro del asesor (de main)
+src/advisor-*.js           # métricas (toneladas, ventas semanales, cartera), íconos, entrada y confeti con GSAP (de main)
+src/mascot-feedback.js     # mensajes de la mascota en el tablero (de main)
+src/profile.js             # validación de la foto de perfil (de main)
+src/loader.js / loader.css # loader con el logo mientras cargan los datos
+src/welcome.js / .css      # bienvenida del asesor: capas, mensaje, Topitín, "Tareas del día" (una vez al día)
+src/welcome-motion.js      # timeline GSAP de la bienvenida (vuelo falso 3D); se importa de forma dinámica
 public/mascot/             # pingüino base: feliz / serio / sad
 public/skins/              # skins de la tienda (+ skeleton/happy|sad|serious.png)
 SKINS/                     # originales de las skins (duplicados de public/skins, ~22 MB)
 supabase/migrations/       # esquema y funciones, en orden por timestamp
 supabase/functions/recommend-client/index.ts  # Edge Function de IA
 supabase/tests/halloween_mode.sql             # pruebas SQL de permisos del modo Halloween
-tests/                     # game.test.js, shop.test.js, halloween.test.js, motion.test.js
-animaciones.md             # especificación de animaciones (inspirada en Copiloto Ultracem.html)
+tests/*.test.js            # node --test (lógica pura, catálogo, métricas del tablero)
+tests/*.spec.js            # Vitest + jsdom: welcome.spec.js y loader.spec.js (npm run test:spec)
+animaciones.md             # especificación de animaciones; vigente solo §13 (intro) tras la fusión con main
 docs/superpowers/          # spec y plan del XP/ranking
-odd/tasks/                 # bitácoras de las features tienda y Halloween
+odd/tasks/                 # bitácoras de las features tienda, Halloween y perfil
 DECISIONES.md              # registro de decisiones de producto (leer antes de cambiar alcance)
-PLAN-MVP-ESTATICO.md       # plan inicial
 ```
 
 ## 5. Modelo de datos (Supabase)
@@ -147,11 +151,11 @@ Helpers en el esquema `app_private`: `is_admin()` e `is_advisor(uuid)`.
 | `delete_mvp_advisor(advisor)` | admin | borra los clientes y la cuenta en `auth.users` |
 | `equip_mvp_skin(skin)` | asesor | `classic` siempre; `skeleton` exige modo Halloween y ≥1 venta confirmada |
 
-El rol del primer admin se asigna a mano en el SQL Editor (ver README).
+El rol del primer admin se asigna a mano en el SQL Editor: `update public.mvp_profiles set role = 'admin' where user_id = (select id from auth.users where email = '<correo>' and email_confirmed_at is not null);` (el README se eliminó en `main`).
 
 ## 6. Flujo de la app (`src/main.js`)
 
-1. `boot()` → `db.auth.getUser()`. Sin sesión se muestra `authPage()` (login o registro).
+1. `boot()` → muestra el **loader** con el logo → `db.auth.getUser()`. Sin sesión se muestra `authPage()` (login o registro).
 2. `loadData()` → perfil, asesores (solo admin), clientes con tareas, ventas y ranking.
 3. `render()` → `shell()` reconstruye todo el layout y luego:
    - admin → `adminPage()`: métricas, ranking, ventas por asesor, pendientes por asesor, botones de borrado, formulario de nuevo cliente y control del **modo Halloween**.
@@ -159,14 +163,12 @@ El rol del primer admin se asigna a mano en el SQL Editor (ver README).
    - asesor → `advisorPage()`: métricas, ranking, selector de cliente, progreso con mascota, **Confirmar venta**, **Limpiar tareas completadas**, Trompín y lista de tareas.
 4. Cada acción → RPC → `refresh(msg)` = `loadData()` + `render()` + aviso.
 5. Modo Halloween: `refreshHalloween()` se ejecuta al iniciar, al enfocar la ventana y cada 10 s (admin, o asesor en la tienda); se detiene con `stopHalloweenSync()` al cerrar sesión o en `pagehide`.
-6. Animaciones (GSAP, ver `animaciones.md`):
-   - La entrada escalonada corre solo al cambiar de vista (`entry`).
-   - `refresh()` toma un `snapshot()` antes del render y llama a `update()` después, para que los números cuenten desde su valor anterior y el ranking se reordene con FLIP.
-   - Las celebraciones (chip "+10 XP", confeti y burbuja de Topitín) solo se disparan si la RPC respondió bien.
-   - Los avisos usan un toast fijo (`notice()` → `motion.toast()`).
+6. Animaciones (GSAP):
+   - **Tablero (de `main`):** `playAdvisorEntrance()` (una vez por sesión) y confeti de tarea y venta en `advisor-effects.js`.
+   - **Bienvenida (de `interfaz`):** si toca hoy (`welcomeDueToday()`), `showWelcome()` la abre sobre el tablero al quitarse el loader. Mientras `welcomeOpen` es `true`, `render()` no lanza la entrada del tablero ni el aviso de foto de perfil; al cerrarla se llama a `resetAdvisorEntrance()` y luego a `render()`.
    - Todo respeta `prefers-reduced-motion`.
 
-Navegación del asesor: "Mi tablero" y "Tienda", en la barra lateral y en `nav.advisor-nav` para móvil. La barra lateral del admin es decorativa.
+Navegación del asesor (de `main`): Inicio, Tienda, Mapa clientela y Perfil.
 
 ## 7. Tienda de skins (`src/shop.js`)
 
@@ -190,7 +192,8 @@ Todas las ramas remotas ya están fusionadas en `main` (0 commits por delante).
 | `feat/task-completion-confetti` | #7 | confeti, corazones y mensajes de ánimo |
 | `feat/tienda-cosmeticos` | #8 | catálogo de la tienda |
 | `codex/halloween-tienda` | #9, #10 | modo Halloween global, ventas confirmadas, skin esqueleto |
-| `interfaz` | #11 (abierto) | animaciones GSAP (`animaciones.md`) + este `CLAUDE.md`, sobre `eb22f58`. **Sin merge**: requiere autorización |
+| `interfaz` | #11 (abierto) | fusionada con `main` (`d0d07f1`): loader + bienvenida con vuelo 3D, `CLAUDE.md`, `animaciones.md` y tests con Vitest. El bento y las animaciones propias del tablero se descartaron a favor de los de `main`. **Sin merge**: requiere autorización |
+| ramas de `main` posteriores | #12–#17 | tienda con marcos y fondos, admin con pestañas, logo PNG, toneladas, tablero oscuro rediseñado, perfil con foto y borrado de cuenta |
 
 Nota de acceso: el remoto `origin` usa SSH y la llave local es rechazada. Push y fetch funcionan por HTTPS con Git Credential Manager. Solo se hacen con autorización.
 
@@ -442,7 +445,7 @@ Ninguna se resuelve sin preguntar (§0).
 | Tienda | Skins con precios en "ventas" y modo Halloween | Premios simbólicos canjeados con UltraPuntos |
 | Admin | Panorama, borrado de tareas/clientes/asesores y Halloween | Panel nacional KPI, Asesores, Departamentos/municipios y Metas con recálculo |
 | Diseño | Navy/amarillo, Poppins (guía `Copiloto Ultracem.html`) | Paleta desaturada, Montserrat + Inter |
-| Animación | GSAP con confeti (26/40 piezas), chip, FLIP y toast (rama `interfaz`, PR #11) | Animación sobria, destello <1,5 s, **sin confeti saturado** |
+| Animación | Entrada del tablero y confeti de `main` (36 piezas por tarea, 96 en lluvia por venta); intro con vuelo 3D (excepción aprobada) | Animación sobria, destello <1,5 s, **sin confeti saturado** |
 | Navegación | SPA sin rutas; lateral (asesor) | Barra inferior de 5 destinos (vendedor) y rutas |
 | Niveles en guías | `Copiloto Ultracem.html`: Cimiento → Torre, 10 XP por tarea | Novato → Maestro Ultra, UltraPuntos |
 
@@ -475,7 +478,7 @@ Ninguna se resuelve sin preguntar (§0).
   - Aprobación de Cemi.
   - **¿Topitín y Trompín se reemplazan o conviven?**
   - ¿El admin usará escritorio o celular?
-- **Rama `interfaz` (PR #11):** ¿se fusiona tal cual o se ajusta antes a §14 (sin confeti saturado)?
+- **Confeti de `main`:** ¿se ajusta a §14 ("sin confeti saturado")? La lluvia por venta usa 96 piezas.
 
 ## 17. Plan sugerido (Propuesta; cada fase se aprueba antes)
 

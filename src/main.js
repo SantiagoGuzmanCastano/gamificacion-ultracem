@@ -1,56 +1,33 @@
 import './style.css';
 import './shop.css';
+import './advisor.css';
 import { renderShop, renderHalloweenCollection } from './shop.js';
 import { createClient } from '@supabase/supabase-js';
-import { getMascotCheer, getProgress, isTaskCompletionConfirmed } from './game.js';
+import { getProgress, getXp, isTaskCompletionConfirmed } from './game.js';
 import { mascotImages, mascotLabels } from './mascot.js';
-import { formatCount } from './motion-utils.js';
-import * as motion from './motion.js';
+import { getMonthlyTons, getSalesStreak, getWeeklySales, getRankingSlots, getPortfolioProgress, getMonthlyGoal, getClientSaleState } from './advisor-metrics.js';
+import { advisorIcon } from './advisor-icons.js';
+import { clearMascotFeedback, showMascotFeedback } from './mascot-feedback.js';
+import { clearAdvisorEntrance, playAdvisorEntrance, resetAdvisorEntrance } from './advisor-entrance.js';
+import { clearAdvisorEffects, celebrateTask, celebrateSale, revealRecommendation } from './advisor-effects.js';
+import { isValidProfileImage, profileImageExtension } from './profile.js';
 import { createWelcome, getWelcomeTasks, shouldShowWelcome, welcomeDayKey } from './welcome.js';
 import { createLoader } from './loader.js';
-import './dashboard.css';
 
 const db = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
   ? createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY) : null;
 const root = document.querySelector('#app');
 let user = null, profile = null, advisors = [], clients = [], sales = [], ranking = [], selectedId = null, aiRecommendation = '', saleNotice = '';
 let theme = localStorage.getItem('ultracem-theme') || 'light';
-let advisorView = 'dashboard';
+let advisorView = 'dashboard', adminView = 'dashboard';
 let halloweenEnabled = false, halloweenReady = false, halloweenSaving = false, halloweenError = '';
 let halloweenTimer = null, halloweenRequest = 0;
-let entry = 'view';
+let noticeTimer = null;
+let profilePhotoPromptPending = false;
+let welcomeOpen = false;
+let profilePhotoUrlTimer = null;
 document.documentElement.dataset.theme = theme;
 const taskOrder = ['Preparar una visita', 'Contactar al cliente', 'Revisar una cotización', 'Planear el siguiente paso'];
-const viewEntry = '.page-intro, .metric, .ranking-section, .advisor-client-panel, .today-card, .ai-recommendation, .tasks-section, .task, .metrics-dashboard, .advisor-row, .admin-management, .shop-heading, .shop-collection, .shop-card, .auth-form, .empty-state';
-// Íconos de relleno redondeado, 20 px (guía p. 5). Contenido estático.
-const ICONS = {
-  people: '<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2" fill="currentColor"/><path d="M3 19c0-3.2 2.6-5.2 6-5.2s6 2 6 5.2z" fill="currentColor"/><circle cx="17" cy="9" r="2.5" fill="currentColor" opacity=".6"/><path d="M16 14.2c3 0 5 1.6 5 4.3h-4.2c0-1.8-.5-3.2-.8-4.3z" fill="currentColor" opacity=".6"/></svg>',
-  list: '<svg viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="17" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M9 10h6M9 14h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
-  check: '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-  sale: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 2 21 7v10l-9 5-9-5V7z" opacity=".25"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M8 12.5l2.6 2.6L16 9.7"/></svg>',
-  trophy: '<svg viewBox="0 0 24 24"><path d="M7 4h10v5a5 5 0 0 1-10 0z" fill="currentColor"/><path d="M7 6H4c0 3 1.5 4.5 3.3 4.7M17 6h3c0 3-1.5 4.5-3.3 4.7" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 14v4M8 20h8" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>',
-  home: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M3.5 11 12 4l8.5 7v8.5a1 1 0 0 1-1 1H15v-6H9v6H4.5a1 1 0 0 1-1-1z"/></svg>',
-  store: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M4 9h16v10a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 19zM5 4h14l1.5 4h-17z"/></svg>',
-  moon: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></svg>',
-  sun: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.5" fill="currentColor"/><path stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></svg>',
-  out: '<svg viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4M10 16l-4-4 4-4M6 12h10"/></svg>',
-  spark: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/></svg>',
-};
-function icon(name, className = '') {
-  const node = el('span', `icon ${className}`.trim());
-  node.setAttribute('aria-hidden', 'true');
-  node.innerHTML = ICONS[name];
-  return node;
-}
-const plural = (count, one, many) => `${count} ${count === 1 ? one : many}`;
-const clientEntry = '.customer-detail, .ai-recommendation, .tasks-section, .task';
-const halloweenEffects = {
-  appear: section => {
-    motion.appear(section, 0);
-    section.querySelectorAll('.shop-card').forEach((card, index) => motion.appear(card, .07 * (index + 1)));
-  },
-  leave: motion.leave,
-};
 
 function el(tag, className = '', value = '') {
   const node = document.createElement(tag);
@@ -76,11 +53,123 @@ function field(label, control) {
   wrap.append(control);
   return wrap;
 }
-function notice(text, error = false) {
-  motion.toast(text, error);
+function profileAvatar(className = 'profile-avatar') {
+  if (profile.avatar_url) {
+    const image = el('img', className);
+    image.src = profile.avatar_url;
+    image.alt = `Foto de ${profile.full_name}`;
+    return image;
+  }
+  return el('span', `${className} profile-avatar-placeholder`, profile.full_name.slice(0, 1).toUpperCase());
 }
-function afterCelebration(startedAt, callback) {
-  window.setTimeout(callback, Math.max(0, 900 - (performance.now() - startedAt)));
+async function signOut() {
+  const result = await db.auth.signOut();
+  if (result.error) { notice('No se pudo cerrar la sesión. Intenta de nuevo.', true); return; }
+  resetAdvisorEntrance();
+  stopHalloweenSync();
+  window.clearInterval(profilePhotoUrlTimer);
+  profilePhotoUrlTimer = null;
+  user = profile = null; advisors = clients = sales = ranking = []; aiRecommendation = ''; saleNotice = ''; advisorView = 'dashboard'; adminView = 'dashboard';
+  render();
+}
+function scheduleProfilePhotoUrlRefresh() {
+  window.clearInterval(profilePhotoUrlTimer);
+  profilePhotoUrlTimer = null;
+  if (!profile.avatar_path) return;
+  profilePhotoUrlTimer = window.setInterval(async () => {
+    const signed = await db.storage.from('advisor-profile-photos').createSignedUrl(profile.avatar_path, 3600);
+    if (!signed.error && signed.data?.signedUrl) {
+      profile.avatar_url = signed.data.signedUrl;
+      document.querySelectorAll('.profile-avatar').forEach(node => {
+        if (node.tagName === 'IMG') node.src = profile.avatar_url;
+      });
+    }
+  }, 50 * 60 * 1000);
+}
+async function markProfilePhotoPrompted() {
+  const result = await db.from('mvp_profiles').update({ photo_prompted_at: new Date().toISOString() }).eq('user_id', user.id);
+  if (result.error) throw result.error;
+  profilePhotoPromptPending = false;
+}
+async function uploadProfilePhoto(file) {
+  if (!isValidProfileImage(file)) {
+    notice('Selecciona una imagen JPG, PNG o WebP de máximo 5 MB.', true);
+    return;
+  }
+  const path = `${user.id}/${crypto.randomUUID()}.${profileImageExtension(file)}`;
+  const upload = await db.storage.from('advisor-profile-photos').upload(path, file, { contentType: file.type, upsert: false });
+  if (upload.error) { notice('No se pudo guardar la foto. Intenta de nuevo.', true); return; }
+  const previousPath = profile.avatar_path;
+  const update = await db.from('mvp_profiles').update({ avatar_path: path, photo_prompted_at: new Date().toISOString() }).eq('user_id', user.id);
+  if (update.error) {
+    await db.storage.from('advisor-profile-photos').remove([path]);
+    notice('No se pudo guardar la foto. Intenta de nuevo.', true);
+    return;
+  }
+  if (previousPath) await db.storage.from('advisor-profile-photos').remove([previousPath]);
+  const signed = await db.storage.from('advisor-profile-photos').createSignedUrl(path, 3600);
+  profile.avatar_path = path;
+  profile.avatar_url = signed.data?.signedUrl || '';
+  scheduleProfilePhotoUrlRefresh();
+  profilePhotoPromptPending = false;
+  document.querySelector('.profile-dialog-backdrop')?.remove();
+  render();
+}
+async function removeProfilePhoto() {
+  if (!profile.avatar_path) return;
+  if (!window.confirm('¿Quitar tu foto de perfil?')) return;
+  const removed = await db.storage.from('advisor-profile-photos').remove([profile.avatar_path]);
+  if (removed.error) { notice('No se pudo quitar la foto. Intenta de nuevo.', true); return; }
+  const update = await db.from('mvp_profiles').update({ avatar_path: null }).eq('user_id', user.id);
+  if (update.error) { notice('No se pudo actualizar el perfil. Intenta de nuevo.', true); return; }
+  profile.avatar_path = null;
+  profile.avatar_url = '';
+  render();
+}
+async function deleteAccount() {
+  if (!window.confirm('¿Borrar tu cuenta, clientes, tareas, ventas y progreso? Esta acción no se puede deshacer.')) return;
+  if (!window.confirm('Confirma nuevamente: borrar todo definitivamente.')) return;
+  const result = await db.rpc('delete_mvp_own_account');
+  if (result.error) { notice('No se pudo borrar la cuenta. Intenta de nuevo.', true); return; }
+  user = profile = null; advisors = clients = sales = ranking = []; aiRecommendation = ''; saleNotice = '';
+  render();
+}
+function openProfilePanel(prompt = false) {
+  document.querySelector('.profile-dialog-backdrop')?.remove();
+  const backdrop = el('div', 'profile-dialog-backdrop');
+  const dialog = el('section', 'profile-dialog');
+  dialog.setAttribute('role', 'dialog');
+  dialog.setAttribute('aria-modal', 'true');
+  dialog.setAttribute('aria-labelledby', 'profile-dialog-title');
+  const title = el('h2', '', prompt ? 'Añade tu foto' : 'Tu perfil');
+  title.id = 'profile-dialog-title';
+  dialog.append(profileAvatar('profile-dialog-avatar'), title, el('p', 'muted', prompt ? 'Elige una foto desde tu dispositivo o continúa sin foto.' : 'Actualiza tu foto cuando quieras.'));
+  const inputNode = el('input');
+  inputNode.type = 'file'; inputNode.accept = 'image/jpeg,image/png,image/webp'; inputNode.hidden = true;
+  const choose = button(prompt ? 'Elegir foto' : 'Cambiar foto', 'primary', () => inputNode.click());
+  inputNode.addEventListener('change', () => inputNode.files[0] && uploadProfilePhoto(inputNode.files[0]));
+  dialog.append(choose, inputNode);
+  if (prompt) dialog.append(button('Continuar sin foto', 'text-button', async () => { try { await markProfilePhotoPrompted(); backdrop.remove(); } catch (cause) { notice(cause.message, true); } }));
+  else dialog.append(button('Cerrar sesión', 'text-button profile-signout', signOut));
+  backdrop.append(dialog);
+  backdrop.addEventListener('click', event => { if (event.target === backdrop && !prompt) backdrop.remove(); });
+  document.body.append(backdrop);
+  dialog.querySelector('button')?.focus();
+}
+function advisorProfileCard() {
+  const card = el('section', 'advisor-profile-card');
+  card.append(profileAvatar(), el('div', 'advisor-profile-copy', profile.full_name));
+  card.append(button('Perfil', 'profile-button', () => { advisorView = 'profile'; render(); }));
+  return card;
+}
+function notice(text, error = false) {
+  const node = document.querySelector('#notice');
+  window.clearTimeout(noticeTimer);
+  node.textContent = text;
+  node.hidden = !text;
+  node.classList.toggle('error-notice', error);
+  node.classList.toggle('success-notice', !error && text === 'Skin equipada.');
+  if (!error && text === 'Skin equipada.') noticeTimer = window.setTimeout(() => { node.hidden = true; }, 3200);
 }
 function authError(cause) {
   if (cause.code === 'invalid_credentials') return 'Correo o contraseña incorrectos.';
@@ -92,22 +181,27 @@ function authError(cause) {
   return cause.message || 'No se pudo acceder.';
 }
 function shell() {
-  root.className = profile && profile.role !== 'admin' ? 'advisor-shell' : '';
-  root.innerHTML = '<header class="topbar"><div class="brand"><span class="brand-mark">U</span><span>Gamificación</span><span class="demo-badge">MVP</span></div><div class="top-actions" id="actions"></div></header><div class="app-layout"><aside class="app-sidebar" aria-label="Navegación decorativa"><div class="sidebar-caption">ULTRACEM</div><div class="sidebar-nav"><span class="sidebar-item active"><b>01</b> Resumen</span><span class="sidebar-item"><b>02</b> Clientes</span><span class="sidebar-item"><b>03</b> Progreso</span><span class="sidebar-item"><b>04</b> Ranking</span></div><div class="sidebar-bottom"><span class="sidebar-pulse"></span><span>Ruta comercial</span><small>Panel operativo</small></div></aside><main><div id="page"></div><footer>Acciones comerciales de demostración. Completar una tarea no acredita una venta.</footer></main></div>';
-  if (root.classList.contains('advisor-shell')) {
+  clearAdvisorEffects();
+  clearAdvisorEntrance();
+  clearMascotFeedback();
+  root.className = !profile ? 'auth-shell' : profile.role !== 'admin' ? 'advisor-shell' : 'admin-shell';
+  root.innerHTML = !profile
+    ? '<main class="auth-main"><p id="notice" class="notice" role="status" hidden></p><div id="page"></div></main>'
+    : '<header class="topbar"><div class="brand"><img src="/ultracem-logo.png" alt="Ultracem"><span>Gamificación</span><span class="demo-badge">MVP</span></div><div class="top-actions" id="actions"></div></header><div class="app-layout"><aside class="app-sidebar" aria-label="Navegación"><div class="sidebar-caption">GAMIFICACIÓN</div><div class="sidebar-nav"></div><div class="sidebar-bottom"><span class="sidebar-pulse"></span><span>Ruta comercial</span><small>Panel operativo</small></div></aside><main><p id="notice" class="notice" role="status" hidden></p><div id="page"></div><footer>Acciones comerciales de demostración. Completar una tarea no acredita una venta.</footer></main></div>';
+  if (profile && profile.role !== 'admin') {
     const sidebar = root.querySelector('.app-sidebar');
     const brand = el('div', 'sidebar-brand');
-    brand.innerHTML = '<span class="sidebar-brand-symbol" aria-hidden="true">U</span><span class="sidebar-brand-name">ULTRACEM</span>';
+    brand.innerHTML = '<img class="sidebar-logo" src="/ultracem-logo.png" alt="Ultracem">';
     const caption = sidebar.querySelector('.sidebar-caption');
     caption.textContent = 'GAMIFICACIÓN';
-    caption.append(el('span', 'sidebar-mvp', 'MVP'));
+    caption.after(el('span', 'sidebar-mvp', 'MVP'));
     sidebar.prepend(brand);
-    sidebar.append(el('p', 'sidebar-motto', 'CONSTRUYENDO UN MUNDO MÁS FUERTE'));
+    sidebar.append(el('p', 'sidebar-motto', 'CONSTRUYENDO UN MUNDO MÁS FUERTE'), advisorProfileCard());
     const navigate = view => {
       advisorView = view;
-      entry = 'view';
       render();
       if (view === 'shop') refreshHalloween();
+      if (view === 'map') showMascotFeedback('map');
       window.scrollTo(0, 0);
       const heading = document.querySelector('#page h1');
       if (heading) { heading.tabIndex = -1; heading.focus({ preventScroll: true }); }
@@ -118,12 +212,12 @@ function shell() {
     nav.replaceChildren();
     const mobileNav = el('nav', 'advisor-nav');
     mobileNav.setAttribute('aria-label', 'Portal del asesor');
-    for (const [view, label, number, glyph] of [['dashboard', 'Mi tablero', '01', 'home'], ['shop', 'Tienda', '02', 'store']]) {
+    for (const [view, label, icon] of [['dashboard', 'Inicio', 'home'], ['shop', 'Tienda', 'shop'], ['map', 'Mapa clientela', 'map'], ['profile', 'Perfil', 'profile']]) {
       for (const [container, className] of [[nav, 'sidebar-item'], [mobileNav, '']]) {
-        const control = button('', className, () => navigate(view));
-        control.setAttribute('aria-label', label);
-        if (container === nav) control.append(el('b', '', number));
-        control.append(icon(glyph), el('span', '', label));
+        const control = button(label, className, () => navigate(view));
+        const navIcon = el('span', 'advisor-nav-icon');
+        navIcon.innerHTML = advisorIcon(icon);
+        control.prepend(navIcon);
         if (advisorView === view) {
           control.classList.add('active');
           control.setAttribute('aria-current', 'page');
@@ -132,30 +226,38 @@ function shell() {
       }
     }
     document.querySelector('main').prepend(mobileNav);
+  } else if (profile?.role === 'admin') {
+    const sidebar = root.querySelector('.app-sidebar');
+    const nav = sidebar.querySelector('.sidebar-nav');
+    const navigate = view => { adminView = view; render(); window.scrollTo(0, 0); };
+    nav.setAttribute('aria-label', 'Portal de administración');
+    for (const [view, label, icon] of [['dashboard', 'Tablero de admin', '01'], ['shop', 'Tienda', '02']]) {
+      const control = button(label, 'sidebar-item', () => navigate(view));
+      control.prepend(el('b', '', icon));
+      if (adminView === view) { control.classList.add('active'); control.setAttribute('aria-current', 'page'); }
+      nav.append(control);
+    }
   }
   if (profile) {
     const actions = document.querySelector('#actions');
-    actions.append(el('span', 'session-name', `${profile.full_name} · ${profile.role === 'admin' ? 'Administrador' : 'Asesor'}`));
-    const themeButton = button('', 'theme-button', () => {
-      theme = theme === 'dark' ? 'light' : 'dark';
-      localStorage.setItem('ultracem-theme', theme);
-      document.documentElement.dataset.theme = theme;
-      render();
-      motion.themeFade(root);
+    if (profile.role === 'admin') actions.append(el('span', 'session-name', `${profile.full_name} · Administrador`));
+    const themeToggle = button('', 'theme-button', () => {
+      const applyTheme = () => {
+        theme = theme === 'dark' ? 'light' : 'dark';
+        localStorage.setItem('ultracem-theme', theme);
+        document.documentElement.dataset.theme = theme;
+        shell();
+        render();
+      };
+      if (document.startViewTransition && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) document.startViewTransition(applyTheme);
+      else applyTheme();
     });
-    themeButton.append(icon(theme === 'dark' ? 'sun' : 'moon'), el('span', '', theme === 'dark' ? 'Claro' : 'Oscuro'));
-    actions.append(themeButton);
-    const logout = button('', 'text-button', async () => {
-      const result = await db.auth.signOut();
-      if (result.error) { notice('No se pudo cerrar la sesión. Intenta de nuevo.', true); return; }
-      stopHalloweenSync();
-      user = profile = null; advisors = clients = sales = ranking = []; aiRecommendation = ''; saleNotice = ''; advisorView = 'dashboard';
-      entry = 'view';
-      render();
-    });
-    logout.append(icon('out'), el('span', '', 'Cerrar sesión'));
-    logout.setAttribute('aria-label', 'Cerrar sesión');
-    actions.append(logout);
+    themeToggle.innerHTML = '<span class="theme-toggle-icon" aria-hidden="true"><i></i></span><span class="theme-toggle-label"></span>';
+    themeToggle.querySelector('.theme-toggle-label').textContent = theme === 'dark' ? 'Claro' : 'Oscuro';
+    themeToggle.setAttribute('aria-label', `Cambiar a modo ${theme === 'dark' ? 'claro' : 'oscuro'}`);
+    themeToggle.setAttribute('aria-pressed', String(theme === 'dark'));
+    actions.append(themeToggle);
+    if (profile.role === 'admin') actions.append(button('Cerrar sesión', 'text-button', signOut));
   }
 }
 function authPage(mode = 'login') {
@@ -188,7 +290,6 @@ function authPage(mode = 'login') {
         if (result.error) throw result.error;
         if (!result.data.session) {
           authPage('login');
-          motion.enter(document.querySelector('#page'), viewEntry);
           notice('Cuenta creada. Confirma tu correo y luego inicia sesión.');
           return;
         }
@@ -199,27 +300,33 @@ function authPage(mode = 'login') {
       await boot();
     } catch (cause) {
       error.textContent = authError(cause);
-      motion.appear(error, 0);
-      motion.shake(form);
       submit.disabled = false;
       submit.textContent = mode === 'login' ? 'Entrar' : 'Crear cuenta';
     }
   });
-  page.replaceChildren(form, button(mode === 'login' ? 'Crear cuenta de asesor' : 'Ya tengo cuenta', 'text-button auth-toggle', () => {
-    authPage(mode === 'login' ? 'signup' : 'login');
-    motion.enter(document.querySelector('#page'), viewEntry);
-  }));
+  page.replaceChildren(form, button(mode === 'login' ? 'Crear cuenta de asesor' : 'Ya tengo cuenta', 'text-button auth-toggle', () => authPage(mode === 'login' ? 'signup' : 'login')));
 }
 async function loadData() {
-  const own = await db.from('mvp_profiles').select('user_id,full_name,role,equipped_skin').eq('user_id', user.id).single();
+  let own = await db.from('mvp_profiles').select('user_id,full_name,role,equipped_skin,avatar_path,photo_prompted_at').eq('user_id', user.id).single();
+  if (own.error && /avatar_path|photo_prompted_at|column/i.test(own.error.message || '')) {
+    own = await db.from('mvp_profiles').select('user_id,full_name,role,equipped_skin').eq('user_id', user.id).single();
+    if (!own.error) own.data.photo_prompted_at = new Date().toISOString();
+  }
   if (own.error) throw own.error;
   profile = own.data;
+  profile.avatar_url = '';
+  if (profile.avatar_path) {
+    const signed = await db.storage.from('advisor-profile-photos').createSignedUrl(profile.avatar_path, 3600);
+    profile.avatar_url = signed.data?.signedUrl || '';
+  }
+  scheduleProfilePhotoUrlRefresh();
+  profilePhotoPromptPending = profile.role === 'advisor' && !profile.photo_prompted_at;
   if (profile.role === 'admin') {
     const list = await db.rpc('get_mvp_advisors');
     if (list.error) throw list.error;
     advisors = (list.data ?? []).sort((a, b) => a.full_name.localeCompare(b.full_name));
   } else advisors = [];
-  const result = await db.from('mvp_clients').select('id,name,type,advisor_id,mvp_tasks(id,title,description,completed_at)').order('created_at', { ascending: false });
+  const result = await db.from('mvp_clients').select('id,name,type,advisor_id,tons_requested,mvp_tasks(id,title,description,completed_at)').order('created_at', { ascending: false });
   if (result.error) throw result.error;
   clients = result.data.map(client => ({
     ...client,
@@ -231,7 +338,7 @@ async function loadData() {
         return (aIndex < 0 ? taskOrder.length : aIndex) - (bIndex < 0 ? taskOrder.length : bIndex);
       }),
   }));
-  const salesResult = await db.from('mvp_sales').select('id,client_id,advisor_id,amount,completed_at,confirmed');
+  const salesResult = await db.from('mvp_sales').select('id,client_id,advisor_id,amount,tons_sold,completed_at,confirmed,confirmed_at');
   if (salesResult.error) throw salesResult.error;
   sales = salesResult.data ?? [];
   const rankingResult = await db.rpc('get_mvp_advisor_ranking');
@@ -245,15 +352,15 @@ async function boot() {
   shell();
   const result = await db.auth.getUser();
   user = result.data.user;
-  entry = 'view';
-  if (!user) { profile = null; render(); loader.hide(); return; }
+  if (!user) { resetAdvisorEntrance(); profile = null; render(); loader.hide(); return; }
   try {
     await loadData();
     await refreshHalloween();
+    welcomeOpen = welcomeDueToday();
     render();
     // La bienvenida arranca debajo del loader: al desvanecerse el logo, su capa frontal (el mismo anillo "U")
     // queda a la vista y la cámara la atraviesa.
-    showWelcome();
+    if (welcomeOpen) showWelcome();
     loader.hide();
     halloweenTimer = window.setInterval(() => {
       if (!document.hidden && (profile?.role === 'admin' || advisorView === 'shop')) refreshHalloween();
@@ -266,14 +373,17 @@ async function boot() {
     notice(cause.message, true);
   }
 }
-// Bienvenida del asesor: una vez al día por dispositivo, sobre el tablero ya cargado.
-function showWelcome() {
-  if (profile?.role !== 'advisor' || document.querySelector('.welcome')) return;
-  const today = welcomeDayKey();
+// Bienvenida del asesor: una vez al día por dispositivo.
+function welcomeDueToday() {
+  if (profile?.role !== 'advisor' || document.querySelector('.welcome')) return false;
   let lastShown = null;
   try { lastShown = localStorage.getItem('ultracem-welcome-day'); } catch { /* sin almacenamiento: se muestra */ }
-  if (!shouldShowWelcome(lastShown, today)) return;
-  try { localStorage.setItem('ultracem-welcome-day', today); } catch { /* sin almacenamiento */ }
+  return shouldShowWelcome(lastShown, welcomeDayKey());
+}
+// Mientras está abierta, render() no lanza la entrada del tablero ni el aviso de foto de perfil;
+// al cerrarla se reinicia la entrada para que el tablero aparezca con su animación.
+function showWelcome() {
+  try { localStorage.setItem('ultracem-welcome-day', welcomeDayKey()); } catch { /* sin almacenamiento */ }
   const layer = el('div');
   document.body.append(layer);
   document.body.style.overflow = 'hidden';
@@ -282,12 +392,13 @@ function showWelcome() {
     tasks: getWelcomeTasks(clients),
     mascotSrc: profile.equipped_skin === 'skeleton' ? '/skins/skeleton/happy.png' : mascotImages.happy,
     onClose: async () => {
-      await motion.welcomeExit(welcome.element);
+      const { welcomeExit } = await import('./welcome-motion.js');
+      await welcomeExit(welcome.element);
       layer.remove();
       document.body.style.overflow = '';
-      entry = 'view';
+      welcomeOpen = false;
+      resetAdvisorEntrance();
       render();
-      document.querySelector('#page h1')?.focus({ preventScroll: true });
     },
   });
   welcome.play();
@@ -309,7 +420,7 @@ function paintHalloween() {
   }
   const page = document.querySelector('.shop-page');
   if (page) {
-    renderHalloweenCollection(page, halloweenReady && halloweenEnabled, profile?.equipped_skin, ranking.find(row => row.advisor_id === user?.id)?.confirmed_sales ?? 0, equipSkin, halloweenEffects);
+    renderHalloweenCollection(page, halloweenReady && halloweenEnabled, profile?.equipped_skin, ranking.find(row => row.advisor_id === user?.id)?.confirmed_sales ?? 0, equipSkin);
     const status = page.querySelector('.shop-mode-status');
     status.textContent = halloweenError;
     status.hidden = !halloweenError;
@@ -320,9 +431,6 @@ async function equipSkin(skin) {
   if (result.error) { notice(result.error.message, true); return; }
   profile.equipped_skin = result.data;
   render();
-  const card = document.querySelector('.shop-card-equipped');
-  motion.checkPop(card?.querySelector('button'));
-  motion.beat(card);
   notice('Skin equipada.');
 }
 async function refreshHalloween() {
@@ -345,7 +453,6 @@ async function refreshHalloween() {
 async function toggleHalloween() {
   if (profile?.role !== 'admin' || !halloweenReady || halloweenSaving) return;
   const currentUser = user.id, request = ++halloweenRequest;
-  let saved = false;
   halloweenSaving = true;
   paintHalloween();
   try {
@@ -354,7 +461,6 @@ async function toggleHalloween() {
     if (currentUser !== user?.id || request !== halloweenRequest) return;
     halloweenEnabled = result.data.halloween_enabled === true;
     halloweenError = '';
-    saved = true;
     notice(`Modo Halloween ${halloweenEnabled ? 'activado' : 'desactivado'} para todos los asesores.`);
   } catch {
     if (currentUser !== user?.id || request !== halloweenRequest) return;
@@ -363,10 +469,6 @@ async function toggleHalloween() {
     if (currentUser === user?.id && request === halloweenRequest) {
       halloweenSaving = false;
       paintHalloween();
-      if (saved) {
-        motion.pulse(document.querySelector('#halloween-toggle'), 1.04);
-        motion.appear(document.querySelector('#halloween-status'), 0);
-      }
     }
   }
 }
@@ -385,37 +487,51 @@ window.addEventListener('pageshow', event => { if (event.persisted && db) boot()
 function metrics(items, advisor = false) {
   const row = el('div', 'metrics');
   if (advisor) row.classList.add('advisor-metrics');
-  const glyphs = ['people', 'list', 'check', 'sale', 'trophy'];
-  for (const [index, [label, value, note, pre = '']] of items.entries()) {
+  for (const [index, [label, value, note, countTarget]] of items.entries()) {
     const item = el('div', 'metric');
-    if (advisor) item.append(icon(glyphs[index], 'metric-icon'));
-    const valueNode = el('strong', 'metric-value', typeof value === 'number' ? formatCount(value, { pre }) : String(value));
-    if (typeof value === 'number') Object.assign(valueNode.dataset, { count: value, key: `metric:${label}`, pre });
-    item.append(el('span', 'metric-label', label), valueNode, el('span', 'metric-note', note));
+    if (advisor) {
+      const icon = el('span', 'metric-icon');
+      icon.setAttribute('aria-hidden', 'true');
+      icon.innerHTML = advisorIcon(['clients', 'truck', 'sales', 'trophy'][index]);
+      item.append(icon);
+    }
+    item.append(el('span', 'metric-label', label), el('strong', 'metric-value', String(value)), el('span', 'metric-note', note));
+    if (advisor && Number.isFinite(countTarget)) {
+      const count = item.querySelector('.metric-value');
+      count.dataset.countTarget = String(countTarget);
+      count.dataset.countSuffix = index === 1 ? ' t' : '';
+    }
     row.append(item);
   }
   return row;
 }
-function rankingSection() {
+function rankingSection(advisor = false) {
   const section = el('section', 'ranking-section');
+  if (advisor) section.classList.add('advisor-ranking');
   section.append(el('h2', 'section-title', 'Ranking de asesores'), el('p', 'muted', 'El ranking se ordena por ventas confirmadas.'));
-  if (!ranking.length) {
+  if (!ranking.length && !advisor) {
     section.append(el('p', 'empty-state', 'Aún no hay asesores con actividad registrada.'));
     return section;
   }
   const list = el('ol', 'ranking-list');
-  for (const row of ranking) {
+  for (const row of advisor ? getRankingSlots(ranking) : ranking) {
     const confirmedSales = Number(row.confirmed_sales ?? row.sales ?? 0);
-    const own = row.advisor_id === user?.id;
-    const item = el('li', 'ranking-row' + (own ? ' current' : ''));
-    Object.assign(item.dataset, { k: row.advisor_id, name: row.full_name });
-    const medal = el('span', 'medal', String(row.position));
-    medal.setAttribute('aria-label', `Puesto ${row.position}`);
+    const item = el('li', 'ranking-row' + (row.advisor_id === user?.id ? ' current' : ''));
     const identity = el('div', 'ranking-identity');
-    identity.append(el('strong', '', `${row.full_name}${own ? ' · tú' : ''}`), el('span', 'muted', plural(confirmedSales, 'venta confirmada', 'ventas confirmadas')));
-    const total = el('strong', 'ranking-xp', plural(confirmedSales, 'venta', 'ventas'));
-    Object.assign(total.dataset, { count: confirmedSales, key: `rank:${row.advisor_id}`, suf: confirmedSales === 1 ? ' venta' : ' ventas' });
-    item.append(medal, identity, total);
+    if (advisor) {
+      item.classList.toggle('ranking-placeholder', Boolean(row.placeholder));
+      const rank = el('span', 'rank-medal', String(row.position));
+      identity.append(el('strong', '', row.full_name), el('span', 'muted', row.placeholder ? 'Posición disponible' : row.advisor_id === user?.id ? 'Tu posición actual' : 'Asesor comercial'));
+      const values = el('div', 'ranking-values');
+      const count = el('span', 'ranking-sales-value', row.placeholder ? '—' : String(confirmedSales));
+      count.append(el('small', '', 'ventas'));
+      const tons = el('span', 'ranking-tons-value', row.placeholder ? '—' : `${Number(row.confirmed_tons || 0).toLocaleString('es-CO')} t`);
+      tons.append(el('small', '', 'vendidas'));
+      values.append(count, tons); item.append(rank, identity, values); list.append(item);
+      continue;
+    }
+    identity.append(el('strong', '', `${row.position}. ${row.full_name}`), el('span', 'muted', `${confirmedSales} ventas · ${Number(row.confirmed_tons || 0).toLocaleString('es-CO')} toneladas`));
+    item.append(identity, el('strong', 'ranking-xp', `${confirmedSales} ventas`));
     list.append(item);
   }
   section.append(list);
@@ -424,19 +540,21 @@ function rankingSection() {
 function adminMetricsSection() {
   const confirmedSales = sales.filter(sale => sale.confirmed);
   const totalAmount = confirmedSales.reduce((total, sale) => total + Number(sale.amount || 0), 0);
+  const totalTons = confirmedSales.reduce((total, sale) => total + Number(sale.tons_sold || 0), 0);
   const section = el('section', 'metrics-dashboard');
   section.append(el('h2', 'section-title', 'Métricas generales'), el('p', 'muted', 'Resultados simulados a partir de misiones completadas.'));
-  section.append(metrics([['Ventas confirmadas', confirmedSales.length, 'cierres registrados'], ['Valor acumulado', totalAmount, 'valor de prueba', '$']]));
+  section.append(metrics([['Ventas confirmadas', confirmedSales.length, 'cierres registrados'], ['Toneladas vendidas', totalTons.toLocaleString('es-CO'), 'volumen comercial'], ['Valor acumulado', `$${totalAmount.toLocaleString('es-CO')}`, 'valor de prueba']]));
   const list = el('ul', 'metrics-breakdown');
   for (const advisor of advisors) {
     const advisorSales = confirmedSales.filter(sale => sale.advisor_id === advisor.user_id);
     const amount = advisorSales.reduce((total, sale) => total + Number(sale.amount || 0), 0);
+    const tons = advisorSales.reduce((total, sale) => total + Number(sale.tons_sold || 0), 0);
     const item = el('li', 'metrics-breakdown-row');
     const details = el('div', 'metrics-advisor-details');
-    details.append(el('strong', '', advisor.full_name), el('span', 'muted', `${advisorSales.length} ventas · $${amount.toLocaleString('es-CO')}`));
+    details.append(el('strong', '', advisor.full_name), el('span', 'muted', `${advisorSales.length} ventas · ${tons.toLocaleString('es-CO')} toneladas · $${amount.toLocaleString('es-CO')}`));
     for (const sale of advisorSales) {
       const client = clients.find(item => item.id === sale.client_id);
-      details.append(el('span', 'metrics-sale-client', `${client?.name || 'Cliente eliminado'} · $${Number(sale.amount).toLocaleString('es-CO')}`));
+      details.append(el('span', 'metrics-sale-client', `${client?.name || 'Cliente eliminado'} · ${Number(sale.tons_sold || 0).toLocaleString('es-CO')} toneladas · $${Number(sale.amount).toLocaleString('es-CO')}`));
     }
     item.append(details);
     list.append(item);
@@ -458,7 +576,6 @@ async function resetAdvisorTasks(advisor, clientCount) {
     notice(result.error.message, true);
     return;
   }
-  await motion.exit(document.querySelectorAll(`[data-advisor="${advisor.user_id}"] .pending-titles li`), -1);
   await refresh('Tareas de ' + advisor.full_name + ' eliminadas.');
 }
 async function deleteAdvisorClients(advisor, clientCount) {
@@ -470,7 +587,6 @@ async function deleteAdvisorClients(advisor, clientCount) {
     notice(result.error.message, true);
     return;
   }
-  await motion.exit(document.querySelectorAll(`[data-advisor="${advisor.user_id}"] .pending-list > li`), -1);
   await refresh('Clientes de ' + advisor.full_name + ' eliminados.');
 }
 async function deleteAdvisor(advisor) {
@@ -481,7 +597,6 @@ async function deleteAdvisor(advisor) {
     notice(result.error.message, true);
     return;
   }
-  await motion.exit(document.querySelectorAll(`[data-advisor="${advisor.user_id}"]`), -1);
   await refresh('Asesor ' + advisor.full_name + ' eliminado.');
 }
 async function clearCompletedTasks(client) {
@@ -492,15 +607,18 @@ async function clearCompletedTasks(client) {
     notice(result.error.message, true);
     return;
   }
-  await motion.exit(document.querySelectorAll('.task-list .task'));
   await refresh('Tareas completadas de ' + client.name + ' limpiadas. Las métricas se conservaron.');
 }
 async function requestRecommendation(client, control) {
+  const assistant = control.closest('.action-assistant');
+  const resultBox = assistant.querySelector('.assistant-result');
   control.disabled = true;
-  const stopDots = motion.loadingDots(control, 'Analizando');
-  aiRecommendation = '';
+  control.textContent = 'Analizando…';
+  assistant.classList.add('is-thinking');
+  resultBox.setAttribute('aria-busy', 'true');
   const progress = getProgress(client.tasks);
-  const result = await db.functions.invoke('recommend-client', {
+  try {
+    const result = await db.functions.invoke('recommend-client', {
     body: {
       name: client.name,
       type: client.type,
@@ -510,25 +628,32 @@ async function requestRecommendation(client, control) {
       progress: progress.rounded,
       tasks: client.tasks.filter(task => !task.completed).map(task => ({ title: task.title, description: task.description })),
     },
-  });
-  stopDots();
-  if (result.error || result.data?.error) {
-    notice(result.data?.error || result.error.message, true);
-  } else {
+    });
+    if (!control.isConnected || selectedId !== client.id) return;
+    if (result.error || result.data?.error) throw new Error(result.data?.error || result.error.message);
+    if (!result.data?.recommendation?.trim()) throw new Error('No se pudo generar la recomendación. Intenta de nuevo.');
     aiRecommendation = result.data.recommendation;
-    render();
-    motion.appear(document.querySelector('.ai-recommendation p'), 0);
-    motion.beat(document.querySelector('.ai-recommendation'), 1.01);
+    resultBox.querySelector('.assistant-result-text').textContent = aiRecommendation;
+    resultBox.hidden = false;
+    revealRecommendation(resultBox);
+  } catch (cause) {
+    if (control.isConnected) notice(cause.message || 'No se pudo generar la recomendación.', true);
+  } finally {
+    if (control.isConnected) {
+      assistant.classList.remove('is-thinking');
+      resultBox.setAttribute('aria-busy', 'false');
+      control.disabled = false;
+      control.textContent = 'Sugerir siguiente acción';
+    }
   }
-  control.disabled = false;
-  control.textContent = 'Sugerir siguiente acción';
 }
 function adminPage(page) {
   const tasks = clients.flatMap(client => client.tasks);
   page.className = 'admin-page';
   page.append(intro('Panorama comercial', 'Clientes y tareas pendientes por asesor.', 'admin-intro'));
   const totalSales = ranking.reduce((total, row) => total + Number(row.confirmed_sales || 0), 0);
-  page.append(metrics([['Asesores', advisors.length, 'cuentas registradas'], ['Clientes comerciales', clients.length, 'negocios asignados'], ['Tareas pendientes', tasks.filter(task => !task.completed).length, 'acciones por completar'], ['Ventas confirmadas', totalSales, 'resultado comercial']]));
+  const totalTons = ranking.reduce((total, row) => total + Number(row.confirmed_tons || 0), 0);
+  page.append(metrics([['Asesores', advisors.length, 'cuentas registradas'], ['Clientes comerciales', clients.length, 'negocios asignados'], ['Tareas pendientes', tasks.filter(task => !task.completed).length, 'acciones por completar'], ['Ventas confirmadas', totalSales, 'resultado comercial'], ['Toneladas vendidas', totalTons.toLocaleString('es-CO'), 'volumen comercial']]));
   page.append(rankingSection());
   page.append(adminMetricsSection());
   const layout = el('div', 'admin-columns'), overview = el('section', 'admin-overview');
@@ -538,7 +663,6 @@ function adminPage(page) {
     const assigned = clients.filter(client => client.advisor_id === advisor.user_id);
     const pending = assigned.flatMap(client => client.tasks).filter(task => !task.completed).length;
     const section = el('article', 'advisor-row'), head = el('div', 'advisor-row-head'), copy = el('div');
-    section.dataset.advisor = advisor.user_id;
     copy.append(el('h3', '', advisor.full_name), el('p', 'advisor-email', advisor.email || 'Correo no disponible'), el('p', 'muted', `${assigned.length} clientes asignados`));
     const actions = el('div', 'advisor-row-actions');
     actions.append(el('strong', 'pending-count', `${pending} pendientes`));
@@ -550,7 +674,6 @@ function adminPage(page) {
     const list = el('ul', 'pending-list');
     for (const client of assigned) {
       const item = el('li');
-      item.dataset.enterKey = `client:${client.id}`;
       item.append(el('strong', '', client.name), el('span', 'muted', ` · ${client.tasks.filter(task => !task.completed).length} pendientes`));
       const taskList = el('ul', 'pending-titles');
       client.tasks.filter(task => !task.completed).forEach(task => taskList.append(el('li', '', task.title)));
@@ -561,210 +684,297 @@ function adminPage(page) {
   const manage = el('aside', 'admin-management'), form = el('form', 'editor-form');
   form.append(el('h2', '', 'Nuevo cliente comercial'));
   const name = input('text', 'Ej. Ferretería Norte'); name.minLength = 2; name.maxLength = 100;
+  const tons = input('number', 'Ej. 125.5'); tons.min = '0.01'; tons.step = '0.01';
   const type = el('select');
   for (const value of ['Ferretería', 'Constructora', 'Distribuidor', 'Otro']) {
     const option = el('option', '', value); option.value = value; type.append(option);
   }
   const advisor = el('select');
   advisors.forEach(item => { const option = el('option', '', item.full_name); option.value = item.user_id; advisor.append(option); });
-  form.append(field('Nombre del negocio', name), field('Tipo de cliente', type), field('Asesor responsable', advisor));
+  form.append(field('Nombre del negocio', name), field('Tipo de cliente', type), field('Asesor responsable', advisor), field('Toneladas solicitadas', tons));
   const error = el('p', 'form-error'); error.setAttribute('role', 'alert');
   const submit = el('button', 'primary', 'Crear cliente y tareas'); submit.type = 'submit'; submit.disabled = !advisors.length;
   form.append(error, submit);
   form.addEventListener('submit', async event => {
     event.preventDefault(); error.textContent = ''; submit.disabled = true; submit.textContent = 'Guardando…';
-    const result = await db.from('mvp_clients').insert({ name: name.value.trim(), type: type.value, advisor_id: advisor.value });
-    if (result.error) { error.textContent = result.error.message; motion.appear(error, 0); submit.disabled = false; submit.textContent = 'Crear cliente y tareas'; return; }
+    const requestedTons = Number(tons.value);
+    if (!Number.isFinite(requestedTons) || requestedTons <= 0) { error.textContent = 'Indica una cantidad de toneladas mayor que cero.'; submit.disabled = false; submit.textContent = 'Crear cliente y tareas'; return; }
+    const result = await db.from('mvp_clients').insert({ name: name.value.trim(), type: type.value, advisor_id: advisor.value, tons_requested: requestedTons });
+    if (result.error) { error.textContent = result.error.message; submit.disabled = false; submit.textContent = 'Crear cliente y tareas'; return; }
     await refresh('Cliente creado con cuatro tareas.');
   });
   manage.append(halloweenControl(), form); layout.append(overview, manage); page.append(layout);
 }
+function advisorMapPage(page) {
+  page.className = 'advisor-page';
+  const welcome = el('header', 'advisor-welcome');
+  welcome.append(el('h1', '', 'Mapa clientela'));
+  const preview = el('section', 'advisor-map-preview');
+  const mascot = el('div', 'mascot map-mascot');
+  const image = el('img', 'mascot-image');
+  image.src = profile?.equipped_skin === 'skeleton' ? '/skins/skeleton/serious.png' : mascotImages.neutral;
+  image.alt = 'Trompín, tu asistente comercial';
+  image.width = 280; image.height = 280;
+  mascot.append(image);
+  const copy = el('div', 'map-preview-copy');
+  const icon = el('span', 'map-preview-icon');
+  icon.innerHTML = advisorIcon('map');
+  copy.append(icon, el('p', 'map-preview-label', 'PRÓXIMAMENTE'), el('h2', '', 'Tu cartera, en el mapa'), el('p', 'muted', 'Esta sección está en construcción. Por ahora, puedes seguir gestionando tus clientes desde Inicio.'));
+  preview.append(mascot, copy);
+  page.append(welcome, preview);
+}
+function advisorProfilePage(page) {
+  page.className = 'advisor-page profile-page';
+  const welcome = el('header', 'advisor-welcome');
+  welcome.append(el('h1', '', 'Perfil'), el('p', '', 'Administra tu foto y tu sesión.'));
+  const panel = el('section', 'profile-view-panel');
+  panel.append(profileAvatar('profile-page-avatar'));
+  const copy = el('div', 'profile-view-copy');
+  copy.append(el('h2', '', profile.full_name), el('p', 'muted', profile.role === 'advisor' ? 'Asesor comercial' : 'Administrador'));
+  const actions = el('div', 'profile-view-actions');
+  actions.append(button('Cambiar foto', 'primary', () => openProfilePanel()));
+  if (profile.avatar_path) actions.append(button('Quitar foto', 'secondary', removeProfilePhoto));
+  if (profile.role === 'advisor') actions.append(button('Cerrar sesión', 'text-button profile-signout', signOut));
+  if (profile.role === 'advisor') actions.append(button('Borrar cuenta', 'text-button profile-delete', deleteAccount));
+  panel.append(copy, actions);
+  page.append(welcome, panel);
+}
 function advisorPage(page) {
   page.className = 'advisor-page';
-  const hero = intro('Mi cartera de clientes', 'Tareas comerciales de los negocios que tienes asignados.', 'advisor-intro');
-  hero.firstChild.prepend(el('span', 'advisor-kicker', 'BIENVENIDO A TU TABLERO'));
-  hero.append(el('p', 'advisor-quote', 'Pequeñas acciones construyen grandes resultados'));
-  page.append(hero);
-  const tasks = clients.flatMap(client => client.tasks);
-  const completed = tasks.filter(task => task.completed).length;
+  const portfolio = getPortfolioProgress(clients, sales);
   const ownRanking = ranking.find(row => row.advisor_id === user?.id);
-  const ownSales = sales.filter(sale => sale.advisor_id === user?.id && sale.confirmed).length;
-  page.append(metrics([['Mis clientes', clients.length, 'negocios asignados'], ['Por completar', tasks.filter(task => !task.completed).length, 'tareas pendientes'], ['Completadas', completed, 'acciones realizadas'], ['Ventas', ownSales, ownSales ? 'ventas confirmadas' : 'Aún sin cierres · ventas confirmadas'], ['Posición', ownRanking ? `#${ownRanking.position}` : '—', 'ranking global']], true));
-  if (!clients.length) { page.append(el('p', 'empty-state', 'Todavía no tienes clientes. El administrador puede asignarte uno.')); return; }
-  // Bento (guía v1.1): clientes a la izquierda; avance y ranking a la derecha; Trompín y tareas debajo.
-  const bento = el('div', 'advisor-bento'), panel = el('section', 'advisor-client-panel'), rail = el('div', 'customer-rail');
-  if (clients.length === 1) panel.classList.add('single-client');
-  panel.append(el('h2', 'section-title', 'Mis clientes'));
+  const ownConfirmedSales = sales.filter(sale => sale.advisor_id === user?.id && sale.confirmed);
+  const ownTons = ownConfirmedSales.reduce((total, sale) => total + Number(sale.tons_sold || 0), 0);
+  const activeClient = clients.find(item => item.id === selectedId) ?? clients[0] ?? null;
+  const activeProgress = getProgress(activeClient?.tasks ?? []);
+  const monthlyGoal = 100;
+  const monthlyTons = getMonthlyTons(sales, user?.id);
+  const weeklySales = getWeeklySales(sales, user?.id);
+  const streak = getSalesStreak(sales, user?.id);
+  const monthlyProgress = getMonthlyGoal(monthlyTons, monthlyGoal);
+  const progressPercent = monthlyProgress.fill;
+  const mascotImagesForSkin = profile?.equipped_skin === 'skeleton'
+    ? { sad: '/skins/skeleton/sad.png', neutral: '/skins/skeleton/serious.png', happy: '/skins/skeleton/happy.png' }
+    : mascotImages;
+
+  const welcome = el('div', 'advisor-welcome');
+  welcome.append(el('h1', '', `¡Hola, ${profile.full_name}!`), el('p', '', new Date().toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })));
+  page.append(welcome);
+  const hero = el('section', 'advisor-hero');
+  const ring = advisorProgressRing(portfolio.percentage, `${portfolio.completed} de ${portfolio.total} tareas completadas`, 'advisor-progress-ring');
+  ring.querySelector('.ring-copy > span').replaceChildren(
+    el('span', 'ring-task-count', `${portfolio.completed} de ${portfolio.total} tareas`),
+    el('span', 'ring-task-caption', 'completadas'),
+  );
+  const heroCopy = el('div', 'advisor-hero-copy');
+  const progressLabel = el('h2', 'advisor-kicker', 'Tu avance de cartera');
+  heroCopy.append(progressLabel);
+  const heroStats = el('div', 'hero-highlight-stats');
+  const streakStat = el('div', 'hero-highlight');
+  const flame = el('span', 'hero-highlight-icon'); flame.innerHTML = advisorIcon('flame');
+  streakStat.append(flame, el('span', '', 'Racha actual'), el('strong', '', `${streak} ${streak === 1 ? 'día' : 'días'}`));
+  const salesStat = el('div', 'hero-highlight');
+  const salesIcon = el('span', 'hero-highlight-icon'); salesIcon.innerHTML = advisorIcon('sales');
+  salesStat.append(salesIcon, el('span', '', 'Ventas confirmadas'), el('strong', '', String(ownConfirmedSales.length)));
+  heroStats.append(streakStat, salesStat);
+  heroCopy.append(heroStats, button('Ver mis tareas hoy', 'hero-cta', () => document.querySelector('#advisor-actions')?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' })));
+  const mascot = el('div', 'mascot advisor-hero-mascot');
+  const mascotImage = el('img', 'mascot-image');
+  mascotImage.src = mascotImagesForSkin[activeProgress.mascot];
+  mascotImage.alt = `Mascota: ${mascotLabels[activeProgress.mascot]}`;
+  mascot.append(mascotImage);
+  hero.append(ring, heroCopy, mascot);
+  page.append(hero);
+
+  page.append(metrics([
+    ['Clientes activos', clients.length, 'negocios asignados', clients.length],
+    ['Toneladas vendidas', `${ownTons.toLocaleString('es-CO')} t`, 'volumen confirmado', ownTons],
+    ['Ventas confirmadas', ownConfirmedSales.length, 'cierres registrados', ownConfirmedSales.length],
+    ['Posición global', ownRanking ? `#${ownRanking.position}` : '—', 'ranking comercial'],
+  ], true));
+
+  const overview = el('div', 'advisor-overview');
+  const leftColumn = el('div', 'advisor-dashboard-column');
+  const rightColumn = el('div', 'advisor-dashboard-column');
+  leftColumn.append(rankingSection(true));
+  overview.append(leftColumn, rightColumn);
+  page.append(overview);
+  const panel = el('section', 'advisor-client-panel');
+  panel.id = 'advisor-actions';
+  panel.append(el('h2', 'section-title', 'Próximas acciones'), el('p', 'muted', 'Mantén el ritmo con las tareas de tus clientes.'));
+  if (!activeClient) {
+    const empty = el('div', 'advisor-empty');
+    const illustration = el('div', 'advisor-empty-illustration');
+    illustration.setAttribute('aria-hidden', 'true');
+    const icon = el('span', 'advisor-empty-icon'); icon.innerHTML = advisorIcon('clients');
+    illustration.append(icon, el('span', 'advisor-empty-plus', '+'));
+    const request = el('button', 'request-client-button', 'Solicitar un cliente');
+    request.type = 'button'; request.disabled = true;
+    request.title = 'Próximamente. Esta opción todavía no envía avisos.';
+    request.setAttribute('aria-describedby', 'request-client-hint');
+    const hint = el('p', 'advisor-empty-hint', 'Próximamente · Esta opción aún no envía avisos.');
+    hint.id = 'request-client-hint';
+    empty.append(illustration, el('h3', '', 'Tu próxima oportunidad empieza aquí'),
+      el('p', 'muted', 'Aún no tienes clientes asignados. El administrador puede asignarte uno para empezar tu ruta comercial.'), request, hint);
+    panel.append(empty);
+    rightColumn.append(panel);
+  } else {
+    const rail = el('div', 'customer-rail');
+    if (clients.length === 1) panel.classList.add('single-client');
   const list = el('ul', 'customer-list');
   for (const client of clients) {
     const item = el('li');
-    const control = button('', `customer-option${client.id === selectedId ? ' selected' : ''}`, () => {
-      if (client.id === selectedId) return;
-      selectedId = client.id; aiRecommendation = ''; saleNotice = ''; entry = 'client'; render();
-    });
+    const control = button('', `customer-option${client.id === selectedId ? ' selected' : ''}`, () => { selectedId = client.id; aiRecommendation = ''; saleNotice = ''; render(); });
     control.setAttribute('aria-pressed', String(client.id === selectedId));
-    control.append(el('strong', '', client.name), el('span', 'sr-only', ` · ${client.type} · ${client.tasks.filter(task => !task.completed).length} pendientes`));
+    control.append(el('strong', '', client.name), el('span', 'muted', `${client.type} · ${client.tasks.filter(task => !task.completed).length} pendientes`));
     item.append(control); list.append(item);
   }
   rail.append(list); panel.append(rail);
-  const client = clients.find(item => item.id === selectedId) ?? clients[0], detail = el('div', 'customer-detail');
-  const progress = getProgress(client.tasks), section = el('section', 'progress-section'), info = el('div', 'progress-details');
-  const head = el('div', 'client-head'), names = el('div');
-  names.append(el('p', 'customer-type', client.type), el('h2', 'participant-name', client.name));
-  head.append(icon('people', 'client-icon'), names);
-  const line = el('div', 'progress-line');
-  line.append(el('span', '', `${progress.completed} de ${progress.total} tareas completadas`), el('strong', '', `${progress.rounded} %`));
-  const bar = el('div', 'progress-bar');
-  bar.setAttribute('role', 'progressbar');
-  bar.setAttribute('aria-label', `Progreso de ${client.name}`);
-  bar.setAttribute('aria-valuemin', '0');
-  bar.setAttribute('aria-valuemax', '100');
-  bar.setAttribute('aria-valuenow', String(progress.rounded));
-  Object.assign(bar.dataset, { bar: progress.percentage, key: `client:${client.id}` });
-  const fill = el('i'); fill.style.width = `${progress.percentage}%`; bar.append(fill);
-  info.append(head, line, bar);
-  const pending = progress.total - progress.completed;
-  if (pending > 0) {
-    const tip = el('div', 'client-notice'), copy = el('div');
-    const title = progress.completed === 0 ? 'Empieza por la primera' : progress.completed * 2 === progress.total ? 'Vas por la mitad' : 'Sigue así';
-    copy.append(el('b', '', title), document.createTextNode(`Te ${pending === 1 ? 'falta' : 'faltan'} ${plural(pending, 'tarea', 'tareas')} para cerrar este cliente.`));
-    tip.append(icon('spark'), copy);
-    info.append(tip);
-  }
-  if (progress.total > 0 && pending === 0) {
-    const done = el('div', 'client-complete-note'), copy = el('div');
-    copy.append(el('b', '', '¡Todo al día!'), document.createTextNode('Has completado todas las tareas de este cliente.'));
-    done.append(icon('spark'), copy);
-    info.append(done);
-  }
-  if (progress.total === 4 && progress.completed === 4) {
-    const confirmed = sales.some(sale => sale.client_id === client.id && sale.confirmed);
-    if (!confirmed) info.append(button('Confirmar venta', 'primary confirm-sale-button', event => confirmSale(client, event.currentTarget)));
-    info.append(button('Limpiar tareas completadas', 'secondary clear-tasks-button', () => clearCompletedTasks(client)));
-  }
-  // La mascota acompaña; nunca regaña (guía p. 5): feliz con avance, triste solo sin empezar.
-  const mood = progress.mascot === 'sad' ? 'sad' : 'happy';
-  const mascot = el('div', 'mascot');
-  const image = el('img', 'mascot-image');
-  const activeMascotImages = profile?.equipped_skin === 'skeleton'
-    ? { sad: '/skins/skeleton/sad.png', neutral: '/skins/skeleton/serious.png', happy: '/skins/skeleton/happy.png' }
-    : mascotImages;
-  image.src = activeMascotImages[mood];
-  image.alt = `Mascota: ${mascotLabels[mood]}`;
-  const say = mood === 'sad' ? '¡Empecemos hoy!' : progress.percentage === 100 ? '¡Excelente trabajo!' : '¡Vas muy bien!';
-  mascot.append(el('span', 'mascot-say', say), image, el('p', 'mascot-state sr-only', mascotLabels[mood]));
-  section.append(info, mascot); detail.append(section);
-  panel.append(detail);
-  bento.append(panel, todayCard(tasks), rankingSection());
-  const aiSection = el('section', 'ai-recommendation');
-  aiSection.append(el('h2', 'section-title', 'Trompín · Asistente comercial'));
-  if (aiRecommendation) aiSection.append(el('p', '', aiRecommendation));
-  aiSection.append(button('Sugerir siguiente acción', 'secondary', event => requestRecommendation(client, event.currentTarget)));
-  bento.append(aiSection);
-  const taskSection = el('section', 'tasks-section'); taskSection.append(el('h2', 'section-title', 'Tareas de este cliente'));
-  if (saleNotice) taskSection.append(el('p', 'sale-notice', saleNotice));
-  const taskList = el('ol', 'task-list');
-  for (const task of client.tasks) {
+  const detail = el('div', 'customer-detail');
+  const clientHead = el('div', 'action-client-head');
+  clientHead.append(el('span', 'customer-type', activeClient.type), el('h3', 'participant-name', activeClient.name));
+  const actionProgress = el('span', 'action-progress', `${activeProgress.completed}/${activeProgress.total} completadas`);
+  clientHead.append(actionProgress); detail.append(clientHead);
+  if (saleNotice) detail.append(el('p', 'sale-notice', saleNotice));
+  const taskList = el('ol', 'task-list action-task-list');
+  for (const task of activeClient.tasks) {
     const item = el('li', 'task'), content = el('div', 'task-content'), actions = el('div', 'task-actions');
-    item.dataset.task = task.id;
+    const taskIcon = el('span', 'action-task-icon');
+    taskIcon.innerHTML = advisorIcon(['clients', 'phone', 'document', 'target'][taskOrder.indexOf(task.title)] || 'tasks');
+    item.append(taskIcon);
     content.append(el('h3', '', task.title), el('p', 'task-description', task.description));
-    actions.append(el('span', `task-status${task.completed ? ' completed' : ''}`, task.completed ? '✓ Completada' : 'Pendiente'));
-    if (!task.completed) actions.append(button('Completar tarea', 'secondary', event => completeTask(client, task, event.currentTarget)));
+    if (task.completed) {
+      const completed = el('span', 'task-completed', 'Completado');
+      const check = el('span', 'task-completed-icon'); check.innerHTML = advisorIcon('check');
+      completed.prepend(check); actions.append(completed);
+    }
+    if (!task.completed) actions.append(button('Completar tarea', 'task-complete-button', async event => {
+      const control = event.currentTarget; control.disabled = true; control.textContent = 'Guardando…';
+      const bounds = control.getBoundingClientRect();
+      const origin = { x: bounds.left + bounds.width / 2, y: bounds.top + bounds.height / 2 };
+      const progressBefore = getProgress(activeClient.tasks);
+      const wasLastTask = progressBefore.isLastTaskPending;
+      const result = await db.rpc('complete_mvp_task', { target_task: task.id });
+      if (!isTaskCompletionConfirmed(result)) {
+        control.disabled = false; control.textContent = 'Completar tarea';
+        notice(result?.error?.message || 'La tarea ya fue actualizada. Recarga los datos.', true); return;
+      }
+      saleNotice = wasLastTask ? 'Las cuatro tareas están completas. Confirma la venta para registrarla.' : '';
+      await refresh('');
+      const completedTasks = progressBefore.completed + 1;
+      if (selectedId === activeClient.id && document.querySelector('.advisor-page')) {
+        celebrateTask(origin);
+        showMascotFeedback('task', completedTasks);
+      }
+    }));
     item.append(content, actions); taskList.append(item);
   }
-  taskSection.append(taskList); bento.append(taskSection); page.append(bento);
+  detail.append(taskList);
+  const saleState = getClientSaleState(activeClient, sales);
+  if (saleState !== 'pending') detail.append(el('p', 'client-complete-note', saleState === 'confirmed' ? 'Venta confirmada. Tus resultados ya están registrados.' : '¡Todo al día! Ya puedes confirmar esta venta.'));
+  if (activeProgress.total === 4 && activeProgress.completed === 4) {
+    const confirmed = sales.some(sale => sale.client_id === activeClient.id && sale.confirmed);
+    const saleActions = el('div', 'sale-actions');
+    if (!confirmed) saleActions.append(button('Confirmar venta', 'primary confirm-sale-button', () => confirmSale(activeClient)));
+    saleActions.append(button('Limpiar tareas', 'secondary clear-tasks-button', () => clearCompletedTasks(activeClient)));
+    detail.append(saleActions);
+  }
+  const assistant = el('div', 'action-assistant');
+  const assistantHeading = el('div', 'assistant-heading');
+  const assistantIcon = el('span', 'assistant-heading-icon'); assistantIcon.innerHTML = advisorIcon('sparkles');
+  const assistantCopy = el('div', 'assistant-heading-copy');
+  assistantCopy.append(el('strong', '', 'Trompín'), el('span', '', 'Tu asistente comercial'));
+  assistantHeading.append(assistantIcon, assistantCopy);
+  const resultBox = el('div', 'assistant-result');
+  resultBox.setAttribute('role', 'status'); resultBox.setAttribute('aria-live', 'polite');
+  resultBox.hidden = !aiRecommendation;
+  const resultHeading = el('div', 'assistant-result-heading');
+  const resultIcon = el('span', 'assistant-result-icon'); resultIcon.innerHTML = advisorIcon('sparkles');
+  resultHeading.append(resultIcon, el('strong', '', 'Tu siguiente paso'));
+  resultBox.append(resultHeading, el('p', 'assistant-result-text', aiRecommendation));
+  assistant.append(assistantHeading, button('Sugerir siguiente acción', 'assistant-button', event => requestRecommendation(activeClient, event.currentTarget)), resultBox);
+  detail.append(assistant);
+  panel.append(detail); rightColumn.append(panel);
+  }
+
+  const goalCard = el('section', 'tonnage-goal-card');
+  goalCard.append(el('h2', '', 'Meta mensual de toneladas'), el('p', 'muted', 'Tu avance de toneladas de cemento este mes.'));
+  const goalBody = el('div', 'monthly-goal-body');
+  const goalDetails = el('div', 'monthly-goal-details');
+  const goalRing = advisorProgressRing(monthlyProgress.percentage, 'completado', 'monthly-goal-ring');
+  const tonnageValue = el('div', 'tonnage-value');
+  tonnageValue.append(el('strong', '', monthlyTons.toLocaleString('es-CO')), el('span', '', `de ${monthlyGoal} t`));
+  const tonnageTrack = el('div', 'tonnage-track');
+  tonnageTrack.setAttribute('role', 'progressbar'); tonnageTrack.setAttribute('aria-label', 'Meta mensual de toneladas'); tonnageTrack.setAttribute('aria-valuemin', '0'); tonnageTrack.setAttribute('aria-valuemax', String(monthlyGoal)); tonnageTrack.setAttribute('aria-valuenow', String(Math.min(monthlyTons, monthlyGoal))); tonnageTrack.setAttribute('aria-valuetext', `${monthlyTons} de ${monthlyGoal} toneladas, ${monthlyProgress.percentage}% de la meta`);
+  const tonnageFill = el('span'); tonnageFill.style.width = `${progressPercent}%`; tonnageTrack.append(tonnageFill);
+  goalDetails.append(tonnageValue, tonnageTrack, el('p', 'muted', `${monthlyProgress.percentage}% de tu meta mensual`));
+  goalBody.append(goalRing, goalDetails); goalCard.append(goalBody);
+
+  const portfolioCard = el('section', 'portfolio-card');
+  portfolioCard.append(el('h2', '', 'Avance de tu cartera'), el('p', 'muted', 'Cada tarea te acerca a tu próxima venta.'));
+  const portfolioBody = el('div', 'portfolio-body');
+  portfolioBody.append(advisorProgressRing(portfolio.percentage, 'completado', 'portfolio-ring'));
+  const portfolioDetails = el('div', 'portfolio-details');
+  portfolioDetails.append(el('strong', '', `${portfolio.completed} de ${portfolio.total} tareas completadas`), el('p', 'muted', portfolio.total ? 'Progreso de tus clientes asignados.' : 'Aún no tienes tareas asignadas.'));
+  const ready = el('p', 'portfolio-ready', `${portfolio.readyClients} ${portfolio.readyClients === 1 ? 'cliente listo' : 'clientes listos'} para confirmar venta`);
+  portfolioDetails.append(ready); portfolioBody.append(portfolioDetails); portfolioCard.append(portfolioBody);
+
+  const weeklyCard = el('section', 'weekly-sales-card');
+  weeklyCard.append(el('h2', '', 'Ventas de la semana'), el('p', 'muted', 'Número de ventas confirmadas por día.'));
+  const chart = el('div', 'weekly-chart');
+  const maxWeeklySales = Math.max(1, ...weeklySales.map(day => day.count));
+  for (const day of weeklySales) {
+    const column = el('div', 'weekly-chart-column');
+    const bar = el('span', 'weekly-chart-bar');
+    bar.style.height = `${day.count ? Math.max(16, Math.round((day.count / maxWeeklySales) * 100)) : 4}%`;
+    bar.title = `${day.label}: ${day.count} ventas`;
+    column.append(el('strong', '', String(day.count)), bar, el('span', '', day.label));
+    chart.append(column);
+  }
+  weeklyCard.append(chart, el('p', 'muted', `${weeklySales.reduce((total, day) => total + day.count, 0)} ventas registradas esta semana`));
+  leftColumn.append(goalCard, portfolioCard); rightColumn.append(weeklyCard);
+  for (const [card, name] of [[leftColumn.firstChild, 'trophy'], [panel, 'tasks'], [goalCard, 'target'], [portfolioCard, 'clients'], [weeklyCard, 'sales']]) {
+    const icon = el('span', 'dashboard-heading-icon'); icon.innerHTML = advisorIcon(name); card.querySelector('h2').prepend(icon);
+  }
 }
-// Avance global de tareas del asesor: anillo cian sobre superficie oscura (guía v1.1 p. 24).
-function todayCard(tasks) {
-  const done = tasks.filter(task => task.completed).length, total = tasks.length;
-  const percent = total ? Math.round(done / total * 100) : 0;
-  const card = el('section', 'today-card');
-  card.setAttribute('aria-labelledby', 'today-title');
-  const ring = el('div', 'ring');
+
+function advisorProgressRing(percentage, label, className) {
+  const ring = el('div', className);
   ring.setAttribute('role', 'img');
-  ring.setAttribute('aria-label', `Avance de tus tareas: ${percent} %`);
-  ring.innerHTML = '<svg viewBox="0 0 42 42" aria-hidden="true"><circle class="ring-track" cx="21" cy="21" r="15.9155"/><circle class="ring-value" cx="21" cy="21" r="15.9155" pathLength="100" stroke-dasharray="100"/></svg>';
-  const value = ring.querySelector('.ring-value');
-  value.setAttribute('stroke-dashoffset', String(100 - percent));
-  Object.assign(value.dataset, { ring: percent, key: 'ring:tasks' });
-  const label = el('b', '', `${percent} %`);
-  Object.assign(label.dataset, { count: percent, key: 'ring-label:tasks', suf: ' %' });
-  label.setAttribute('aria-hidden', 'true');
-  ring.append(label);
-  const copy = el('div'), eyebrow = el('p', 'today-eyebrow', 'Tu avance');
-  eyebrow.id = 'today-title';
-  const message = !total ? 'Aún no tienes tareas asignadas.' : done === total ? 'Completaste todas tus tareas. ¡Buen trabajo!' : 'Completa una más para seguir sumando XP.';
-  copy.append(eyebrow, el('strong', '', `${done} de ${total} tareas`), el('p', '', message));
-  card.append(ring, copy);
-  return card;
+  ring.setAttribute('aria-label', `${percentage}% · ${label}`);
+  ring.innerHTML = `<svg viewBox="0 0 100 100" aria-hidden="true"><circle class="ring-track" cx="50" cy="50" r="42"/><circle class="ring-fill" cx="50" cy="50" r="42" pathLength="100" stroke-dasharray="${Math.min(100, percentage)} 100"/></svg>`;
+  const copy = el('div', 'ring-copy'); copy.append(el('strong', '', `${percentage}%`), el('span', '', label)); ring.append(copy);
+  return ring;
 }
-async function completeTask(client, task, control) {
-  control.disabled = true; control.textContent = 'Guardando…';
-  const origin = control.getBoundingClientRect();
-  const progressBefore = getProgress(client.tasks);
-  const wasLastTask = progressBefore.isLastTaskPending;
-  const result = await db.rpc('complete_mvp_task', { target_task: task.id });
-  if (!isTaskCompletionConfirmed(result)) {
-    control.disabled = false; control.textContent = 'Completar tarea';
-    notice(result?.error?.message || 'La tarea ya fue actualizada. Recarga los datos.', true); return;
-  }
-  const completedAt = performance.now();
-  saleNotice = wasLastTask ? 'Las cuatro tareas están completas. Confirma la venta para registrarla.' : '';
-  motion.chip('+10 XP', origin);
-  motion.burst(origin);
-  await refresh(wasLastTask ? '' : 'Tarea completada.', () => {
-    const row = document.querySelector(`[data-task="${task.id}"]`);
-    motion.checkPop(row?.querySelector('.task-status'));
-    motion.beat(row);
-    motion.mascotCheer(getMascotCheer(progressBefore.completed + 1));
-    if (!wasLastTask) return;
-    motion.appear(document.querySelector('.client-complete-note'));
-    motion.appear(document.querySelector('.sale-notice'));
-    const confirmButton = document.querySelector('.confirm-sale-button');
-    motion.appear(confirmButton);
-    window.setTimeout(() => motion.pulse(confirmButton, 1.04), 1200);
-  }, completedAt);
-}
-async function confirmSale(client, control) {
-  control.disabled = true; control.textContent = 'Guardando…';
-  const origin = control.getBoundingClientRect();
+async function confirmSale(client) {
   const result = await db.rpc('confirm_mvp_sale', { target_client: client.id });
-  if (result.error) {
-    control.disabled = false; control.textContent = 'Confirmar venta';
-    notice(result.error.message, true); return;
+  if (result.error) { notice(result.error.message, true); return; }
+  saleNotice = '';
+  await refresh('');
+  if (document.querySelector('.advisor-page')) {
+    celebrateSale();
+    showMascotFeedback('sale');
   }
-  const confirmedAt = performance.now();
-  motion.chip('+1 venta', origin);
-  motion.burst(origin, 40, [90, 220]);
-  motion.fadeOut(control);
-  await refresh('Venta confirmada correctamente.', () => motion.mascotCheer('¡Venta confirmada!'), confirmedAt);
 }
-// Recarga y anima desde el estado anterior. Con celebratedAt, el aviso espera a que termine la celebración.
-async function refresh(text, afterRender, celebratedAt) {
-  const before = motion.snapshot();
-  try {
-    await loadData(); render();
-    const leader = motion.update(before);
-    afterRender?.();
-    const message = [text, leader && `Cambio en el ranking: ${leader} sube al puesto 1.`].filter(Boolean).join(' ');
-    if (celebratedAt) afterCelebration(celebratedAt, () => notice(message));
-    else notice(message);
-  }
+async function refresh(text) {
+  try { await loadData(); render(); notice(text); }
   catch (cause) { notice(`El cambio se guardó, pero no se pudo actualizar la vista: ${cause.message}`, true); }
 }
 function render() {
-  motion.killFx();
   shell();
   const page = document.querySelector('#page');
   if (!db) page.replaceChildren(el('p', 'empty-state', 'Falta configurar Supabase en .env.local.'));
   else if (!profile) authPage();
+  else if (profile.role === 'admin' && adminView === 'shop') renderShop(page, sales.filter(sale => sale.confirmed).length, halloweenReady && halloweenEnabled, profile.equipped_skin, equipSkin);
   else if (profile.role === 'admin') adminPage(page);
   else if (advisorView === 'shop') renderShop(page, sales.filter(sale => sale.advisor_id === user?.id && sale.confirmed).length, halloweenReady && halloweenEnabled, profile.equipped_skin, equipSkin);
-  else advisorPage(page);
+  else if (advisorView === 'map') advisorMapPage(page);
+  else if (advisorView === 'profile') advisorProfilePage(page);
+  else {
+    advisorPage(page);
+    if (!welcomeOpen) playAdvisorEntrance(root);
+  }
   paintHalloween();
-  if (entry === 'client') motion.enter(page, clientEntry, { counts: false });
-  else if (entry) motion.enter(page, viewEntry);
-  else motion.mascotIdle();
-  entry = null;
+  if (profilePhotoPromptPending && profile?.role === 'advisor' && !welcomeOpen) openProfilePanel(true);
 }
 if (db) boot(); else render();

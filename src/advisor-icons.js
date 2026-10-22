@@ -1,0 +1,22 @@
+const paths = {
+  check: '<path d="m5 12 4 4L19 6"/>',
+  sparkles: '<path d="m12 2 2.5 6.5L21 11l-6.5 2.5L12 20l-2.5-6.5L3 11l6.5-2.5ZM20 2v4M18 4h4M4 17v5M1.5 19.5h5"/>',
+  home: '<path d="m3 10 9-7 9 7v11h-6v-7H9v7H3z"/>',
+  shop: '<path d="M3 9h18l-2-6H5zM4 9v12h16V9M9 21v-8h6v8"/>',
+  map: '<path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3ZM9 3v15M15 6v15"/>',
+  clients: '<circle cx="8" cy="7" r="3"/><circle cx="17" cy="7" r="3"/><path d="M2 21v-3a6 6 0 0 1 12 0v3M17 12a5 5 0 0 1 5 5v4"/>',
+  profile: '<circle cx="12" cy="7" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+  truck: '<path d="M2 4h12v13H2zM14 9h5l3 4v4h-8"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="18" r="3"/>',
+  sales: '<path d="M5 20v-6M12 20V8M19 20V3" stroke-width="4"/>',
+  trophy: '<path d="M7 3h10v6a5 5 0 0 1-10 0zM7 5H3v3a4 4 0 0 0 5 4M17 5h4v3a4 4 0 0 1-5 4M12 14v7M7 21h10"/>',
+  flame: '<path d="M13 2c2 7-4 7-3 12 2 0 4-2 4-5 4 4 6 7 3 11-3 4-11 3-12-3C4 11 10 8 13 2Z"/>',
+  target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><path d="m12 12 9-9M17 3h4v4"/>',
+  tasks: '<path d="M9 5h12M9 12h12M9 19h12m-19-14 1 1 2-2m-3 8 1 1 2-2m-3 8 1 1 2-2"/>',
+  phone: '<path d="m6 3 4 5-3 3c2 3 3 4 6 6l3-3 5 4c-1 7-8 4-13-1S0 5 6 3Z"/>',
+  document: '<path d="M5 2h10l4 4v16H5zM14 2v5h5M9 11h6M9 15h6M9 19h4"/>',
+  arrow: '<path d="m9 5 7 7-7 7"/>',
+};
+
+export function advisorIcon(name) {
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name]}</svg>`;
+}

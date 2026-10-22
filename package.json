@@ -20,6 +20,6 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.75.0",
-    "gsap": "^3.12.5"
+    "gsap": "^3.15.0"
   }
 }

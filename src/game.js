@@ -26,8 +26,6 @@ export function isTaskCompletionConfirmed(result) {
   return result?.error == null && result?.data === true;
 }
 
-const cheers = ['¡Excelente trabajo!', '¡Vas con todo!', '¡Una más!', '¡Lo lograste!'];
-
-export function getMascotCheer(completedTasks) {
-  return cheers[Math.min(cheers.length, Math.max(1, completedTasks)) - 1];
+export function shouldShowEncouragement(completedTasks) {
+  return completedTasks > 0 && completedTasks % 2 === 0;
 }

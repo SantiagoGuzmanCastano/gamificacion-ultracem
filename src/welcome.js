@@ -1,6 +1,6 @@
 // Pantalla de bienvenida inmersiva: mensaje letra a letra, Topitín saludando y panel "Tareas del día".
 // Spec: tests/welcome.spec.js. La estructura y la visibilidad viven aquí; la animación GSAP vive en
-// motion.js (welcomeSequence / welcomeExit).
+// welcome-motion.js (welcomeSequence / welcomeExit).
 import './welcome.css';
 
 export const WELCOME_STAGES = ['intro', 'mascot', 'tasks', 'done'];
@@ -91,7 +91,7 @@ export function createWelcome(container, { name = '', tasks = [], mascotSrc = '/
   close.dataset.testid = 'welcome-close';
   panel.append(close);
 
-  // Fase 1 (vuelo falso 3D): capas planas detrás del contenido; motion.js las anima.
+  // Fase 1 (vuelo falso 3D): capas planas detrás del contenido; welcome-motion.js las anima.
   const layers = el('div', 'welcome-layers');
   layers.dataset.testid = 'welcome-layers';
   layers.setAttribute('aria-hidden', 'true');
@@ -138,7 +138,7 @@ export function createWelcome(container, { name = '', tasks = [], mascotSrc = '/
     // Con animate: false (movimiento reducido o tests) salta al final sin cargar GSAP.
     async play({ animate = true } = {}) {
       if (!animate) { welcome.setStage('done'); return; }
-      const { welcomeSequence } = await import('./motion.js');
+      const { welcomeSequence } = await import('./welcome-motion.js');
       await welcomeSequence(element, welcome.setStage);
     },
     close: finish,
