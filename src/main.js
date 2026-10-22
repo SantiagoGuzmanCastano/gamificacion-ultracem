@@ -14,6 +14,7 @@ import { isValidProfileImage, profileImageExtension } from './profile.js';
 import { createProfileAvatar, createProfilePhotoPicker, renderAdvisorProfile, playProfileEntrance, clearProfileEntrance } from './profile-view.js';
 import { showLoadingScreen, clearLoadingScreen } from './loading-screen.js';
 import { attachRankingAvatars } from './ranking-avatars.js';
+import { COLOMBIA_DEPARTMENTS, citiesForDepartment, normalizeClientLocation } from './client-location.js';
 
 const db = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
   ? createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY) : null;
@@ -21,6 +22,7 @@ const root = document.querySelector('#app');
 let user = null, profile = null, advisors = [], clients = [], sales = [], ranking = [], selectedId = null, aiRecommendation = '', saleNotice = '';
 let theme = localStorage.getItem('ultracem-theme') || 'light';
 let advisorView = 'dashboard', adminView = 'dashboard';
+let advisorMapModule;
 let halloweenEnabled = false, halloweenReady = false, halloweenSaving = false, halloweenError = '';
 let halloweenTimer = null, halloweenRequest = 0;
 let noticeTimer = null;
@@ -228,7 +230,6 @@ function shell() {
       advisorView = view;
       render();
       if (view === 'shop') refreshHalloween();
-      if (view === 'map') showMascotFeedback('map');
       window.scrollTo(0, 0);
       const heading = document.querySelector('#page h1');
       if (heading) { heading.tabIndex = -1; heading.focus({ preventScroll: true }); }
@@ -239,7 +240,7 @@ function shell() {
     nav.replaceChildren();
     const mobileNav = el('nav', 'advisor-nav');
     mobileNav.setAttribute('aria-label', 'Portal del asesor');
-    for (const [view, label, icon] of [['dashboard', 'Inicio', 'home'], ['shop', 'Tienda', 'shop'], ['map', 'Mapa clientela', 'map'], ['profile', 'Perfil', 'profile']]) {
+    for (const [view, label, icon] of [['dashboard', 'Inicio', 'home'], ['map', 'Mapa clientela', 'map'], ['shop', 'Tienda', 'shop'], ['profile', 'Perfil', 'profile']]) {
       for (const [container, className] of [[nav, 'sidebar-item'], [mobileNav, '']]) {
         const control = button(label, className, event => navigate(view, event));
         const navIcon = el('span', 'advisor-nav-icon');
@@ -352,7 +353,7 @@ async function loadData() {
     if (list.error) throw list.error;
     advisors = (list.data ?? []).sort((a, b) => a.full_name.localeCompare(b.full_name));
   } else advisors = [];
-  const result = await db.from('mvp_clients').select('id,name,type,advisor_id,tons_requested,mvp_tasks(id,title,description,completed_at)').order('created_at', { ascending: false });
+  const result = await db.from('mvp_clients').select('id,name,type,advisor_id,department,city,tons_requested,mvp_tasks(id,title,description,completed_at)').order('created_at', { ascending: false });
   if (result.error) throw result.error;
   clients = result.data.map(client => ({
     ...client,
@@ -668,7 +669,8 @@ function adminPage(page) {
     const list = el('ul', 'pending-list');
     for (const client of assigned) {
       const item = el('li');
-      item.append(el('strong', '', client.name), el('span', 'muted', ` · ${client.tasks.filter(task => !task.completed).length} pendientes`));
+      const location = client.city && client.department ? ` · ${client.city}, ${client.department}` : '';
+      item.append(el('strong', '', client.name), el('span', 'muted', `${location} · ${client.tasks.filter(task => !task.completed).length} pendientes`));
       const taskList = el('ul', 'pending-titles');
       client.tasks.filter(task => !task.completed).forEach(task => taskList.append(el('li', '', task.title)));
       item.append(taskList); list.append(item);
@@ -678,14 +680,33 @@ function adminPage(page) {
   const manage = el('aside', 'admin-management'), form = el('form', 'editor-form');
   form.append(el('h2', '', 'Nuevo cliente comercial'));
   const name = input('text', 'Ej. Ferretería Norte'); name.minLength = 2; name.maxLength = 100;
+  const city = el('select'); city.required = true; city.disabled = true;
+  const cityPlaceholder = el('option', '', 'Selecciona primero un departamento');
+  cityPlaceholder.value = ''; cityPlaceholder.disabled = true; city.append(cityPlaceholder);
   const tons = input('number', 'Ej. 125.5'); tons.min = '0.01'; tons.step = '0.01';
   const type = el('select');
   for (const value of ['Ferretería', 'Constructora', 'Distribuidor', 'Otro']) {
     const option = el('option', '', value); option.value = value; type.append(option);
   }
+  const department = el('select');
+  const departmentPlaceholder = el('option', '', 'Selecciona un departamento');
+  departmentPlaceholder.value = ''; departmentPlaceholder.disabled = true; departmentPlaceholder.selected = true;
+  department.append(departmentPlaceholder);
+  COLOMBIA_DEPARTMENTS.forEach(value => { const option = el('option', '', value); option.value = value; department.append(option); });
+  department.required = true;
+  department.addEventListener('change', () => {
+    city.replaceChildren();
+    const placeholder = el('option', '', 'Selecciona una ciudad');
+    placeholder.value = ''; placeholder.disabled = true; city.append(placeholder);
+    for (const value of citiesForDepartment(department.value)) {
+      const option = el('option', '', value); option.value = value; city.append(option);
+    }
+    city.value = '';
+    city.disabled = !citiesForDepartment(department.value).length;
+  });
   const advisor = el('select');
   advisors.forEach(item => { const option = el('option', '', item.full_name); option.value = item.user_id; advisor.append(option); });
-  form.append(field('Nombre del negocio', name), field('Tipo de cliente', type), field('Asesor responsable', advisor), field('Toneladas solicitadas', tons));
+  form.append(field('Nombre del negocio', name), field('Departamento', department), field('Ciudad del cliente', city), field('Tipo de cliente', type), field('Asesor responsable', advisor), field('Toneladas solicitadas', tons));
   const error = el('p', 'form-error'); error.setAttribute('role', 'alert');
   const submit = el('button', 'primary', 'Crear cliente y tareas'); submit.type = 'submit'; submit.disabled = !advisors.length;
   form.append(error, submit);
@@ -693,7 +714,9 @@ function adminPage(page) {
     event.preventDefault(); error.textContent = ''; submit.disabled = true; submit.textContent = 'Guardando…';
     const requestedTons = Number(tons.value);
     if (!Number.isFinite(requestedTons) || requestedTons <= 0) { error.textContent = 'Indica una cantidad de toneladas mayor que cero.'; submit.disabled = false; submit.textContent = 'Crear cliente y tareas'; return; }
-    const result = await db.from('mvp_clients').insert({ name: name.value.trim(), type: type.value, advisor_id: advisor.value, tons_requested: requestedTons });
+    const location = normalizeClientLocation(city.value, department.value);
+    if (!location) { error.textContent = 'Indica una ciudad válida y selecciona un departamento.'; submit.disabled = false; submit.textContent = 'Crear cliente y tareas'; return; }
+    const result = await db.from('mvp_clients').insert({ name: name.value.trim(), type: type.value, advisor_id: advisor.value, city: location.city, department: location.department, tons_requested: requestedTons });
     if (result.error) { error.textContent = result.error.message; submit.disabled = false; submit.textContent = 'Crear cliente y tareas'; return; }
     await refresh('Cliente creado con cuatro tareas.');
   });
@@ -703,19 +726,30 @@ function advisorMapPage(page) {
   page.className = 'advisor-page';
   const welcome = el('header', 'advisor-welcome');
   welcome.append(el('h1', '', 'Mapa clientela'));
-  const preview = el('section', 'advisor-map-preview');
-  const mascot = el('div', 'mascot map-mascot');
-  const image = el('img', 'mascot-image');
-  image.src = profile?.equipped_skin === 'skeleton' ? '/skins/skeleton/serious.png' : mascotImages.neutral;
-  image.alt = 'Trompín, tu asistente comercial';
-  image.width = 280; image.height = 280;
-  mascot.append(image);
-  const copy = el('div', 'map-preview-copy');
-  const icon = el('span', 'map-preview-icon');
-  icon.innerHTML = advisorIcon('map');
-  copy.append(icon, el('p', 'map-preview-label', 'PRÓXIMAMENTE'), el('h2', '', 'Tu cartera, en el mapa'), el('p', 'muted', 'Esta sección está en construcción. Por ahora, puedes seguir gestionando tus clientes desde Inicio.'));
-  preview.append(mascot, copy);
-  page.append(welcome, preview);
+  const ownClients = clients.filter(client => client.advisor_id === user?.id);
+  const section = el('section', 'advisor-map-panel');
+  const status = el('p', 'advisor-map-status', 'Cargando mapa…');
+  status.setAttribute('role', 'status');
+  const container = el('div', 'advisor-map-canvas');
+  container.setAttribute('aria-label', 'Mapa de departamentos de Colombia y ciudades con clientes');
+  const legend = el('div', 'advisor-map-legend');
+  legend.append(el('span', 'advisor-map-legend-locked', 'Bloqueado'), el('span', 'advisor-map-legend-active', 'Con clientes'));
+  section.append(status, container, legend);
+  if (!ownClients.length) section.append(el('p', 'empty-state', 'Aún no tienes clientes asignados. Todos los departamentos están bloqueados.'));
+  page.append(welcome, section);
+  import('./advisor-map.js').then(async module => {
+    if (!container.isConnected) return;
+    advisorMapModule = module;
+    await module.renderAdvisorClientMap(container, ownClients, (state, message) => {
+      if (!container.isConnected) return;
+      status.textContent = state === 'ready' ? 'Selecciona un departamento o una ciudad para ver tus clientes.' : message;
+      status.classList.toggle('advisor-map-error', state === 'error');
+    });
+  }).catch(error => {
+    if (!container.isConnected) return;
+    status.textContent = `No se pudo cargar el mapa: ${error.message}`;
+    status.classList.add('advisor-map-error');
+  });
 }
 function advisorProfilePage(page) {
   renderAdvisorProfile(page, profile, { upload: uploadProfilePhoto, remove: removeProfilePhoto, signOut, deleteAccount }, profilePhotoSaving);
@@ -808,7 +842,8 @@ function advisorPage(page) {
     const item = el('li');
     const control = button('', `customer-option${client.id === selectedId ? ' selected' : ''}`, () => { selectedId = client.id; aiRecommendation = ''; saleNotice = ''; render(); });
     control.setAttribute('aria-pressed', String(client.id === selectedId));
-    control.append(el('strong', '', client.name), el('span', 'muted', `${client.type} · ${client.tasks.filter(task => !task.completed).length} pendientes`));
+    const location = client.city && client.department ? ` · ${client.city}, ${client.department}` : '';
+    control.append(el('strong', '', client.name), el('span', 'muted', `${client.type}${location} · ${client.tasks.filter(task => !task.completed).length} pendientes`));
     item.append(control); list.append(item);
   }
   rail.append(list); panel.append(rail);
@@ -943,6 +978,7 @@ async function refresh(text) {
   catch (cause) { notice(`El cambio se guardó, pero no se pudo actualizar la vista: ${cause.message}`, true); }
 }
 function render() {
+  advisorMapModule?.destroyAdvisorClientMap();
   clearProfileEntrance(!profile || profile.role !== 'advisor' || advisorView !== 'profile');
   shell();
   const page = document.querySelector('#page');
