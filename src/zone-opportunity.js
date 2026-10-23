@@ -59,7 +59,25 @@ function element(tag, className = '', text = '') {
   return node;
 }
 
-export function createZoneList(zones, { sample = false } = {}) {
+function zoneStatus(zone) {
+  const chip = element('span', 'zone-status');
+  chip.dataset.status = zone.status;
+  chip.innerHTML = advisorIcon(zone.status === 'attack' ? 'target' : 'shield');
+  chip.append(document.createTextNode(zone.status === 'attack' ? 'Atacar' : 'Defender'));
+  return chip;
+}
+
+// Cifras de la zona con el formato del §14 (se usan en la lista y en la tarjeta del enfoque).
+function zoneFigures(zone) {
+  const { total, attended, pending } = zone.clients;
+  return [
+    element('p', 'zone-share', `Participación ${formatPercent(zone.share)} → ${formatPercent(zone.targetShare)}`),
+    element('p', 'zone-gap', `Brecha ${zone.gapPp.toLocaleString('es-CO')} pp · Oportunidad ${tons(zone.opportunityTons)}`),
+    element('p', 'zone-clients', `${plural(total, 'cliente', 'clientes')} · ${plural(attended, 'atendido', 'atendidos')} · ${pending} por atender`),
+  ];
+}
+
+export function createZoneList(zones, { sample = false, onSelect = null } = {}) {
   const section = element('section', 'zone-list');
   const heading = element('h2', '', 'Oportunidad por zona');
   heading.id = `zone-list-title-${Math.random().toString(36).slice(2, 8)}`;
@@ -72,22 +90,31 @@ export function createZoneList(zones, { sample = false } = {}) {
   for (const zone of zones) {
     const item = element('li', `zone-item zone-item-${zone.status}`);
     const top = element('div', 'zone-item-top');
-    const chip = element('span', 'zone-status');
-    chip.dataset.status = zone.status;
-    chip.innerHTML = advisorIcon(zone.status === 'attack' ? 'target' : 'shield');
-    chip.append(document.createTextNode(zone.status === 'attack' ? 'Atacar' : 'Defender'));
-    top.append(element('h3', '', zone.department), chip);
-    const { total, attended, pending } = zone.clients;
-    item.append(
-      top,
-      element('p', 'zone-share', `Participación ${formatPercent(zone.share)} → ${formatPercent(zone.targetShare)}`),
-      element('p', 'zone-gap', `Brecha ${zone.gapPp.toLocaleString('es-CO')} pp · Oportunidad ${tons(zone.opportunityTons)}`),
-      element('p', 'zone-clients', `${plural(total, 'cliente', 'clientes')} · ${plural(attended, 'atendido', 'atendidos')} · ${pending} por atender`),
-    );
+    top.append(element('h3', '', zone.department), zoneStatus(zone));
+    item.append(top, ...zoneFigures(zone));
+    if (onSelect) {
+      const focus = element('button', 'zone-item-focus', 'Ver en el mapa');
+      focus.type = 'button';
+      focus.setAttribute('aria-label', `Enfocar ${zone.department} en el mapa`);
+      focus.addEventListener('click', () => onSelect(zone));
+      item.append(focus);
+    }
     list.append(item);
   }
   section.append(list);
   return section;
+}
+
+export function createZoneFocusCard(zone, onReset) {
+  const card = element('div', 'map-glass map-zone-card');
+  card.setAttribute('role', 'status');
+  const top = element('div', 'zone-item-top');
+  top.append(element('h3', '', zone.department), zoneStatus(zone));
+  const back = element('button', 'map-zone-back', 'Ver todo');
+  back.type = 'button';
+  back.addEventListener('click', onReset);
+  card.append(top, ...zoneFigures(zone), back);
+  return card;
 }
 
 export function createTargetCard(target, onFocus) {

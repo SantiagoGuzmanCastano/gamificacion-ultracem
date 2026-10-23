@@ -1,6 +1,6 @@
-import { createTargetCard, getTodayTarget } from './zone-opportunity.js';
+import { createTargetCard, createZoneFocusCard, getTodayTarget } from './zone-opportunity.js';
 
-export { createTargetCard, createZoneList, getTodayTarget, getZoneOpportunities } from './zone-opportunity.js';
+export { createTargetCard, createZoneFocusCard, createZoneList, getTodayTarget, getZoneOpportunities } from './zone-opportunity.js';
 
 let map;
 let hoverPopup;
@@ -67,7 +67,6 @@ export function getOpportunityHeat(clients, sales, capitals) {
 // Vista 3D (referencia aprobada): Colombia como losa sobre el relieve de sus vecinos, con brillo de costa,
 // calor azul→rojo, leyendas de vidrio, brújula y una entrada de ~1,6 s (una vez por sesión).
 const COLOMBIA_BOUNDS = [[-79.2, -4.3], [-66.8, 12.6]];
-const ENTRANCE_KEY = 'ultracem-map-entrance';
 const RELIEF_TILES = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png';
 export const MAP_VIEW = { center: [-73.2, 2.6], zoom: 4.55, pitch: 45, bearing: -4 };
 export const GEO_LABELS = [
@@ -103,7 +102,7 @@ export function buildAdvisorMapStyle({ activeCodes = [], heat, relief = true, an
     { id: 'slab-shadow', type: 'fill', source: 'departments', paint: { 'fill-color': '#000', 'fill-opacity': .55, 'fill-translate': [6, 18], 'fill-translate-anchor': 'viewport' } },
     { id: 'slab-side', type: 'fill', source: 'departments', paint: { 'fill-color': '#0a1626', 'fill-translate': [0, 9], 'fill-translate-anchor': 'viewport' } },
     { id: 'departments-fill', type: 'fill', source: 'departments', paint: {
-      'fill-color': ['case', ['in', ['get', 'divipola_dep'], ['literal', activeCodes]], '#1d3a5c', '#16263b'],
+      'fill-color': focusFillColor(activeCodes, null),
     } },
     { id: 'departments-border', type: 'line', source: 'departments', paint: { 'line-color': '#7fa6c7', 'line-width': .8, 'line-opacity': .55 } },
     { id: 'opportunity-heat', type: 'heatmap', source: 'opportunity', paint: {
@@ -123,12 +122,44 @@ export function getEntrancePlan(reducedMotion) {
   return { from: { zoom: MAP_VIEW.zoom - 1.1, pitch: 0, bearing: 0 }, flyMs: 1200, heatDelayMs: 900, heatMs: 600, pinDelayMs: 1000, pinStaggerMs: 90 };
 }
 
-export function shouldPlayMapEntrance(storage = window.sessionStorage) {
-  try { return storage.getItem(ENTRANCE_KEY) == null; } catch { return true; }
+// Enfoque de zona: la zona elegida se aclara, el resto se atenúa y su calor aparece aparte.
+export function focusFillColor(activeCodes, focusedCode) {
+  const active = ['in', ['get', 'divipola_dep'], ['literal', activeCodes]];
+  if (!focusedCode) return ['case', active, '#1d3a5c', '#16263b'];
+  return ['case', ['==', ['get', 'divipola_dep'], focusedCode], '#2b5d8f', active, '#13263a', '#0e1a29'];
 }
 
-export function markMapEntrancePlayed(storage = window.sessionStorage) {
-  try { storage.setItem(ENTRANCE_KEY, '1'); } catch { /* sin almacenamiento: se vuelve a animar */ }
+export function zoneHeatFilter(department) {
+  return ['==', ['get', 'department'], department];
+}
+
+export function getFocusPlan(reducedMotion) {
+  return reducedMotion ? { flyMs: 0, heatMs: 0, dimHeatOpacity: .25 } : { flyMs: 900, heatMs: 600, dimHeatOpacity: .25 };
+}
+
+export function getFeatureBounds(feature) {
+  const { type, coordinates } = feature.geometry;
+  const rings = type === 'MultiPolygon' ? coordinates.flat() : coordinates;
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const ring of rings) {
+    for (const [x, y] of ring) {
+      minX = Math.min(minX, x); minY = Math.min(minY, y); maxX = Math.max(maxX, x); maxY = Math.max(maxY, y);
+    }
+  }
+  return [[minX, minY], [maxX, maxY]];
+}
+
+// Anima una propiedad de pintura con requestAnimationFrame; con 0 ms la pone directo.
+function tweenPaint(layer, property, from, to, ms, delay = 0) {
+  if (!ms) { map?.setPaintProperty(layer, property, to); return; }
+  const start = performance.now() + delay;
+  const step = now => {
+    if (!map?.getLayer(layer)) return;
+    const progress = Math.min(1, Math.max(0, (now - start) / ms));
+    map.setPaintProperty(layer, property, from + (to - from) * progress);
+    if (progress < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
 }
 
 export function getCityProgress(clients, sales) {
@@ -180,21 +211,25 @@ function cityLabel(group) {
 export async function renderAdvisorClientMap(container, clients = [], onStatus = () => {}, sales = [], { zones = [] } = {}) {
   destroyAdvisorClientMap();
   const current = generation;
-  const [{ Map: MapLibreMap, Popup, Marker, setWorkerUrl }, , response, { default: workerUrl }] = await Promise.all([
+  const [{ Map: MapLibreMap, Popup, Marker, setWorkerUrl }, , response, { default: workerUrl }, departmentsResponse] = await Promise.all([
     import('maplibre-gl'),
     import('maplibre-gl/dist/maplibre-gl.css'),
     fetch('/data/colombia-capitals.json'),
     import('maplibre-gl/dist/maplibre-gl-worker.mjs?url'),
+    fetch('/data/colombia-departments.geojson'),
   ]);
   if (!response.ok) throw new Error('No se pudo cargar el catálogo local de ciudades.');
   const capitals = await response.json();
+  // Geometría completa de cada departamento para encuadrar la zona al enfocarla.
+  const departments = departmentsResponse.ok ? await departmentsResponse.json() : { features: [] };
   const states = getDepartmentClientStates(clients, capitals);
   const { groups, warnings } = groupCityClients(clients, capitals);
   if (current !== generation || !container.isConnected) return;
   const activeCodes = [...states].filter(([, state]) => state.clients.length).map(([code]) => code);
   const target = getTodayTarget(zones, capitals);
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const animate = !reduced && shouldPlayMapEntrance();
+  // La entrada corre cada vez que se abre el mapa (con "reducir movimiento", directo).
+  const animate = !reduced;
   const plan = getEntrancePlan(!animate);
   container.classList.add('advisor-map-container');
 
@@ -218,7 +253,9 @@ export async function renderAdvisorClientMap(container, clients = [], onStatus =
   };
   map.on('dragstart', () => { userMoved = true; });
   map.on('resize', () => { if (!userMoved && map) map.jumpTo(finalView()); });
+  let ready = false;
   map.once('load', () => {
+    ready = true;
     onStatus('ready');
     // Créditos plegados en el botón ⓘ para que no tapen las leyendas.
     container.querySelector('.maplibregl-ctrl-attrib')?.classList.remove('maplibregl-compact-show');
@@ -226,7 +263,6 @@ export async function renderAdvisorClientMap(container, clients = [], onStatus =
     map.addSource('dem', withRelief.sources.dem);
     map.addLayer(withRelief.layers.find(layer => layer.id === 'relief'), 'coast-glow');
     if (!animate) { map.jumpTo(finalView()); return; }
-    markMapEntrancePlayed();
     const view = finalView();
     map.jumpTo({ center: view.center, ...plan.from });
     map.flyTo({ ...view, duration: plan.flyMs, essential: true });
@@ -273,6 +309,9 @@ export async function renderAdvisorClientMap(container, clients = [], onStatus =
     const code = event.features?.[0]?.properties?.divipola_dep;
     const state = states.get(code);
     if (!state) return;
+    // Un departamento con clientes y cifras de zona se enfoca; los demás muestran su detalle.
+    const zone = zones.find(item => item.code === code);
+    if (zone && state.clients.length) { focusZone(zone); return; }
     hoverPopup.remove();
     detailPopup?.remove();
     const content = document.createElement('div');
@@ -331,13 +370,57 @@ export async function renderAdvisorClientMap(container, clients = [], onStatus =
 
   const { heatLegend, compass, stateLegend } = createMapOverlays();
   overlays = [heatLegend, compass, stateLegend];
-  if (target) {
-    overlays.push(createTargetCard(target, () => {
-      userMoved = true;
-      map?.flyTo({ center: target.coordinates, zoom: finalView().zoom + 1.4, pitch: 50, bearing: MAP_VIEW.bearing, duration: reduced ? 0 : 900, essential: true });
-    }));
-  }
+  const targetCard = target && createTargetCard(target, () => {
+    userMoved = true;
+    map?.flyTo({ center: target.coordinates, zoom: finalView().zoom + 1.4, pitch: 50, bearing: MAP_VIEW.bearing, duration: reduced ? 0 : 900, essential: true });
+  });
+  if (targetCard) overlays.push(targetCard);
   container.append(...overlays);
+
+  // Enfocar una zona: vuelo al departamento, resto atenuado, borde brillante y su calor de 0 al valor.
+  let zoneCard = null;
+  const heatPaint = buildAdvisorMapStyle({ activeCodes, heat: null }).layers.find(layer => layer.id === 'opportunity-heat').paint;
+  function focusZone(zone) {
+    const feature = departments.features.find(item => item.properties?.divipola_dep === zone.code);
+    if (!map || !feature) return;
+    // Si el mapa todavía carga, el enfoque espera a que esté listo.
+    if (!ready) { map.once('load', () => focusZone(zone)); return; }
+    const focusPlan = getFocusPlan(reduced);
+    userMoved = true;
+    hoverPopup.remove();
+    detailPopup?.remove();
+    if (!map.getLayer('zone-outline')) {
+      map.addLayer({ id: 'zone-outline', type: 'line', source: 'departments', paint: { 'line-color': '#ffd76a', 'line-width': 3, 'line-blur': 1.5 } }, 'opportunity-heat');
+      map.addLayer({ id: 'zone-heat', type: 'heatmap', source: 'opportunity', paint: { ...heatPaint, 'heatmap-opacity': 0 } });
+    }
+    map.setFilter('zone-outline', ['==', ['get', 'divipola_dep'], zone.code]);
+    map.setFilter('zone-heat', zoneHeatFilter(zone.department));
+    map.setPaintProperty('departments-fill', 'fill-color', focusFillColor(activeCodes, zone.code));
+    map.setPaintProperty('opportunity-heat', 'heatmap-opacity', focusPlan.dimHeatOpacity);
+    map.setPaintProperty('zone-heat', 'heatmap-opacity', 0);
+    tweenPaint('zone-heat', 'heatmap-opacity', 0, .95, focusPlan.heatMs, focusPlan.flyMs * .5);
+    map.fitBounds(getFeatureBounds(feature), { padding: container.clientWidth < 600 ? 48 : 110, pitch: 50, bearing: MAP_VIEW.bearing, maxZoom: 8, duration: focusPlan.flyMs, essential: true });
+    zoneCard?.remove();
+    zoneCard = createZoneFocusCard(zone, resetFocus);
+    targetCard?.setAttribute('hidden', '');
+    container.append(zoneCard);
+    overlays.push(zoneCard);
+  }
+  function resetFocus() {
+    if (!map) return;
+    const focusPlan = getFocusPlan(reduced);
+    zoneCard?.remove();
+    zoneCard = null;
+    targetCard?.removeAttribute('hidden');
+    map.setPaintProperty('departments-fill', 'fill-color', focusFillColor(activeCodes, null));
+    if (map.getLayer('zone-outline')) {
+      map.setFilter('zone-outline', ['==', ['get', 'divipola_dep'], '']);
+      map.setPaintProperty('zone-heat', 'heatmap-opacity', 0);
+    }
+    tweenPaint('opportunity-heat', 'heatmap-opacity', focusPlan.dimHeatOpacity, .9, focusPlan.heatMs);
+    userMoved = false;
+    map.flyTo({ ...finalView(), duration: focusPlan.flyMs, essential: true });
+  }
   const needle = compass.querySelector('svg');
   map.on('rotate', () => { needle.style.transform = `rotate(${-map.getBearing()}deg)`; });
 
@@ -348,6 +431,7 @@ export async function renderAdvisorClientMap(container, clients = [], onStatus =
     warningNode.textContent = `${warnings.length} ${warnings.length === 1 ? 'cliente no se pudo ubicar' : 'clientes no se pudieron ubicar'} en una ciudad del mapa.`;
     container.append(warningNode);
   }
+  return { focusZone, resetFocus };
 }
 
 export function destroyAdvisorClientMap() {

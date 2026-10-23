@@ -478,6 +478,20 @@
 .map-target-reason { margin: 4px 0 0; color: #c9dcef; font-size: .88rem; line-height: 1.45; }
 .map-target-go { grid-column: 2; justify-self: start; min-height: 44px; margin-top: 6px; padding: 8px 14px; border: 1px solid #ffd124; border-radius: 10px; background: #ffd124; color: #002338; font: inherit; font-size: .85rem; font-weight: 750; cursor: pointer; }
 .map-target-go:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+/* Zona enfocada: tarjeta con sus cifras en el lugar de la zona objetivo, y "Ver todo" para volver. */
+.map-target-card[hidden] { display: none; }
+.map-zone-card { right: 14px; bottom: 14px; display: grid; gap: 4px; width: min(320px, calc(100% - 28px)); padding: 14px 16px; border-color: #ffd76a; box-shadow: 0 0 24px rgb(255 215 106 / 16%); }
+.map-zone-card h3 { font-size: 1.15rem; font-weight: 750; }
+.map-zone-card p { margin: 0; color: #c9dcef; font-size: .86rem; font-variant-numeric: tabular-nums; }
+.map-zone-card .zone-gap { color: #fff; font-weight: 650; }
+.map-zone-back { justify-self: start; min-height: 44px; margin-top: 8px; padding: 8px 14px; border: 1px solid #7fa6c7; border-radius: 10px; background: transparent; color: #e8f3ff; font: inherit; font-size: .85rem; font-weight: 700; cursor: pointer; }
+.map-zone-back:focus-visible, .zone-item-focus:focus-visible { outline: 3px solid #ffd124; outline-offset: 2px; }
+.zone-item-focus { justify-self: start; min-height: 44px; margin-top: 6px; padding: 8px 12px; border: 1px solid var(--dashboard-line, var(--line)); border-radius: 10px; background: transparent; color: inherit; font: inherit; font-size: .82rem; font-weight: 700; cursor: pointer; }
+.zone-item-focus:hover { border-color: #1e8bff; }
+@media (prefers-reduced-motion: no-preference) {
+  .map-zone-card { animation: map-card-in 260ms cubic-bezier(.23, 1, .32, 1) both; }
+}
+@keyframes map-card-in { from { opacity: 0; transform: translateY(8px); } }
 /* Pin con anillo de progreso (% de tareas); dorado cuando la ciudad está vendida. */
 .advisor-city-marker {
   --pin-progress: 0%; --pin-ring: #3cff9a;
@@ -515,7 +529,7 @@
   .map-geo-label { font-size: 14px; }
   .map-geo-label-sea { display: none; }
   .map-state-legend { left: 10px; bottom: auto; top: 92px; gap: 10px; padding: 6px 10px; font-size: .78rem; }
-  .map-target-card { left: 10px; right: 10px; bottom: 34px; width: auto; padding: 10px 12px; }
+  .map-target-card, .map-zone-card { left: 10px; right: 10px; bottom: 34px; width: auto; padding: 10px 12px; }
   .map-target-reason { font-size: .82rem; }
   .advisor-map-warning { bottom: auto; top: 132px; left: 10px; }
 }

@@ -1,15 +1,14 @@
 // @vitest-environment jsdom
 // Spec del mapa de calor 3D (fase Red), según la referencia aprobada:
 // vista inclinada, Colombia como losa, relieve y vecinos con brillo, calor azul→rojo,
-// leyendas de vidrio, brújula y entrada animada de ~1,6 s (una vez por sesión).
+// leyendas de vidrio, brújula y entrada animada de ~1,6 s (cada vez que se abre el mapa).
 import { describe, expect, it } from 'vitest';
+import * as mapModule from '../src/advisor-map.js';
 import {
   GEO_LABELS, MAP_VIEW, buildAdvisorMapStyle, createCityPin, createMapOverlays, getEntrancePlan,
-  markMapEntrancePlayed, shouldPlayMapEntrance,
 } from '../src/advisor-map.js';
 
 const heat = { type: 'FeatureCollection', features: [] };
-const memory = () => { const data = new Map(); return { getItem: key => data.get(key) ?? null, setItem: (key, value) => data.set(key, String(value)) }; };
 
 describe('estilo del mapa', () => {
   const style = buildAdvisorMapStyle({ activeCodes: ['08', '05'], heat, relief: true, animate: true });
@@ -82,14 +81,9 @@ describe('cámara y entrada animada', () => {
     expect(getEntrancePlan(true)).toMatchObject({ flyMs: 0, heatMs: 0, heatDelayMs: 0, pinStaggerMs: 0 });
   });
 
-  it('la entrada se ve una sola vez por sesión, aunque falle el almacenamiento', () => {
-    const storage = memory();
-    expect(shouldPlayMapEntrance(storage)).toBe(true);
-    markMapEntrancePlayed(storage);
-    expect(shouldPlayMapEntrance(storage)).toBe(false);
-    const blocked = { getItem() { throw new Error('bloqueado'); }, setItem() { throw new Error('bloqueado'); } };
-    expect(shouldPlayMapEntrance(blocked)).toBe(true);
-    expect(() => markMapEntrancePlayed(blocked)).not.toThrow();
+  it('la entrada corre cada vez que se abre el mapa: ya no depende de la sesión', () => {
+    expect(mapModule.shouldPlayMapEntrance).toBeUndefined();
+    expect(mapModule.markMapEntrancePlayed).toBeUndefined();
   });
 });
 

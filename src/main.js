@@ -880,10 +880,16 @@ function advisorMapPage(page) {
     advisorMapModule = module;
     // PRD · oportunidad por zona: el asesor ve solo las zonas donde tiene clientes.
     const zones = market ? getZoneOpportunities(market, ownClients, sales, { onlyWithClients: true }) : [];
-    if (zones.length) zonesSlot.replaceWith(createZoneList(zones, { sample: market.sample }));
-    await module.renderAdvisorClientMap(container, ownClients, (state, message) => {
+    // Al elegir una zona de la lista, el mapa sube a la vista y la enfoca.
+    let mapControls = null;
+    const focusFromList = zone => {
+      section.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+      mapControls?.focusZone(zone);
+    };
+    if (zones.length) zonesSlot.replaceWith(createZoneList(zones, { sample: market.sample, onSelect: focusFromList }));
+    mapControls = await module.renderAdvisorClientMap(container, ownClients, (state, message) => {
       if (!container.isConnected) return;
-      status.textContent = state === 'ready' ? 'Selecciona un departamento o una ciudad para ver tus clientes.' : message;
+      status.textContent = state === 'ready' ? 'Toca un departamento o una zona de la lista para enfocarla.' : message;
       status.classList.toggle('advisor-map-error', state === 'error');
     }, sales, { zones });
   }).catch(error => {
