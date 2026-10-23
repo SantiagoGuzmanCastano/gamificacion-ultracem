@@ -30,7 +30,7 @@ import { attachRankingAvatars } from './ranking-avatars.js';
 import { COLOMBIA_DEPARTMENTS, citiesForDepartment, normalizeClientLocation } from './client-location.js';
 import { commissionSummary, getCommissionStatus } from './commission-wallet.js';
 import { getProgressModel, playProgressEntrance, renderProgressPage, resetProgressEntrance, showLevelBanner } from './progress-page.js';
-import { showProgressGuide } from './progress-guide.js';
+import { showDashboardGuide, showProgressGuide } from './progress-guide.js';
 import { celebrateCommissionClaim, celebrateCommissionClaimed, commissionGoals, commissionMilestones, commissionStats, commissionTakeHome, playCommissionEntrance, resetCommissionEntrance } from './commission-gamification.js';
 
 const SUPABASE_TIMEOUT_MS = 15000;
@@ -1751,7 +1751,14 @@ function advisorWelcome() {
   nameLine.setAttribute('aria-hidden', 'true');
   name.append(nameLine);
   title.append('¡Vamos con toda hoy, ', name, '!');
-  welcome.append(title, advisorCalendar());
+  // Guía de Topitín sobre cómo funciona el panel de ventas.
+  const guide = button('¿Cómo funciona esta pantalla?', 'advisor-guide-button', () => showDashboardGuide({ mascot: skinHappyImage() }));
+  const guideMascot = el('img', 'advisor-guide-mascot');
+  guideMascot.src = skinHappyImage(); guideMascot.alt = ''; guideMascot.width = 26; guideMascot.height = 26;
+  guide.prepend(guideMascot);
+  const copy = el('div', 'advisor-welcome-copy');
+  copy.append(title, guide);
+  welcome.append(copy, advisorCalendar());
   return welcome;
 }
 
