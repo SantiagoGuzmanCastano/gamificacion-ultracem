@@ -68,10 +68,7 @@ export function commissionGoals(sample) {
   const figures = node('p', 'commission-goal-figures');
   figures.append(node('span', '', `${cop(goal.earned)} acumulado`), node('span', 'commission-goal-left', `Te faltan ${cop(Math.max(0, goal.target - goal.earned))}`));
   goalCopy.append(goalTitle, node('strong', 'commission-goal-target', cop(goal.target)), bar, figures);
-  const mascot = node('img', 'commission-goal-mascot');
-  mascot.src = mascotImages.happy;
-  mascot.alt = '';
-  goalCard.append(ring, goalCopy, mascot);
+  goalCard.append(ring, goalCopy);
 
   const challengeCard = node('article', 'commission-challenge-card');
   const challengeTitle = node('h2', '', 'Desafío mensual');
@@ -160,7 +157,6 @@ export function playCommissionEntrance(page) {
       }
     }
     tl.from(q('.commission-goal-card, .commission-challenge-card'), { opacity: 0, y: 28, duration: .6, stagger: .12 }, .35);
-    tl.from(q('.commission-goal-mascot'), { opacity: 0, x: 40, rotation: 8, duration: .7, ease: 'back.out(1.6)' }, .9);
     for (const node of q('.commission-balance-copy strong, .commission-summary-item strong, .commission-goal-ring strong')) {
       const original = node.textContent;
       const target = Number(original.replace(/\D/g, ''));

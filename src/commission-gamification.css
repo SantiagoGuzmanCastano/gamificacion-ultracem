@@ -50,7 +50,7 @@
 /* Meta y desafío */
 .commission-wallet-page .commission-goals { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 14px; margin-bottom: 10px; }
 .commission-wallet-page .commission-goal-card, .commission-wallet-page .commission-challenge-card { position: relative; overflow: hidden; border: 1px solid var(--dashboard-line); border-radius: 20px; background: var(--dashboard-panel); box-shadow: var(--card-shadow); }
-.commission-wallet-page .commission-goal-card { display: grid; grid-template-columns: 124px minmax(0, 1fr); align-items: center; gap: 20px; padding: 22px 100px 22px 22px; background: radial-gradient(80% 120% at 0% 0%, color-mix(in srgb, var(--gold) 14%, transparent), transparent 60%), var(--dashboard-panel); }
+.commission-wallet-page .commission-goal-card { display: grid; grid-template-columns: 124px minmax(0, 1fr); align-items: center; gap: 20px; padding: 22px; background: radial-gradient(80% 120% at 0% 0%, color-mix(in srgb, var(--gold) 14%, transparent), transparent 60%), var(--dashboard-panel); }
 .commission-goal-ring { position: relative; display: grid; place-items: center; width: 124px; aspect-ratio: 1; }
 .commission-goal-ring svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); overflow: visible; }
 .commission-goal-ring circle { fill: none; }
@@ -63,7 +63,6 @@
 .commission-goal-target { display: block; margin: 4px 0 12px; font-size: 1.55rem; font-weight: 850; letter-spacing: -.035em; font-variant-numeric: tabular-nums; }
 .commission-goal-figures { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px 10px; margin: 10px 0 0; color: var(--dashboard-muted); font-size: .76rem; }
 .commission-goal-left { padding: 3px 9px; border-radius: 999px; background: var(--gold-soft); color: var(--gold-text); font-weight: 800; }
-.commission-goal-mascot { position: absolute; right: 10px; top: 0; bottom: 0; margin-block: auto; width: 84px; height: auto; pointer-events: none; filter: drop-shadow(0 6px 8px #00192b44); }
 .commission-bar { height: 12px; border-radius: 999px; background: var(--dashboard-ring); box-shadow: inset 0 1px 2px #00192b33; overflow: hidden; }
 .commission-bar-fill { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--gold-deep), var(--gold)); transform-origin: left center; }
 .commission-bar-fill.blue { background: linear-gradient(90deg, var(--dashboard-blue), #2fd9f0); }
@@ -168,7 +167,6 @@
   .commission-goal-ring { width: 92px; }
   .commission-goal-ring strong { font-size: 1.3rem; }
   .commission-goal-target { font-size: 1.3rem; margin-bottom: 8px; }
-  .commission-goal-mascot { display: none; }
   .commission-milestone-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .commission-milestones { padding: 16px; }
   .commission-milestones-head { align-items: flex-start; flex-direction: column; gap: 4px; }
