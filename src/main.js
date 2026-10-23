@@ -20,9 +20,22 @@ import { showLoadingScreen, clearLoadingScreen } from './loading-screen.js';
 import { attachRankingAvatars } from './ranking-avatars.js';
 import { COLOMBIA_DEPARTMENTS, citiesForDepartment, normalizeClientLocation } from './client-location.js';
 import { commissionSummary, getCommissionStatus } from './commission-wallet.js';
+import { commissionGoals, commissionMilestones, commissionMonthPill, commissionStats, playCommissionEntrance, resetCommissionEntrance } from './commission-gamification.js';
 
+const SUPABASE_TIMEOUT_MS = 15000;
+// Stalled browser connections must fail fast instead of keeping the loading screen forever.
+function supabaseFetch(input, init = {}) {
+  const started = performance.now();
+  const isUpload = init.body instanceof Blob || init.body instanceof FormData;
+  const timeout = isUpload ? null : AbortSignal.timeout(SUPABASE_TIMEOUT_MS);
+  const signal = timeout && init.signal ? AbortSignal.any([init.signal, timeout]) : timeout || init.signal;
+  return fetch(input, { ...init, signal }).finally(() => {
+    const elapsed = Math.round(performance.now() - started);
+    if (import.meta.env.DEV && elapsed > 1500) console.warn(`[supabase] ${elapsed} ms`, String(input?.url ?? input).split('?')[0]);
+  });
+}
 const db = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
-  ? createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY) : null;
+  ? createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY, { global: { fetch: supabaseFetch } }) : null;
 const root = document.querySelector('#app');
 let user = null, profile = null, advisors = [], clients = [], sales = [], ranking = [], notifications = [], selectedId = null, aiRecommendation = '', saleNotice = '';
 let theme = localStorage.getItem('ultracem-theme') || 'light';
@@ -455,17 +468,21 @@ async function loadData() {
   if (own.error) throw own.error;
   profile = own.data;
   profile.avatar_url = '';
-  if (profile.avatar_path) {
-    const signed = await db.storage.from('advisor-profile-photos').createSignedUrl(profile.avatar_path, 3600);
-    profile.avatar_url = signed.data?.signedUrl || '';
-  }
   profilePhotoPromptPending = profile.role === 'advisor' && !profile.photo_prompted_at;
-  if (profile.role === 'admin') {
-    const list = await db.rpc('get_mvp_advisors');
+  // Independent queries run together; each one was a full round trip when awaited in sequence.
+  const [signed, list, result, salesResult, notificationsResult, rankingResult] = await Promise.all([
+    profile.avatar_path ? db.storage.from('advisor-profile-photos').createSignedUrl(profile.avatar_path, 3600) : null,
+    profile.role === 'admin' ? db.rpc('get_mvp_advisors') : null,
+    db.from('mvp_clients').select('id,name,type,advisor_id,department,city,tons_requested,mvp_tasks(id,title,description,completed_at)').order('created_at', { ascending: false }),
+    db.from('mvp_sales').select('id,client_id,advisor_id,amount,tons_sold,completed_at,confirmed,confirmed_at,commission_price_per_ton,commission_rate,commission_amount,commission_status,commission_claimed_at'),
+    db.from('mvp_notifications').select('id,recipient_id,kind,title,body,related_request_id,related_client_id,created_at,read_at').order('created_at', { ascending: false }).limit(20),
+    db.rpc('get_mvp_advisor_ranking'),
+  ]);
+  profile.avatar_url = signed?.data?.signedUrl || '';
+  if (list) {
     if (list.error) throw list.error;
     advisors = (list.data ?? []).sort((a, b) => a.full_name.localeCompare(b.full_name));
   } else advisors = [];
-  const result = await db.from('mvp_clients').select('id,name,type,advisor_id,department,city,tons_requested,mvp_tasks(id,title,description,completed_at)').order('created_at', { ascending: false });
   if (result.error) throw result.error;
   clients = result.data.map(client => ({
     ...client,
@@ -477,13 +494,10 @@ async function loadData() {
         return (aIndex < 0 ? taskOrder.length : aIndex) - (bIndex < 0 ? taskOrder.length : bIndex);
       }),
   }));
-  const salesResult = await db.from('mvp_sales').select('id,client_id,advisor_id,amount,tons_sold,completed_at,confirmed,confirmed_at,commission_price_per_ton,commission_rate,commission_amount,commission_status,commission_claimed_at');
   if (salesResult.error) throw salesResult.error;
   sales = salesResult.data ?? [];
-  const notificationsResult = await db.from('mvp_notifications').select('id,recipient_id,kind,title,body,related_request_id,related_client_id,created_at,read_at').order('created_at', { ascending: false }).limit(20);
   if (notificationsResult.error && !/relation .*mvp_notifications.* does not exist|could not find the table/i.test(notificationsResult.error.message || '')) throw notificationsResult.error;
   notifications = (notificationsResult.data ?? []).filter(item => !dismissedNotificationIds.has(item.id));
-  const rankingResult = await db.rpc('get_mvp_advisor_ranking');
   if (rankingResult.error) throw rankingResult.error;
   ranking = await attachRankingAvatars(db, rankingResult.data ?? [], profile);
   scheduleProfilePhotoUrlRefresh();
@@ -930,16 +944,32 @@ function advisorCommissionsPage(page) {
   page.className = 'advisor-page commission-wallet-page';
   const ownSales = sales.filter(sale => sale.advisor_id === user?.id && sale.confirmed).sort((a, b) => new Date(b.confirmed_at || b.completed_at) - new Date(a.confirmed_at || a.completed_at));
   const summary = commissionSummary(ownSales, user?.id);
+  const stats = commissionStats(ownSales);
   const welcome = el('header', 'advisor-welcome');
-  welcome.append(el('h1', '', 'Cartera de comisiones'), el('p', '', 'Revisa lo que tienes disponible y lo que ya canjeaste.'));
+  const welcomeCopy = el('div');
+  welcomeCopy.append(el('h1', '', 'Cartera de comisiones'), el('p', '', 'Revisa lo que tienes disponible y lo que ya canjeaste.'));
+  welcome.classList.add('commission-welcome');
+  welcome.append(welcomeCopy, commissionMonthPill(stats));
   const overview = el('section', 'commission-overview');
   const available = el('div', 'commission-balance');
   const availableSale = ownSales.find(sale => getCommissionStatus(sale).claimable);
-  available.append(el('span', '', 'Comisión disponible'), el('strong', '', money(summary.available)), el('small', '', availableSale ? `Por la venta de ${clients.find(client => client.id === availableSale.client_id)?.name || 'tu cliente'}` : 'No tienes comisiones disponibles'));
+  const balanceIcon = el('span', 'commission-balance-icon'); balanceIcon.innerHTML = advisorIcon('coin');
+  const balanceCopy = el('div', 'commission-balance-copy');
+  balanceCopy.append(el('span', '', 'Comisión disponible'), el('strong', '', money(summary.available)), el('small', '', availableSale ? `Por la venta de ${clients.find(client => client.id === availableSale.client_id)?.name || 'tu cliente'}` : 'No tienes comisiones disponibles'));
+  available.append(balanceIcon, balanceCopy);
+  if (availableSale) {
+    const claimAll = button('Reclamar comisiones', 'primary commission-claim-all', () => page.querySelector('.commission-available-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    const claimAllIcon = el('span', 'commission-claim-icon'); claimAllIcon.innerHTML = advisorIcon('sparkles');
+    claimAll.prepend(claimAllIcon);
+    available.append(claimAll);
+  }
   const redeemed = el('div', 'commission-summary-item');
-  redeemed.append(el('span', '', 'Total neto comisiones canjeadas'), el('strong', '', money(summary.pending)), el('small', '', `${ownSales.filter(sale => sale.commission_status === 'pending').length} ventas canjeadas`));
+  const redeemedIcon = el('span', 'commission-summary-icon'); redeemedIcon.innerHTML = advisorIcon('wallet');
+  const redeemedCopy = el('div');
+  redeemedCopy.append(el('span', '', 'Total neto canjeado'), el('strong', '', money(summary.pending)), el('small', '', `${ownSales.filter(sale => sale.commission_status === 'pending').length} ventas canjeadas`));
+  redeemed.append(redeemedIcon, redeemedCopy);
   overview.append(available, redeemed);
-  page.append(welcome, overview);
+  page.append(welcome, overview, commissionGoals(stats));
   if (!ownSales.length) {
     page.append(el('p', 'empty-state', 'Aún no tienes ventas confirmadas para mostrar en tu cartera.'));
     return;
@@ -951,9 +981,11 @@ function advisorCommissionsPage(page) {
     const status = getCommissionStatus(sale);
     const item = el('article', 'commission-item');
     const head = el('div', 'commission-item-head');
+    const thumb = el('span', 'commission-thumb'); thumb.innerHTML = advisorIcon({ 'Ferretería': 'shop', Constructora: 'building', Distribuidor: 'truck' }[client?.type] || 'document');
     const copy = el('div', 'commission-client');
-    copy.append(el('h2', '', client?.name || 'Cliente confirmado'), el('p', 'muted', `${client?.type || 'Venta confirmada'} · ${commissionDate(sale.confirmed_at || sale.completed_at)}`));
-    head.append(copy, el('span', `commission-status ${status.claimable ? 'available' : status.label === 'Canjeada' ? 'redeemed' : ''}`, status.label));
+    copy.append(el('h2', '', client?.name || 'Cliente confirmado'), el('p', 'muted', status.claimable || !sale.commission_claimed_at ? `${client?.type || 'Venta confirmada'} · ${commissionDate(sale.confirmed_at || sale.completed_at)}` : `${client?.type || 'Venta confirmada'} · Canjeada el ${commissionDate(sale.commission_claimed_at)}`));
+    head.append(thumb, copy);
+    const statusBadge = el('span', `commission-status ${status.claimable ? 'available' : status.label === 'Canjeada' ? 'redeemed' : ''}`, status.label);
     const details = el('dl', 'commission-details');
     for (const [label, value] of [
       ['Toneladas vendidas', `${Number(sale.tons_sold || 0).toLocaleString('es-CO')} t`],
@@ -963,13 +995,30 @@ function advisorCommissionsPage(page) {
     ]) {
       const row = el('div'); row.append(el('dt', '', label), el('dd', '', value)); details.append(row);
     }
-    item.append(head, details);
-    if (status.claimable) item.append(button('Reclamar comisión', 'primary commission-claim', event => requestCommission(sale, event.currentTarget)));
+    item.append(head, details, statusBadge);
+    if (status.claimable) {
+      const claim = button('Reclamar', 'primary commission-claim', event => requestCommission(sale, event.currentTarget));
+      const claimIcon = el('span', 'commission-claim-icon'); claimIcon.innerHTML = advisorIcon('coin');
+      claim.prepend(claimIcon);
+      item.classList.add('claimable');
+      item.append(claim);
+    }
     list.append(item);
   };
-  for (const sale of ownSales) renderSale(sale, getCommissionStatus(sale).claimable ? availableList : redeemedList);
-  if (availableList.childElementCount) page.append(el('h2', 'commission-section-title', 'Comisiones disponibles'), availableList);
-  if (redeemedList.childElementCount) page.append(el('h2', 'commission-section-title', 'Comisiones canjeadas'), redeemedList);
+  const claimedOn = sale => new Date(sale.commission_claimed_at || sale.confirmed_at || sale.completed_at);
+  for (const sale of ownSales.filter(item => getCommissionStatus(item).claimable)) renderSale(sale, availableList);
+  for (const sale of ownSales.filter(item => item.commission_status === 'pending' || item.commission_status === 'paid').sort((a, b) => claimedOn(b) - claimedOn(a))) renderSale(sale, redeemedList);
+  if (availableList.childElementCount) {
+    const section = el('section', 'commission-available-section');
+    const heading = el('div', 'commission-list-head');
+    heading.append(el('h2', 'commission-section-title', 'Comisiones disponibles'), el('span', 'muted', `${availableList.childElementCount} ${availableList.childElementCount === 1 ? 'comisión disponible' : 'comisiones disponibles'}`));
+    section.append(heading, availableList);
+    page.append(section);
+  }
+  const redeemedSection = el('section', 'commission-redeemed-section');
+  if (redeemedList.childElementCount) redeemedSection.append(el('h2', 'commission-section-title', 'Comisiones canjeadas'), redeemedList);
+  page.append(commissionMilestones(stats, redeemedList.childElementCount ? () => redeemedSection.scrollIntoView({ behavior: 'smooth', block: 'start' }) : null), redeemedSection);
+  playCommissionEntrance(page);
 }
 async function requestClient(control) {
   control.disabled = true;
@@ -1217,6 +1266,7 @@ async function refresh(text) {
 function render() {
   advisorMapModule?.destroyAdvisorClientMap();
   clearProfileEntrance(!profile || profile.role !== 'advisor' || advisorView !== 'profile');
+  if (!profile || profile.role !== 'advisor' || advisorView !== 'commissions') resetCommissionEntrance();
   shell();
   const page = document.querySelector('#page');
   if (!db) page.replaceChildren(el('p', 'empty-state', 'Falta configurar Supabase en .env.local.'));
