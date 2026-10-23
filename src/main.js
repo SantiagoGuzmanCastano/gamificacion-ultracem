@@ -26,13 +26,26 @@ import { showLoadingScreen, clearLoadingScreen } from './loading-screen.js';
 import { attachRankingAvatars } from './ranking-avatars.js';
 import { COLOMBIA_DEPARTMENTS, citiesForDepartment, normalizeClientLocation } from './client-location.js';
 import { commissionSummary, getCommissionStatus } from './commission-wallet.js';
+import { commissionGoals, commissionMilestones, commissionMonthPill, commissionStats, playCommissionEntrance, resetCommissionEntrance } from './commission-gamification.js';
 
+const SUPABASE_TIMEOUT_MS = 15000;
+// Stalled browser connections must fail fast instead of keeping the loading screen forever.
+function supabaseFetch(input, init = {}) {
+  const started = performance.now();
+  const isUpload = init.body instanceof Blob || init.body instanceof FormData;
+  const timeout = isUpload ? null : AbortSignal.timeout(SUPABASE_TIMEOUT_MS);
+  const signal = timeout && init.signal ? AbortSignal.any([init.signal, timeout]) : timeout || init.signal;
+  return fetch(input, { ...init, signal }).finally(() => {
+    const elapsed = Math.round(performance.now() - started);
+    if (import.meta.env.DEV && elapsed > 1500) console.warn(`[supabase] ${elapsed} ms`, String(input?.url ?? input).split('?')[0]);
+  });
+}
 // Modo demo (VITE_DEMO=true): datos de muestra en memoria, sin Supabase. Con ?rol=admin se entra como administrador.
 const demoMode = import.meta.env.VITE_DEMO === 'true';
 const db = demoMode
   ? createDemoClient({ role: new URLSearchParams(location.search).get('rol') === 'admin' ? 'admin' : 'advisor' })
   : import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
-    ? createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY) : null;
+    ? createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY, { global: { fetch: supabaseFetch } }) : null;
 if (demoMode) {
   const banner = document.createElement('p');
   banner.className = 'demo-banner';
@@ -474,39 +487,134 @@ async function loadData() {
   if (own.error) throw own.error;
   profile = own.data;
   profile.avatar_url = '';
-  if (profile.avatar_path) {
-    const signed = await db.storage.from('advisor-profile-photos').createSignedUrl(profile.avatar_path, 3600);
-    profile.avatar_url = signed.data?.signedUrl || '';
-  }
   profilePhotoPromptPending = profile.role === 'advisor' && !profile.photo_prompted_at;
-  if (profile.role === 'admin') {
+  // Independent queries run together; each one was a full round trip when awaited in sequence.
+  const [signed, ...loaded] = await Promise.all([
+    profile.avatar_path ? db.storage.from('advisor-profile-photos').createSignedUrl(profile.avatar_path, 3600) : null,
+    ...fullResources().map(name => resourceLoaders[name]()),
+  ]);
+  profile.avatar_url = signed?.data?.signedUrl || '';
+  fullResources().forEach((name, index) => applyResource(name, loaded[index]));
+  ranking = await attachRankingAvatars(db, ranking, profile);
+  scheduleProfilePhotoUrlRefresh();
+}
+function fullResources() {
+  return ['advisors', 'clients', 'sales', 'notifications', 'ranking'];
+}
+// One loader per resource so an action can reload only what it changed.
+const resourceLoaders = {
+  async stats() {
+    const result = await db.from('mvp_profiles').select('points,level,progression_sales').eq('user_id', user.id).single();
+    if (result.error) throw result.error;
+    return result.data;
+  },
+  async advisors() {
+    if (profile.role !== 'admin') return [];
     const list = await db.rpc('get_mvp_advisors');
     if (list.error) throw list.error;
-    advisors = (list.data ?? []).sort((a, b) => a.full_name.localeCompare(b.full_name));
-  } else advisors = [];
-  const result = await db.from('mvp_clients').select('id,name,type,advisor_id,department,city,tons_requested,mvp_tasks(id,title,description,completed_at)').order('created_at', { ascending: false });
-  if (result.error) throw result.error;
-  clients = result.data.map(client => ({
-    ...client,
-    tasks: client.mvp_tasks
-      .map(task => ({ ...task, completed: Boolean(task.completed_at) }))
-      .sort((a, b) => {
-        const aIndex = taskOrder.indexOf(a.title);
-        const bIndex = taskOrder.indexOf(b.title);
-        return (aIndex < 0 ? taskOrder.length : aIndex) - (bIndex < 0 ? taskOrder.length : bIndex);
-      }),
-  }));
-  const salesResult = await db.from('mvp_sales').select('id,client_id,advisor_id,amount,tons_sold,completed_at,confirmed,confirmed_at,commission_price_per_ton,commission_rate,commission_amount,commission_status,commission_claimed_at');
-  if (salesResult.error) throw salesResult.error;
-  sales = salesResult.data ?? [];
-  const notificationsResult = await db.from('mvp_notifications').select('id,recipient_id,kind,title,body,related_request_id,related_client_id,created_at,read_at').order('created_at', { ascending: false }).limit(20);
-  if (notificationsResult.error && !/relation .*mvp_notifications.* does not exist|could not find the table/i.test(notificationsResult.error.message || '')) throw notificationsResult.error;
-  notifications = (notificationsResult.data ?? []).filter(item => !dismissedNotificationIds.has(item.id));
-  const rankingResult = await db.rpc('get_mvp_advisor_ranking');
-  if (rankingResult.error) throw rankingResult.error;
-  ranking = await attachRankingAvatars(db, rankingResult.data ?? [], profile);
-  scheduleProfilePhotoUrlRefresh();
-  if (!clients.some(client => client.id === selectedId)) selectedId = clients[0]?.id ?? null;
+    return (list.data ?? []).sort((a, b) => a.full_name.localeCompare(b.full_name));
+  },
+  async clients() {
+    const result = await db.from('mvp_clients').select('id,name,type,advisor_id,department,city,tons_requested,mvp_tasks(id,title,description,completed_at)').order('created_at', { ascending: false });
+    if (result.error) throw result.error;
+    return result.data.map(client => ({
+      ...client,
+      tasks: client.mvp_tasks
+        .map(task => ({ ...task, completed: Boolean(task.completed_at) }))
+        .sort((a, b) => {
+          const aIndex = taskOrder.indexOf(a.title);
+          const bIndex = taskOrder.indexOf(b.title);
+          return (aIndex < 0 ? taskOrder.length : aIndex) - (bIndex < 0 ? taskOrder.length : bIndex);
+        }),
+    }));
+  },
+  async sales() {
+    const result = await db.from('mvp_sales').select('id,client_id,advisor_id,amount,tons_sold,completed_at,confirmed,confirmed_at,commission_price_per_ton,commission_rate,commission_amount,commission_status,commission_claimed_at');
+    if (result.error) throw result.error;
+    return result.data ?? [];
+  },
+  async notifications() {
+    const result = await db.from('mvp_notifications').select('id,recipient_id,kind,title,body,related_request_id,related_client_id,created_at,read_at').order('created_at', { ascending: false }).limit(20);
+    if (result.error && !/relation .*mvp_notifications.* does not exist|could not find the table/i.test(result.error.message || '')) throw result.error;
+    return (result.data ?? []).filter(item => !dismissedNotificationIds.has(item.id));
+  },
+  async ranking() {
+    const result = await db.rpc('get_mvp_advisor_ranking');
+    if (result.error) throw result.error;
+    return result.data ?? [];
+  },
+};
+function applyResource(name, value) {
+  if (name === 'stats') Object.assign(profile, value);
+  else if (name === 'advisors') advisors = value;
+  else if (name === 'clients') {
+    clients = value;
+    if (!clients.some(client => client.id === selectedId)) selectedId = clients[0]?.id ?? null;
+  } else if (name === 'sales') sales = value;
+  else if (name === 'notifications') notifications = value;
+  // Partial reloads keep the photos already signed instead of re-signing every avatar.
+  else if (name === 'ranking') ranking = value.map(row => ({ ...row, avatar_url: ranking.find(item => item.advisor_id === row.advisor_id)?.avatar_url || '' }));
+}
+let pendingWrites = 0, effectsUntil = 0, reconcileTimer = null;
+const staleResources = new Set();
+function viewSignature() {
+  // Day precision: the view only shows dates, and client clocks never match server now().
+  return JSON.stringify([profile, clients, sales, ranking], (key, value) => key.endsWith('_at') && typeof value === 'string' ? value.slice(0, 10) : key === 'avatar_url' ? undefined : value);
+}
+function renderWhenIdle() {
+  window.clearTimeout(reconcileTimer);
+  // A full render clears confetti and mascot feedback, so server corrections wait for them.
+  const wait = effectsUntil - performance.now();
+  if (wait > 0) reconcileTimer = window.setTimeout(renderWhenIdle, wait);
+  else render();
+}
+// Background confirmation after a write; applied only once no other optimistic write is in flight.
+async function reloadResources(names) {
+  for (const name of names) staleResources.add(name);
+  if (pendingWrites) return;
+  const viewer = user?.id, requested = [...staleResources];
+  staleResources.clear();
+  const started = performance.now();
+  try {
+    const values = await Promise.all(requested.map(name => resourceLoaders[name]()));
+    if (user?.id !== viewer || !profile) return;
+    if (pendingWrites) { for (const name of requested) staleResources.add(name); return; }
+    const before = viewSignature();
+    requested.forEach((name, index) => applyResource(name, values[index]));
+    if (viewSignature() !== before) renderWhenIdle();
+    else notificationCenter?.update(notifications);
+  } catch {
+    for (const name of requested) staleResources.add(name);
+  } finally {
+    measureAction(`reload ${requested.join('+')}`, started);
+  }
+}
+function measureAction(label, started) {
+  const duration = Math.round(performance.now() - started);
+  performance.measure?.(`ultracem: ${label}`, { start: started, duration });
+  if (import.meta.env.DEV) console.debug(`[ultracem] ${label}: ${duration} ms`);
+}
+// Shows a change right away, confirms it with Supabase and undoes only this change if the write fails.
+async function optimisticWrite({ label, apply, revert, write, reload }) {
+  const started = performance.now();
+  pendingWrites++;
+  apply();
+  render();
+  playQueuedEffect();
+  measureAction(`${label} (visible)`, started);
+  let result;
+  try { result = await write(); } catch (cause) { result = { error: cause }; }
+  pendingWrites--;
+  measureAction(`${label} (saved)`, started);
+  if (result?.error) {
+    revert();
+    render();
+    notice(result.error.message || 'No se pudo guardar el cambio. Intenta de nuevo.', true);
+    void reloadResources(reload);
+    return null;
+  }
+  void reloadResources(reload);
+  return result;
 }
 async function boot() {
   stopHalloweenSync();
@@ -732,12 +840,17 @@ async function deleteAdvisor(advisor) {
 async function clearCompletedTasks(client) {
   const confirmed = window.confirm('¿Limpiar las tareas completadas de ' + client.name + '? La venta y las métricas se conservarán.');
   if (!confirmed) return;
-  const result = await db.rpc('clear_mvp_completed_tasks', { target_client: client.id });
-  if (result.error) {
-    notice(result.error.message, true);
-    return;
-  }
-  await refresh('Tareas completadas de ' + client.name + ' limpiadas. Las métricas se conservaron.');
+  const previous = clients.find(item => item.id === client.id);
+  if (!previous) return;
+  const replace = next => { clients = clients.map(item => item.id === client.id ? next : item); };
+  const result = await optimisticWrite({
+    label: 'limpiar tareas',
+    apply: () => replace({ ...previous, tasks: previous.tasks.filter(task => !task.completed) }),
+    revert: () => replace(previous),
+    write: () => db.rpc('clear_mvp_completed_tasks', { target_client: client.id }),
+    reload: ['clients'],
+  });
+  if (result) notice('Tareas completadas de ' + client.name + ' limpiadas. Las métricas se conservaron.');
 }
 async function requestRecommendation(client, control) {
   const assistant = control.closest('.action-assistant');
@@ -952,31 +1065,50 @@ function commissionDate(value) {
   return value ? new Date(value).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Fecha no disponible';
 }
 async function requestCommission(sale, control) {
+  const previous = sales.find(item => item.id === sale.id);
+  if (!previous) return;
   control.disabled = true;
   control.textContent = 'Registrando…';
-  const result = await db.rpc('request_mvp_commission', { target_sale: sale.id });
-  if (result.error) {
-    control.disabled = false;
-    control.textContent = 'Reclamar comisión';
-    notice(result.error.message, true);
-    return;
-  }
-  await refresh('La comisión fue canjeada satisfactoriamente.');
+  const replace = next => { sales = sales.map(item => item.id === sale.id ? next : item); };
+  const result = await optimisticWrite({
+    label: 'reclamar comisión',
+    apply: () => replace({ ...previous, commission_status: 'pending', commission_claimed_at: new Date().toISOString() }),
+    revert: () => replace(previous),
+    write: () => db.rpc('request_mvp_commission', { target_sale: sale.id }),
+    reload: ['sales'],
+  });
+  if (result) notice('La comisión fue canjeada satisfactoriamente.');
 }
 function advisorCommissionsPage(page) {
   page.className = 'advisor-page commission-wallet-page';
   const ownSales = sales.filter(sale => sale.advisor_id === user?.id && sale.confirmed).sort((a, b) => new Date(b.confirmed_at || b.completed_at) - new Date(a.confirmed_at || a.completed_at));
   const summary = commissionSummary(ownSales, user?.id);
+  const stats = commissionStats(ownSales);
   const welcome = el('header', 'advisor-welcome');
-  welcome.append(el('h1', '', 'Cartera de comisiones'), el('p', '', 'Revisa lo que tienes disponible y lo que ya canjeaste.'));
+  const welcomeCopy = el('div');
+  welcomeCopy.append(el('h1', '', 'Cartera de comisiones'), el('p', '', 'Revisa lo que tienes disponible y lo que ya canjeaste.'));
+  welcome.classList.add('commission-welcome');
+  welcome.append(welcomeCopy, commissionMonthPill(stats));
   const overview = el('section', 'commission-overview');
   const available = el('div', 'commission-balance');
   const availableSale = ownSales.find(sale => getCommissionStatus(sale).claimable);
-  available.append(el('span', '', 'Comisión disponible'), el('strong', '', money(summary.available)), el('small', '', availableSale ? `Por la venta de ${clients.find(client => client.id === availableSale.client_id)?.name || 'tu cliente'}` : 'No tienes comisiones disponibles'));
+  const balanceIcon = el('span', 'commission-balance-icon'); balanceIcon.innerHTML = advisorIcon('coin');
+  const balanceCopy = el('div', 'commission-balance-copy');
+  balanceCopy.append(el('span', '', 'Comisión disponible'), el('strong', '', money(summary.available)), el('small', '', availableSale ? `Por la venta de ${clients.find(client => client.id === availableSale.client_id)?.name || 'tu cliente'}` : 'No tienes comisiones disponibles'));
+  available.append(balanceIcon, balanceCopy);
+  if (availableSale) {
+    const claimAll = button('Reclamar comisiones', 'primary commission-claim-all', () => page.querySelector('.commission-available-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    const claimAllIcon = el('span', 'commission-claim-icon'); claimAllIcon.innerHTML = advisorIcon('sparkles');
+    claimAll.prepend(claimAllIcon);
+    available.append(claimAll);
+  }
   const redeemed = el('div', 'commission-summary-item');
-  redeemed.append(el('span', '', 'Total neto comisiones canjeadas'), el('strong', '', money(summary.pending)), el('small', '', `${ownSales.filter(sale => sale.commission_status === 'pending').length} ventas canjeadas`));
+  const redeemedIcon = el('span', 'commission-summary-icon'); redeemedIcon.innerHTML = advisorIcon('wallet');
+  const redeemedCopy = el('div');
+  redeemedCopy.append(el('span', '', 'Total neto canjeado'), el('strong', '', money(summary.pending)), el('small', '', `${ownSales.filter(sale => sale.commission_status === 'pending').length} ventas canjeadas`));
+  redeemed.append(redeemedIcon, redeemedCopy);
   overview.append(available, redeemed);
-  page.append(welcome, overview);
+  page.append(welcome, overview, commissionGoals(stats));
   if (!ownSales.length) {
     page.append(el('p', 'empty-state', 'Aún no tienes ventas confirmadas para mostrar en tu cartera.'));
     return;
@@ -988,9 +1120,11 @@ function advisorCommissionsPage(page) {
     const status = getCommissionStatus(sale);
     const item = el('article', 'commission-item');
     const head = el('div', 'commission-item-head');
+    const thumb = el('span', 'commission-thumb'); thumb.innerHTML = advisorIcon({ 'Ferretería': 'shop', Constructora: 'building', Distribuidor: 'truck' }[client?.type] || 'document');
     const copy = el('div', 'commission-client');
-    copy.append(el('h2', '', client?.name || 'Cliente confirmado'), el('p', 'muted', `${client?.type || 'Venta confirmada'} · ${commissionDate(sale.confirmed_at || sale.completed_at)}`));
-    head.append(copy, el('span', `commission-status ${status.claimable ? 'available' : status.label === 'Canjeada' ? 'redeemed' : ''}`, status.label));
+    copy.append(el('h2', '', client?.name || 'Cliente confirmado'), el('p', 'muted', status.claimable || !sale.commission_claimed_at ? `${client?.type || 'Venta confirmada'} · ${commissionDate(sale.confirmed_at || sale.completed_at)}` : `${client?.type || 'Venta confirmada'} · Canjeada el ${commissionDate(sale.commission_claimed_at)}`));
+    head.append(thumb, copy);
+    const statusBadge = el('span', `commission-status ${status.claimable ? 'available' : status.label === 'Canjeada' ? 'redeemed' : ''}`, status.label);
     const details = el('dl', 'commission-details');
     for (const [label, value] of [
       ['Toneladas vendidas', `${Number(sale.tons_sold || 0).toLocaleString('es-CO')} t`],
@@ -1000,31 +1134,49 @@ function advisorCommissionsPage(page) {
     ]) {
       const row = el('div'); row.append(el('dt', '', label), el('dd', '', value)); details.append(row);
     }
-    item.append(head, details);
-    if (status.claimable) item.append(button('Reclamar comisión', 'primary commission-claim', event => requestCommission(sale, event.currentTarget)));
+    item.append(head, details, statusBadge);
+    if (status.claimable) {
+      const claim = button('Reclamar', 'primary commission-claim', event => requestCommission(sale, event.currentTarget));
+      const claimIcon = el('span', 'commission-claim-icon'); claimIcon.innerHTML = advisorIcon('coin');
+      claim.prepend(claimIcon);
+      item.classList.add('claimable');
+      item.append(claim);
+    }
     list.append(item);
   };
-  for (const sale of ownSales) renderSale(sale, getCommissionStatus(sale).claimable ? availableList : redeemedList);
-  if (availableList.childElementCount) page.append(el('h2', 'commission-section-title', 'Comisiones disponibles'), availableList);
-  if (redeemedList.childElementCount) page.append(el('h2', 'commission-section-title', 'Comisiones canjeadas'), redeemedList);
+  const claimedOn = sale => new Date(sale.commission_claimed_at || sale.confirmed_at || sale.completed_at);
+  for (const sale of ownSales.filter(item => getCommissionStatus(item).claimable)) renderSale(sale, availableList);
+  for (const sale of ownSales.filter(item => item.commission_status === 'pending' || item.commission_status === 'paid').sort((a, b) => claimedOn(b) - claimedOn(a))) renderSale(sale, redeemedList);
+  if (availableList.childElementCount) {
+    const section = el('section', 'commission-available-section');
+    const heading = el('div', 'commission-list-head');
+    heading.append(el('h2', 'commission-section-title', 'Comisiones disponibles'), el('span', 'muted', `${availableList.childElementCount} ${availableList.childElementCount === 1 ? 'comisión disponible' : 'comisiones disponibles'}`));
+    section.append(heading, availableList);
+    page.append(section);
+  }
+  const redeemedSection = el('section', 'commission-redeemed-section');
+  if (redeemedList.childElementCount) redeemedSection.append(el('h2', 'commission-section-title', 'Comisiones canjeadas'), redeemedList);
+  page.append(commissionMilestones(stats, redeemedList.childElementCount ? () => redeemedSection.scrollIntoView({ behavior: 'smooth', block: 'start' }) : null), redeemedSection);
+  playCommissionEntrance(page);
 }
 async function requestClient(control) {
   control.disabled = true;
   control.textContent = 'Enviando…';
+  const started = performance.now();
   const result = await db.rpc('request_mvp_client');
+  measureAction('solicitar cliente (saved)', started);
   if (result.error) {
     control.disabled = false;
     control.textContent = 'Solicitar un cliente';
     notice(result.error.message, true);
     return;
   }
-  const requestId = result.data?.request_id;
   if (!result.data?.duplicate) {
     notice('Solicitud guardada. 🐧 Topitín ya avisó al administrador que necesitas un nuevo cliente.');
   } else notice('Ya tienes una solicitud pendiente.');
   control.disabled = false;
   control.textContent = 'Solicitar un cliente';
-  if (requestId) await loadData().then(() => render());
+  // The request only reaches the administrator's inbox; nothing on this view needs a reload.
 }
 function advisorPage(page) {
   page.className = 'advisor-page';
@@ -1175,18 +1327,26 @@ function advisorPage(page) {
       const origin = { x: bounds.left + bounds.width / 2, y: bounds.top + bounds.height / 2 };
       const progressBefore = getProgress(activeClient.tasks);
       const wasLastTask = progressBefore.isLastTaskPending;
-      const result = await db.rpc('complete_mvp_task', { target_task: task.id });
-      if (!isTaskCompletionConfirmed(result)) {
-        control.disabled = false; control.textContent = 'Completar tarea';
-        notice(result?.error?.message || 'La tarea ya fue actualizada. Recarga los datos.', true); return;
-      }
-      saleNotice = wasLastTask ? 'Las cuatro tareas están completas. Confirma la venta para registrarla.' : '';
-      await refresh('');
-      const completedTasks = progressBefore.completed + 1;
-      if (selectedId === activeClient.id && document.querySelector('.advisor-page')) {
-        celebrateTask(origin);
-        showMascotFeedback('task', completedTasks);
-      }
+      const setCompleted = (completed, points) => {
+        clients = clients.map(client => client.id !== activeClient.id ? client : { ...client, tasks: client.tasks.map(item => item.id === task.id ? { ...item, completed, completed_at: completed ? new Date().toISOString() : null } : item) });
+        // Mirrors the +5 points complete_mvp_task grants; the background reload confirms the real total.
+        adjustOwnStats({ points });
+        ranking = ranking.map(row => row.advisor_id === user.id ? { ...row, completed_tasks: Number(row.completed_tasks || 0) + (completed ? 1 : -1) } : row);
+      };
+      await optimisticWrite({
+        label: 'completar tarea',
+        apply: () => {
+          setCompleted(true, 5);
+          saleNotice = wasLastTask ? 'Las cuatro tareas están completas. Confirma la venta para registrarla.' : '';
+          if (selectedId === activeClient.id) celebrate(() => { celebrateTask(origin); showMascotFeedback('task', progressBefore.completed + 1); });
+        },
+        revert: () => { setCompleted(false, -5); saleNotice = ''; },
+        write: async () => {
+          const result = await db.rpc('complete_mvp_task', { target_task: task.id });
+          return isTaskCompletionConfirmed(result) ? result : { error: result?.error || new Error('La tarea ya fue actualizada. Recarga los datos.') };
+        },
+        reload: ['clients', 'stats', 'ranking'],
+      });
     }));
     item.append(content, actions); taskList.append(item);
   }
@@ -1271,22 +1431,68 @@ function advisorProgressRing(percentage, label, className) {
   return ring;
 }
 async function confirmSale(client) {
-  const result = await db.rpc('confirm_mvp_sale', { target_client: client.id });
-  if (result.error) { notice(result.error.message, true); return; }
-  saleNotice = '';
-  await refresh('');
-  if (document.querySelector('.advisor-page')) {
-    celebrateSale();
-    showMascotFeedback('sale');
-  }
+  const previousSale = sales.find(sale => sale.client_id === client.id);
+  const tons = Number(client.tons_requested || 0);
+  const now = new Date().toISOString();
+  // Amount and commission come from server settings; the background reload fills them in.
+  const optimisticSale = { commission_status: null, commission_amount: null, ...previousSale, id: previousSale?.id ?? `pending-${client.id}`, client_id: client.id, advisor_id: user.id, confirmed: true, tons_sold: tons, completed_at: previousSale?.completed_at ?? now, confirmed_at: now };
+  const previousNotice = saleNotice;
+  await optimisticWrite({
+    label: 'confirmar venta',
+    apply: () => {
+      sales = previousSale ? sales.map(sale => sale === previousSale ? optimisticSale : sale) : [...sales, optimisticSale];
+      // Mirrors the base +100 points of confirm_mvp_sale; level and its bonus arrive with the reload.
+      adjustOwnStats({ points: 100, sales: 1, tons });
+      profile.progression_sales = Number(profile.progression_sales || 0) + 1;
+      saleNotice = '';
+      celebrate(() => { celebrateSale(); showMascotFeedback('sale'); });
+    },
+    revert: () => {
+      sales = previousSale ? sales.map(sale => sale === optimisticSale ? previousSale : sale) : sales.filter(sale => sale !== optimisticSale);
+      adjustOwnStats({ points: -100, sales: -1, tons: -tons });
+      profile.progression_sales = Number(profile.progression_sales || 0) - 1;
+      saleNotice = previousNotice;
+    },
+    write: () => db.rpc('confirm_mvp_sale', { target_client: client.id }),
+    reload: ['sales', 'stats', 'ranking'],
+  });
 }
-async function refresh(text) {
-  try { await loadData(); render(); notice(text); }
+function adjustOwnStats({ points = 0, sales: saleCount = 0, tons = 0 }) {
+  profile.points = Number(profile.points || 0) + points;
+  ranking = ranking.map(row => row.advisor_id !== user.id ? row : {
+    ...row,
+    points: Number(row.points || 0) + points,
+    confirmed_sales: Number(row.confirmed_sales || 0) + saleCount,
+    confirmed_tons: Number(row.confirmed_tons || 0) + tons,
+  });
+}
+let queuedEffect = null;
+function celebrate(play) {
+  queuedEffect = play;
+}
+function playQueuedEffect() {
+  const play = queuedEffect;
+  queuedEffect = null;
+  if (!play || !document.querySelector('.advisor-page')) return;
+  effectsUntil = performance.now() + 3400;
+  play();
+}
+// Administrator actions reload the shared lists in one round trip, without the profile or avatar signing.
+async function refresh(text, resources = ['advisors', 'clients', 'sales', 'ranking']) {
+  const started = performance.now();
+  try {
+    const values = await Promise.all(resources.map(name => resourceLoaders[name]()));
+    resources.forEach((name, index) => applyResource(name, values[index]));
+    render();
+    notice(text);
+  }
   catch (cause) { notice(`El cambio se guardó, pero no se pudo actualizar la vista: ${cause.message}`, true); }
+  finally { measureAction(`refresh ${resources.join('+')}`, started); }
 }
 function render() {
   advisorMapModule?.destroyAdvisorClientMap();
   clearProfileEntrance(!profile || profile.role !== 'advisor' || advisorView !== 'profile');
+  if (!profile || profile.role !== 'advisor' || advisorView !== 'commissions') resetCommissionEntrance();
   shell();
   const page = document.querySelector('#page');
   if (!db) page.replaceChildren(el('p', 'empty-state', 'Falta configurar Supabase en .env.local.'));
