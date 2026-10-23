@@ -2,9 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { halloweenOutfits, outfits, renderShop } from '../src/shop.js';
+import { halloweenOutfits, outfits, renderHalloweenCollection } from '../src/shop.js';
 
-test('skeleton requires two confirmed sales and displays the same requirement', () => {
+test('skeleton retains legacy eligibility while showing the conceptual 100 point price', () => {
   const previousDocument = globalThis.document;
   const node = () => ({ children: [], append(child) { this.children.push(child); }, setAttribute() {}, querySelector() { return { addEventListener() {} }; } });
   globalThis.document = { createElement: node };
@@ -17,10 +17,11 @@ test('skeleton requires two confirmed sales and displays the same requirement', 
         if (selector === '#halloween-collection') return null;
         return { before() {} };
       } };
-      renderShop(page, sales, true);
+      renderHalloweenCollection(page, true, 'classic', sales);
       const skeleton = halloween.children.find(card => card.className.includes('shop-card-esqueleto'));
-      assert.match(skeleton.innerHTML, /<strong>2 ventas<\/strong>/);
-      assert.match(skeleton.innerHTML, sales < 2 ? /disabled>Bloqueado · 2 ventas/ : />Equipar<\/button>/);
+      assert.match(skeleton.innerHTML, /100 puntos|Equipar/);
+      assert.match(skeleton.innerHTML, sales < 2 ? / disabled>/ : /shop-card-action-ready/);
+      assert.match(skeleton.innerHTML, sales < 2 ? /<span class="shop-action-copy">100 puntos<\/span>/ : /<span class="shop-action-copy">Equipar<\/span>/);
     }
   } finally { globalThis.document = previousDocument; }
 });
