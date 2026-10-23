@@ -13,6 +13,7 @@ import { getMonthlyTons, getSalesStreak, getWeeklySales, getRankingSlots, getPor
 import { advisorIcon } from './advisor-icons.js';
 import { clearMascotFeedback, showMascotFeedback } from './mascot-feedback.js';
 import { createAdvisorCard } from './admin-advisors.js';
+import { createZoneList, getZoneOpportunities, loadZoneMarket } from './zone-opportunity.js';
 import { REMINDER_MESSAGE, isReminderDue } from './reminder.js';
 import { formatPercent } from './format.js';
 import { createStreakStat, getStreakNudge, markStreakNudgeShown, shouldShowStreakNudge, showStreakNudge } from './streak-nudge.js';
@@ -784,6 +785,15 @@ function adminPage(page) {
   page.append(metrics([['Asesores', advisors.length, 'cuentas registradas'], ['Clientes comerciales', clients.length, 'negocios asignados'], ['Tareas pendientes', tasks.filter(task => !task.completed).length, 'acciones por completar']]));
   page.append(rankingSection());
   page.append(adminMetricsSection());
+  // PRD · oportunidad por zona: el admin ve todas las zonas.
+  const zonesSlot = el('section', 'admin-zone-slot');
+  zonesSlot.append(el('p', 'muted', 'Cargando oportunidad por zona…'));
+  page.append(zonesSlot);
+  loadZoneMarket().then(market => {
+    if (zonesSlot.isConnected) zonesSlot.replaceWith(createZoneList(getZoneOpportunities(market, clients, sales), { sample: market.sample }));
+  }).catch(() => {
+    if (zonesSlot.isConnected) zonesSlot.replaceChildren(el('p', 'empty-state', 'Faltan datos de mercado por zona.'));
+  });
   const layout = el('div', 'admin-columns'), overview = el('section', 'admin-overview');
   overview.append(el('h2', 'section-title', 'Asesores'), el('p', 'muted', 'Avance hacia la meta mensual de 100 t: ≥100 % cumple, 80–99 % en riesgo, <80 % crítico.'));
   if (!advisors.length) overview.append(el('p', 'empty-state', 'Todavía no hay asesores. Pídeles que creen una cuenta.'));
@@ -860,19 +870,22 @@ function advisorMapPage(page) {
   status.setAttribute('role', 'status');
   const container = el('div', 'advisor-map-canvas');
   container.setAttribute('aria-label', 'Mapa de departamentos de Colombia y ciudades con clientes');
-  const legend = el('div', 'advisor-map-legend');
-  legend.append(el('span', 'advisor-map-legend-locked', 'Bloqueado'), el('span', 'advisor-map-legend-active', 'Con clientes'), el('span', 'advisor-map-legend-heat', 'Oportunidad: toneladas pedidas sin venta confirmada'));
-  section.append(status, container, legend);
+  // Las leyendas, la brújula y la zona objetivo van encima del mapa (advisor-map.js).
+  section.append(status, container);
   if (!ownClients.length) section.append(el('p', 'empty-state', 'Aún no tienes clientes asignados. Todos los departamentos están bloqueados.'));
-  page.append(welcome, section);
-  import('./advisor-map.js').then(async module => {
+  const zonesSlot = el('div', 'advisor-zone-slot');
+  page.append(welcome, section, zonesSlot);
+  Promise.all([import('./advisor-map.js'), loadZoneMarket().catch(() => null)]).then(async ([module, market]) => {
     if (!container.isConnected) return;
     advisorMapModule = module;
+    // PRD · oportunidad por zona: el asesor ve solo las zonas donde tiene clientes.
+    const zones = market ? getZoneOpportunities(market, ownClients, sales, { onlyWithClients: true }) : [];
+    if (zones.length) zonesSlot.replaceWith(createZoneList(zones, { sample: market.sample }));
     await module.renderAdvisorClientMap(container, ownClients, (state, message) => {
       if (!container.isConnected) return;
       status.textContent = state === 'ready' ? 'Selecciona un departamento o una ciudad para ver tus clientes.' : message;
       status.classList.toggle('advisor-map-error', state === 'error');
-    }, sales);
+    }, sales, { zones });
   }).catch(error => {
     if (!container.isConnected) return;
     status.textContent = `No se pudo cargar el mapa: ${error.message}`;

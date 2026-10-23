@@ -19,7 +19,8 @@ const paths = {
   document: '<path d="M5 2h10l4 4v16H5zM14 2v5h5M9 11h6M9 15h6M9 19h4"/>',
   gift: '<path d="M3 8h18v4H3zM5 12v9h14v-9M12 8v13M12 8S10 3 7.5 4 9 8 12 8Zm0 0s2-5 4.5-4S15 8 12 8Z"/>',
   arrow: '<path d="m9 5 7 7-7 7"/>',
-  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  shield: '<path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6Z"/><path d="m9 12 2 2 4-4"/>',
+  clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
   lock:'<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
   alert: '<path d="M12 3 2 21h20ZM12 10v4M12 17.5v.5"/>',
 };

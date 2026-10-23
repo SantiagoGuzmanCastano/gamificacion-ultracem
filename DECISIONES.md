@@ -233,3 +233,13 @@ Este documento registra las decisiones que cambiaron el alcance o la implementac
 **Decisión elegida:** se implementa así. La hora de corte (14:00) sigue siendo Propuesta.
 
 **Conclusión:** el flujo cumple mejor §14 ("sin confeti saturado") y el PRD (V5), sin datos inventados.
+
+## Decisión 24: mapa de calor 3D y oportunidad por zona
+
+**Propuesta de la persona usuaria:** convertir Mapa clientela en un mapa de calor menos plano, parecido a la referencia (vista 3D, relieve, brillo, brújula y leyendas), con animación al abrirlo; gamificarlo con la "Zona objetivo de hoy" y pines con progreso; y agregar la oportunidad por zona del PRD (participación actual y objetivo, brecha, oportunidad en toneladas, clientes totales, atendidos y por atender; orden de mayor a menor oportunidad y "Defender" al final).
+
+**Propuesta del asistente:** mantener MapLibre de `main`; simular la losa 3D con copias desplazadas (una extrusión tapa el calor); relieve de AWS Terrain Tiles agregado después de cargar; vecinos de Natural Earth (dominio público); entrada de ~1,6 s una vez por sesión; zona = departamento, objetivo = 10 %, atendido = con venta confirmada.
+
+**Decisión elegida:** se implementa así. El mercado por zona sale de `public/data/zone-market.json`, marcado como **Muestra** (totales iguales al PRD: 7,83 %) hasta tener el archivo real. La zona objetivo de hoy es la primera zona en "Atacar". El asesor ve sus zonas bajo el mapa y el admin ve todas. La tienda de `main` reemplazó a los cofres arcade (Decisión 19).
+
+**Conclusión:** el mapa muestra dónde atacar con cifras explicadas y sin exponer a nadie; falta reemplazar el reparto de muestra por datos reales.
