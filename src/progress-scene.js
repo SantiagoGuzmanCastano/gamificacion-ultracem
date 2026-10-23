@@ -5,7 +5,8 @@ import { gsap } from 'gsap';
 
 // Kenney models (CC0) copied to public/progress. Island 1 sits at the back and the road
 // winds toward the camera, so the last levels are the closest and biggest.
-const ISLANDS = [[-7.5, -7.5], [-1.8, -8.2], [4.6, -5.6], [1.2, -1.4], [-5, -0.6], [-3.6, 5], [3.4, 6.4]];
+const SPREAD = 1.45;
+const ISLANDS = [[-7.5, -7.5], [-1.8, -8.2], [4.6, -5.6], [1.2, -1.4], [-5, -0.6], [-3.6, 5], [3.4, 6.4]].map(([x, z]) => [x * SPREAD, z * SPREAD]);
 const PROPS = [
   [['industrial/building-h', 0, 0, 0, .62], ['platformer/crate', .95, .55, .3, .24], ['platformer/tree', -1, .6, 0, .4], ['platformer/tree-pine', -.75, -.8, 0, .36]],
   [['industrial/building-i', -.2, .05, 0, .62], ['industrial/detail-tank', .95, -.45, 0, .46], ['platformer/tree', -1.1, .7, 0, .4], ['platformer/tree-pine', .95, .85, 0, .34]],
@@ -15,9 +16,10 @@ const PROPS = [
   [['industrial/building-o', -.5, -.3, 0, .66], ['industrial/building-l', .9, .5, 0, .56], ['industrial/chimney-large', .95, -.9, 0, .56], ['industrial/solar-panel-landscape-group', -.9, 1, 0, .46], ['industrial/windmill', -1.5, -.45, 0, .5], ['platformer/tree-pine', .1, 1.3, 0, .32]],
   [['industrial/building-d', -.4, -.4, 0, .7], ['industrial/building-e', .8, .3, 0, .64], ['industrial/chimney-large', 1.3, -.8, 0, .56], ['industrial/chimney-large', -1.35, .1, 0, .5], ['industrial/detail-tank-large', -.6, 1, 0, .5], ['industrial/windmill', 1.4, 1.1, 0, .46], ['industrial/water-tower', .2, -1.4, 0, .44]],
 ];
-const radiusFor = index => 1.9 + index * .14;
+// Radius of the flat sides of each hexagon (its inscribed circle): props must stay inside it.
+const radiusFor = index => 1.8 + index * .16;
 const WATER_Y = -1.5;
-const CAMERA_OFFSET = new THREE.Vector3(0, 15, 17);
+const CAMERA_OFFSET = new THREE.Vector3(0, 19, 22);
 
 const loader = new GLTFLoader();
 const templates = new Map();
@@ -32,6 +34,7 @@ function loadModel(name) {
       const wrapper = new THREE.Group();
       wrapper.add(model);
       wrapper.userData.height = box.max.y - box.min.y;
+      wrapper.userData.width = Math.min(box.max.x - box.min.x, box.max.z - box.min.z);
       return wrapper;
     }));
   }
@@ -66,8 +69,45 @@ function makeCloud() {
   return cloud;
 }
 
+// Low-poly sea: waves move on the GPU, shallow water and foam ring each island.
+function makeWater(islands) {
+  const geometry = new THREE.PlaneGeometry(170, 170, 150, 150);
+  geometry.rotateX(-Math.PI / 2);
+  const uniforms = {
+    uTime: { value: 0 },
+    uIslands: { value: islands.map(island => new THREE.Vector3(island.x, island.z, island.radius * 1.06)) },
+  };
+  const material = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: .28, metalness: .05, flatShading: true });
+  material.onBeforeCompile = shader => {
+    Object.assign(shader.uniforms, uniforms);
+    shader.vertexShader = `uniform float uTime;\nvarying vec2 vWaterWorld;\n${shader.vertexShader}`.replace('#include <begin_vertex>', `#include <begin_vertex>
+      vec2 waterXZ = (modelMatrix * vec4(position, 1.)).xz;
+      transformed.y += sin(waterXZ.x * .42 + uTime * 1.1) * .09 + cos(waterXZ.y * .5 + uTime * .8) * .08 + sin((waterXZ.x + waterXZ.y) * .9 - uTime * 1.7) * .035;
+      vWaterWorld = waterXZ;`);
+    shader.fragmentShader = `uniform float uTime;\nuniform vec3 uIslands[${islands.length}];\nvarying vec2 vWaterWorld;
+      float waterHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      ${shader.fragmentShader}`.replace('#include <color_fragment>', `#include <color_fragment>
+      float shore = 1e3;
+      for (int i = 0; i < ${islands.length}; i++) shore = min(shore, length(vWaterWorld - uIslands[i].xy) - uIslands[i].z);
+      float wobble = sin(vWaterWorld.x * 2.3 + uTime * 1.3) * sin(vWaterWorld.y * 2.1 - uTime) * .14;
+      vec3 deep = vec3(.004, .035, .085), open = vec3(.008, .09, .17), shallow = vec3(.02, .26, .32);
+      vec3 sea = mix(deep, open, smoothstep(-35., 15., vWaterWorld.y));
+      sea = mix(sea, shallow, 1. - smoothstep(0., 3.2, shore + wobble));
+      float foam = 1. - smoothstep(.0, .3, abs(shore - .12 - .1 * sin(uTime * 1.4) + wobble));
+      float ripple = smoothstep(.9, 1., fract(shore * .55 - uTime * .22)) * (1. - smoothstep(.4, 2.6, shore)) * .55;
+      float sparkle = step(.998, waterHash(floor(vWaterWorld * 4.) + floor(uTime * 1.2))) * (1. - smoothstep(8., 30., length(vWaterWorld))) * .35;
+      diffuseColor.rgb = mix(sea, vec3(.75, .88, .92), clamp(foam + ripple + sparkle, 0., 1.));`);
+  };
+  material.customProgramCacheKey = () => 'progress-water';
+  const water = new THREE.Mesh(geometry, material);
+  water.position.y = WATER_Y;
+  water.receiveShadow = true;
+  water.userData.uniforms = uniforms;
+  return water;
+}
+
 function makeRoad(curve, islands) {
-  const samples = 360, width = .5;
+  const samples = 480, width = .6;
   const positions = [], indices = [];
   for (let i = 0; i <= samples; i++) {
     const t = i / samples;
@@ -87,8 +127,8 @@ function makeRoad(curve, islands) {
   // Bridge pillars wherever the road crosses open water.
   const pillar = new THREE.CylinderGeometry(.07, .09, 1.6, 6);
   const pillarMaterial = new THREE.MeshStandardMaterial({ color: '#8a96a6', roughness: .8 });
-  for (let i = 0; i <= 60; i++) {
-    const point = curve.getPointAt(i / 60);
+  for (let i = 0; i <= 90; i++) {
+    const point = curve.getPointAt(i / 90);
     if (islands.some(island => Math.hypot(point.x - island.x, point.z - island.z) < island.radius * .95)) continue;
     const post = new THREE.Mesh(pillar, pillarMaterial);
     post.position.set(point.x, -.75, point.z);
@@ -109,23 +149,15 @@ export async function createProgressScene(container, { level = 1, skinImage = '/
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color('#06192a');
-  scene.fog = new THREE.Fog('#06192a', 34, 72);
-  const camera = new THREE.PerspectiveCamera(32, 1, .1, 120);
+  scene.fog = new THREE.Fog('#06192a', 50, 110);
+  const camera = new THREE.PerspectiveCamera(32, 1, .1, 180);
   scene.add(new THREE.HemisphereLight('#d7ecff', '#0b2a3a', 1.6));
   const sun = new THREE.DirectionalLight('#fff1d6', 2.6);
   sun.position.set(9, 16, 7);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
-  Object.assign(sun.shadow.camera, { left: -16, right: 16, top: 16, bottom: -16, near: 1, far: 50 });
+  Object.assign(sun.shadow.camera, { left: -22, right: 22, top: 22, bottom: -22, near: 1, far: 60 });
   scene.add(sun);
-
-  const waterGeometry = new THREE.PlaneGeometry(90, 90, 70, 70);
-  waterGeometry.rotateX(-Math.PI / 2);
-  const water = new THREE.Mesh(waterGeometry, new THREE.MeshStandardMaterial({ color: '#145f80', roughness: .35, metalness: .1, flatShading: true }));
-  water.position.y = WATER_Y;
-  water.receiveShadow = true;
-  scene.add(water);
-  const waterBase = Float32Array.from(waterGeometry.attributes.position.array);
 
   const names = new Set(['platformer/block-grass-overhang-hexagon', 'platformer/chest', 'platformer/coin-gold', 'car/truck', ...PROPS.flat().map(([name]) => name)]);
   const loaded = new Map(await Promise.all([...names].map(async name => [name, await loadModel(name)])));
@@ -137,16 +169,24 @@ export async function createProgressScene(container, { level = 1, skinImage = '/
     group.position.set(x, 0, z);
     const grey = { value: 0 };
     const base = instance('platformer/block-grass-overhang-hexagon');
-    const baseHeight = loaded.get('platformer/block-grass-overhang-hexagon').userData.height;
-    base.scale.set(radius, 1.25, radius);
+    const { height: baseHeight, width: baseWidth } = loaded.get('platformer/block-grass-overhang-hexagon').userData;
+    const baseScale = radius * 2 / baseWidth;
+    base.scale.set(baseScale, 1.25, baseScale);
     base.position.y = -baseHeight * 1.25;
     base.rotation.y = index * .7;
     const props = new THREE.Group();
+    const footprint = new THREE.Box3(), size = new THREE.Vector3();
     for (const [name, px, pz, rotation, scale] of PROPS[index]) {
       const prop = instance(name);
-      prop.position.set(px * radius * .6, 0, pz * radius * .6);
       prop.rotation.y = rotation + (index % 2 ? -.35 : .35);
-      prop.scale.setScalar(scale * 1.45 * (1 + index * .04));
+      prop.scale.setScalar(scale * 1.55 * (1 + index * .04));
+      // Pull a prop inward when its footprint would hang over the edge of the island.
+      footprint.setFromObject(prop).getSize(size);
+      const half = Math.hypot(size.x, size.z) / 2;
+      const spot = new THREE.Vector2(px, pz).multiplyScalar(radius * .58);
+      const limit = Math.max(0, radius * .9 - half);
+      if (spot.length() > limit) spot.setLength(limit);
+      prop.position.set(spot.x, 0, spot.y);
       props.add(prop);
     }
     group.add(base, props);
@@ -158,6 +198,8 @@ export async function createProgressScene(container, { level = 1, skinImage = '/
     scene.add(group);
     return { level: index + 1, x, z, radius, group, base, props, grey, cloud };
   });
+  const water = makeWater(islands);
+  scene.add(water);
 
   const curve = new THREE.CatmullRomCurve3(islands.map(island => new THREE.Vector3(island.x, 0, island.z)), false, 'centripetal');
   scene.add(makeRoad(curve, islands));
@@ -207,7 +249,7 @@ export async function createProgressScene(container, { level = 1, skinImage = '/
   scene.add(mascot);
 
   const controls = new OrbitControls(camera, renderer.domElement);
-  Object.assign(controls, { enablePan: false, enableDamping: !reducedMotion, dampingFactor: .08, minDistance: 9, maxDistance: 46, minPolarAngle: .45, maxPolarAngle: 1.15, rotateSpeed: .5 });
+  Object.assign(controls, { enablePan: false, enableDamping: !reducedMotion, dampingFactor: .08, minDistance: 12, maxDistance: 80, minPolarAngle: .45, maxPolarAngle: 1.15, rotateSpeed: .5 });
 
   let current = level, truckTween = null, idle = [], celebrating = false;
   const islandAt = n => islands[Math.min(islands.length, Math.max(1, n)) - 1];
@@ -256,7 +298,7 @@ export async function createProgressScene(container, { level = 1, skinImage = '/
     }
     const here = islandAt(current);
     ring.position.set(here.x, .08, here.z);
-    ring.scale.setScalar(here.radius * 1.02);
+    ring.scale.setScalar(here.radius * 1.2);
     placeMascot(here);
     lightRoad(islandT[current - 1]);
     placeChest();
@@ -264,10 +306,10 @@ export async function createProgressScene(container, { level = 1, skinImage = '/
   }
 
   // Overview frames the seven islands; narrow screens pull the camera further back.
-  const mapCenter = new THREE.Vector3(islands.reduce((sum, island) => sum + island.x, 0) / islands.length, 0, islands.reduce((sum, island) => sum + island.z, 0) / islands.length);
+  const mapCenter = new THREE.Vector3(islands.reduce((sum, island) => sum + island.x, 0) / islands.length, 0, islands.reduce((sum, island) => sum + island.z, 0) / islands.length + 2.5);
   function overview(instant = false) {
     const aspect = camera.aspect || 1.6;
-    return moveCamera(mapCenter, CAMERA_OFFSET.clone().multiplyScalar(1.45 / Math.max(.78, Math.min(1, aspect / 1.35))), instant);
+    return moveCamera(mapCenter, CAMERA_OFFSET.clone().multiplyScalar(1.6 / Math.max(.78, Math.min(1, aspect / 1.35))), instant);
   }
   function focus(levelNumber, instant = false) {
     const island = islandAt(levelNumber);
@@ -412,12 +454,7 @@ export async function createProgressScene(container, { level = 1, skinImage = '/
   renderer.setAnimationLoop(() => {
     if (!visible || document.hidden) return;
     const time = clock.getElapsedTime();
-    if (!reducedMotion) {
-      const positions = waterGeometry.attributes.position.array;
-      for (let i = 0; i < positions.length; i += 3) positions[i + 1] = waterBase[i + 1] + Math.sin(waterBase[i] * .45 + time * 1.1) * .08 + Math.cos(waterBase[i + 2] * .5 + time * .8) * .07;
-      waterGeometry.attributes.position.needsUpdate = true;
-      waterGeometry.computeVertexNormals();
-    }
+    if (!reducedMotion) water.userData.uniforms.uTime.value = time;
     controls.update();
     renderer.render(scene, camera);
     placeLabels();
