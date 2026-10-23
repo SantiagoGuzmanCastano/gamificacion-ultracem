@@ -85,13 +85,36 @@ export function createZoneList(zones, { sample = false, onSelect = null } = {}) 
   const head = element('div', 'zone-list-head');
   head.append(heading);
   if (sample) head.append(element('span', 'zone-sample', 'Datos de muestra'));
-  section.append(head, element('p', 'zone-list-note', 'De mayor a menor oportunidad; las zonas en "Defender" van al final.'));
+  // Cómo leerla, en una línea, y la clave de los dos estados.
+  const note = element('p', 'zone-list-note', `Compara tu participación de mercado en cada zona con la meta del ${formatPercent(zones[0]?.targetShare ?? 10)}. Primero, las zonas con más toneladas por ganar.`);
+  const legend = element('p', 'zone-list-legend');
+  legend.append(zoneStatus({ status: 'attack' }), element('span', '', 'aún no llegas a la meta'), zoneStatus({ status: 'defend' }), element('span', '', 'ya la superaste: cuida tus clientes'));
+  section.append(head, note, legend);
   const list = element('ol', 'zone-items');
-  for (const zone of zones) {
+  zones.forEach((zone, index) => {
     const item = element('li', `zone-item zone-item-${zone.status}`);
     const top = element('div', 'zone-item-top');
-    top.append(element('h3', '', zone.department), zoneStatus(zone));
-    item.append(top, ...zoneFigures(zone));
+    const rank = element('span', 'zone-rank', String(index + 1));
+    rank.setAttribute('aria-hidden', 'true');
+    top.append(rank, element('h3', '', zone.department), zoneStatus(zone));
+    // Barra: cuánto llevas de la meta de participación (la marca es el 100 %).
+    const progress = element('div', 'zone-progress');
+    const bar = element('div', 'zone-progress-bar');
+    bar.setAttribute('role', 'progressbar');
+    bar.setAttribute('aria-label', `Participación en ${zone.department}`);
+    bar.setAttribute('aria-valuemin', '0');
+    bar.setAttribute('aria-valuemax', String(zone.targetShare));
+    bar.setAttribute('aria-valuenow', String(Math.min(zone.share, zone.targetShare)));
+    const fill = element('span', 'zone-progress-fill');
+    fill.style.width = `${Math.min(100, zone.share / zone.targetShare * 100)}%`;
+    bar.append(fill);
+    progress.append(bar, element('span', 'zone-progress-label', `${formatPercent(zone.share)} de ${formatPercent(zone.targetShare)}`));
+    const headline = zone.status === 'attack'
+      ? element('p', 'zone-headline', `${tons(zone.opportunityTons)} por ganar`)
+      : element('p', 'zone-headline zone-headline-done', 'Meta superada');
+    const { total, attended, pending } = zone.clients;
+    item.append(top, headline, progress,
+      element('p', 'zone-clients', `${plural(total, 'cliente', 'clientes')} · ${plural(attended, 'atendido', 'atendidos')} · ${pending} por atender`));
     if (onSelect) {
       const focus = element('button', 'zone-item-focus', 'Ver en el mapa');
       focus.type = 'button';
@@ -100,7 +123,7 @@ export function createZoneList(zones, { sample = false, onSelect = null } = {}) 
       item.append(focus);
     }
     list.append(item);
-  }
+  });
   section.append(list);
   return section;
 }

@@ -1079,9 +1079,22 @@ function adminPage(page) {
 }
 function advisorMapPage(page) {
   page.className = 'advisor-page';
-  const welcome = el('header', 'advisor-welcome');
-  welcome.append(el('h1', '', 'Mapa clientela'));
   const ownClients = clients.filter(client => client.advisor_id === user?.id);
+  // Cabecera como en Inicio y Cartera: título, una línea de ayuda, resumen en pastillas y la fecha a la derecha.
+  const welcome = el('header', 'advisor-welcome map-welcome');
+  const welcomeCopy = el('div', 'map-welcome-copy');
+  const soldIds = new Set(sales.filter(sale => sale.confirmed && sale.advisor_id === user?.id).map(sale => sale.client_id));
+  const soldTons = sales.filter(sale => sale.confirmed && sale.advisor_id === user?.id).reduce((total, sale) => total + Number(sale.tons_sold || 0), 0);
+  const pendingTons = ownClients.filter(client => !soldIds.has(client.id)).reduce((total, client) => total + Number(client.tons_requested || 0), 0);
+  const zonesCount = new Set(ownClients.map(client => client.department).filter(Boolean)).size;
+  const chips = el('div', 'map-welcome-chips');
+  for (const [className, text] of [
+    ['map-chip-zones', `${zonesCount} ${zonesCount === 1 ? 'zona explorada' : 'zonas exploradas'}`],
+    ['map-chip-sold', `${soldTons.toLocaleString('es-CO')} t vendidas`],
+    ['map-chip-pending', `${pendingTons.toLocaleString('es-CO')} t por vender`],
+  ]) chips.append(el('span', `map-chip ${className}`, text));
+  welcomeCopy.append(el('h1', '', 'Mapa clientela'), el('p', '', 'Dónde ya vendiste y dónde quedan toneladas por ganar.'), chips);
+  welcome.append(welcomeCopy, advisorCalendar());
   const section = el('section', 'advisor-map-panel');
   const status = el('p', 'advisor-map-status', 'Cargando mapa…');
   status.setAttribute('role', 'status');

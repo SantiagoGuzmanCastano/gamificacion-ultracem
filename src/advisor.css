@@ -517,6 +517,35 @@
 .zone-status[data-status="attack"] { color: #e0793a; }
 .zone-status[data-status="defend"] { color: #3f9d72; }
 .zone-item-defend { opacity: .85; }
+/* Lista más fácil de leer: puesto, toneladas por ganar en grande, barra hacia la meta y botón claro. */
+.zone-list-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 10px 0 0; color: var(--dashboard-muted, var(--muted)); font-size: .8rem; }
+.zone-list-legend span + .zone-status { margin-left: 8px; }
+.zone-items .zone-item { gap: 8px; padding: 16px; background: var(--dashboard-inset, transparent); transition: border-color 160ms, transform 160ms; }
+.zone-items .zone-item:hover { border-color: #1e8bff; transform: translateY(-2px); }
+.zone-items .zone-item-top { justify-content: flex-start; }
+.zone-items .zone-item h3 { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.zone-rank { display: grid; place-items: center; flex: 0 0 26px; height: 26px; border-radius: 50%; background: #1e8bff; color: #fff; font-size: .78rem; font-weight: 800; }
+.zone-item-defend .zone-rank { background: #3f9d72; }
+.zone-items .zone-headline { color: var(--dashboard-ink, inherit); font-size: 1.3rem; font-weight: 800; letter-spacing: -.02em; }
+.zone-items .zone-headline-done { color: #3f9d72; font-size: 1.05rem; }
+.zone-progress { display: grid; gap: 5px; }
+.zone-progress-bar { position: relative; height: 10px; overflow: hidden; border-radius: 999px; background: color-mix(in srgb, var(--dashboard-line, #3b4b5e) 80%, transparent); }
+.zone-progress-fill { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #1e8bff, #00c2ff); }
+.zone-item-defend .zone-progress-fill { background: linear-gradient(90deg, #3f9d72, #5fd39b); }
+.zone-items .zone-progress-label { color: var(--dashboard-muted, var(--muted)); font-size: .78rem; font-variant-numeric: tabular-nums; }
+.zone-items .zone-item-focus { justify-self: stretch; margin-top: 2px; border-color: #1e8bff; background: #1e8bff; color: #fff; }
+.zone-items .zone-item-focus:hover { background: #0d7bff; }
+.zone-item-defend .zone-item-focus { border-color: var(--dashboard-line, var(--line)); background: transparent; color: inherit; }
+@media (prefers-reduced-motion: reduce) { .zone-items .zone-item { transition: none; } .zone-items .zone-item:hover { transform: none; } }
+/* Cabecera del mapa: título y resumen a la izquierda, fecha a la derecha (como Inicio y Cartera). */
+.map-welcome { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.map-welcome-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.map-chip { display: inline-flex; align-items: center; gap: 7px; padding: 6px 12px; border: 1px solid var(--dashboard-line); border-radius: 999px; background: var(--dashboard-panel); color: var(--dashboard-ink); font-size: .8rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.map-chip::before { content: ''; width: 9px; height: 9px; border-radius: 50%; }
+.map-chip-zones::before { background: #1e8bff; box-shadow: 0 0 8px #1e8bff; }
+.map-chip-sold::before { background: #ffc928; box-shadow: 0 0 8px #ffc928; }
+.map-chip-pending::before { background: linear-gradient(90deg, #00c2ff, #ff8a1f); }
+@media (max-width: 600px) { .map-welcome { flex-direction: column; } }
 /* Nubes: manchas suaves que cruzan muy despacio; no tapan nada importante ni reciben clics. */
 .map-clouds { position: absolute; inset: 0; z-index: 2; overflow: hidden; pointer-events: none; }
 .map-clouds span { position: absolute; width: 46%; height: 30%; border-radius: 50%; background: radial-gradient(closest-side, rgb(220 235 255 / 13%), rgb(220 235 255 / 0)); filter: blur(6px); }
