@@ -1,3 +1,5 @@
+import { LEVELS, MAX_LEVEL, levelForSales } from './levels.js';
+
 export function getMascotState(percentage) {
   if (percentage === 0) return 'sad';
   if (percentage < 100) return 'neutral';
@@ -26,15 +28,17 @@ export function getXp(completedTasks) {
   return Math.max(0, completedTasks) * 10;
 }
 
+// The level follows confirmed sales; a stored level only wins if it is already higher.
 export function getLevelProgress(level = 1, progressionSales = 0) {
-  const currentLevel = Math.min(3, Math.max(1, Number(level) || 1));
   const sales = Math.max(0, Number(progressionSales) || 0);
-  const target = currentLevel === 1 ? 1 : currentLevel === 2 ? 5 : null;
+  const currentLevel = Math.min(MAX_LEVEL, Math.max(1, Number(level) || 1, levelForSales(sales)));
+  const floor = LEVELS[currentLevel - 1].minSales;
+  const target = LEVELS[currentLevel]?.minSales ?? null;
   return {
     level: currentLevel,
     sales,
     target,
-    percentage: target ? Math.min(100, Math.round((sales / target) * 100)) : 100,
+    percentage: target ? Math.min(100, Math.max(0, Math.round((sales - floor) / (target - floor) * 100))) : 100,
   };
 }
 

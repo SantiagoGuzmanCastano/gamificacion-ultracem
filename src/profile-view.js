@@ -90,7 +90,7 @@ export function renderAdvisorProfile(page, profile, actions, busy = false) {
     values.append(level, points);
     const salesLabel = levelProgress.target
       ? `${levelProgress.sales} de ${levelProgress.target} ventas para Nivel ${levelProgress.level + 1}`
-      : 'Nivel máximo inicial alcanzado';
+      : 'Nivel máximo alcanzado';
     const track = element('div', 'profile-progression-track');
     const fill = element('span'); fill.style.width = `${levelProgress.percentage}%`;
     track.append(fill);
