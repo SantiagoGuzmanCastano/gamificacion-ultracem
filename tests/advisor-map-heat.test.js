@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  COLUMN_COLOR, COLUMN_LAYERS, GEO_LABELS, getColumnPoints, getDepartmentRadiusKm, getLockedPoints, lockedZoneMessage, MAP_VIEW, buildAdvisorMapStyle, focusColumnColor, focusFillColor, getCityProgress, getEntrancePlan,
+  COLUMN_COLOR, COLUMN_LAYERS, GEO_LABELS, getDepartmentHoverTip, hoverLift, getColumnPoints, getDepartmentRadiusKm, getLockedPoints, lockedZoneMessage, MAP_VIEW, buildAdvisorMapStyle, focusColumnColor, focusFillColor, getCityProgress, getEntrancePlan,
   getCityTonnage, getFeatureBounds, getFocusPlan, getOpportunityColumns, getOpportunityHeat, getTodayTarget, getZoneOpportunities, zoneHeatFilter,
 } from '../src/advisor-map.js';
 
@@ -89,7 +89,7 @@ test('map style stacks relief and neighbors under the Colombia slab and the heat
   const style = buildAdvisorMapStyle({ activeCodes: ['08', '05'], heat, relief: true, animate: true });
   assert.deepEqual(style.layers.map(layer => layer.id), [
     'background', 'land', 'relief', 'coast-glow', 'country-glow',
-    'slab-shadow', 'slab-side', 'departments-fill', 'departments-border', 'opportunity-heat', 'column-halo', ...COLUMN_LAYERS,
+    'slab-shadow', 'slab-side', 'departments-fill', 'departments-border', 'department-hover', 'opportunity-heat', 'column-halo', ...COLUMN_LAYERS,
   ]);
   // Columnas gruesas para leer el país y finas al acercarse; arrancan en altura 0 para crecer en la entrada.
   const [wide, fine] = COLUMN_LAYERS.map(id => style.layers.find(layer => layer.id === id));
@@ -213,4 +213,15 @@ test('zone focus: bounds, dimmed fill and heat filtered by department', () => {
   assert.notEqual(JSON.stringify(focusFillColor(['08', '13'], '08')), JSON.stringify(focusFillColor(['08', '13'], null)));
   assert.deepEqual(zoneHeatFilter('Atlántico'), ['==', ['get', 'department'], 'Atlántico']);
   assert.ok(['Mar Caribe', 'Océano Pacífico', 'Venezuela', 'Brasil'].every(name => GEO_LABELS.some(label => label.text === name)));
+});
+
+test('hovered department lifts a little and the tooltip says its state in words', () => {
+  const style = buildAdvisorMapStyle({ activeCodes: [], heat, relief: false });
+  const hover = style.layers.find(layer => layer.id === 'department-hover');
+  assert.equal(hover.type, 'fill-extrusion');
+  assert.deepEqual(hover.filter, ['==', ['get', 'divipola_dep'], '']);
+  const lift = hoverLift(1);
+  assert.ok(lift[4] > lift.at(-1));
+  assert.deepEqual(getDepartmentHoverTip('Vichada', 0), { title: 'Vichada', detail: 'Sin explorar · toca para ver cómo desbloquearla', locked: true });
+  assert.deepEqual(getDepartmentHoverTip('Antioquia', 1), { title: 'Antioquia', detail: '1 cliente · toca para enfocar', locked: false });
 });

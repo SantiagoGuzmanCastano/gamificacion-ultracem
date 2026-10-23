@@ -531,6 +531,18 @@
   .map-clouds span:nth-child(4) { animation-duration: 140s; animation-delay: -20s; }
 }
 @keyframes map-cloud-drift { from { translate: -30% 0; } to { translate: 160% -8%; } }
+/* Tooltip al pasar el puntero: vidrio oscuro como las leyendas, nombre arriba y estado abajo. */
+.advisor-map-container .map-hover-popup { pointer-events: none; }
+.advisor-map-container .map-hover-popup .maplibregl-popup-content { padding: 9px 13px; border: 1px solid #1f4a6d; border-radius: 12px; background: rgb(3 18 34 / 90%); color: #e8f3ff; box-shadow: 0 8px 24px rgb(0 0 0 / 45%), 0 0 16px rgb(31 182 255 / 14%); backdrop-filter: blur(6px); }
+.advisor-map-container .map-hover-popup.maplibregl-popup-anchor-bottom .maplibregl-popup-tip { border-top-color: rgb(3 18 34 / 90%); }
+.advisor-map-container .map-hover-popup.maplibregl-popup-anchor-top .maplibregl-popup-tip { border-bottom-color: rgb(3 18 34 / 90%); }
+.advisor-map-container .map-hover-popup.maplibregl-popup-anchor-left .maplibregl-popup-tip { border-right-color: rgb(3 18 34 / 90%); }
+.advisor-map-container .map-hover-popup.maplibregl-popup-anchor-right .maplibregl-popup-tip { border-left-color: rgb(3 18 34 / 90%); }
+.map-tip { display: grid; gap: 2px; white-space: nowrap; }
+.map-tip strong { font-size: .92rem; font-weight: 750; }
+.map-tip span { color: #a9c1d6; font-size: .78rem; }
+.map-tip-locked strong::before { content: '🔒 '; }
+.map-tip-locked span { color: #ff9fb8; }
 /* Zona bloqueada: aviso de videojuego con candado y la recompensa en dorado. */
 .map-state-locked::before { background: repeating-linear-gradient(135deg, #3b4b5e 0 2px, #0d1724 2px 4px); }
 .advisor-map-container .maplibregl-popup-content:has(.map-locked-popup) { padding: 14px 16px; border: 1px solid #ff7598; border-radius: 12px; background: #071423; color: #e8f3ff; box-shadow: 0 0 22px rgb(255 117 152 / 25%); }

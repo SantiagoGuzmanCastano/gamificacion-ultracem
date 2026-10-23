@@ -215,6 +215,14 @@ export function buildAdvisorMapStyle({ activeCodes = [], heat, columns = null, c
       'fill-color': focusFillColor(activeCodes, null),
     } },
     { id: 'departments-border', type: 'line', source: 'departments', paint: { 'line-color': '#7fa6c7', 'line-width': .8, 'line-opacity': .55 } },
+    // Hover: el departamento bajo el puntero se eleva un poco y se aclara.
+    { id: 'department-hover', type: 'fill-extrusion', source: 'departments', filter: ['==', ['get', 'divipola_dep'], ''], paint: {
+      'fill-extrusion-color': HOVER_COLORS.active,
+      'fill-extrusion-height': hoverLift(0),
+      'fill-extrusion-base': 0,
+      'fill-extrusion-opacity': .92,
+      'fill-extrusion-vertical-gradient': true,
+    } },
     { id: 'opportunity-heat', type: 'heatmap', source: 'opportunity', paint: {
       'heatmap-weight': ['get', 'weight'],
       'heatmap-intensity': 2.2,
@@ -279,6 +287,27 @@ export function lockedZoneMessage(department) {
     body: 'Aún no has explorado esta zona. Se desbloquea cuando te asignen un cliente nuevo aquí.',
     reward: `Desbloquéala para ganar más experiencia: hasta +${getXp(4)} XP por cliente.`,
   };
+}
+
+// Hover de departamento: cuánto sube (en metros, menos al acercarse) y de qué color según su estado.
+export const HOVER_COLORS = { active: '#3478b8', locked: '#3a4a60' };
+export const hoverLift = growth => ['interpolate', ['linear'], ['zoom'], 4, 45000 * growth, 7, 16000 * growth, 10, 3000 * growth];
+
+// Contenido del tooltip: nombre, estado en texto y si está bloqueado (para el candado).
+export function getDepartmentHoverTip(name, clientCount) {
+  if (!clientCount) return { title: name, detail: 'Sin explorar · toca para ver cómo desbloquearla', locked: true };
+  return { title: name, detail: `${clientCount} ${clientCount === 1 ? 'cliente' : 'clientes'} · toca para enfocar`, locked: false };
+}
+
+function createHoverTip({ title, detail, locked }) {
+  const tip = document.createElement('div');
+  tip.className = `map-tip${locked ? ' map-tip-locked' : ''}`;
+  const heading = document.createElement('strong');
+  heading.textContent = title;
+  const line = document.createElement('span');
+  line.textContent = detail;
+  tip.append(heading, line);
+  return tip;
 }
 
 // Textura de "terreno sin explorar": niebla con rayado y motas, dibujada en un canvas (sin imágenes externas).
@@ -541,7 +570,17 @@ export async function renderAdvisorClientMap(container, clients = [], onStatus =
     onStatus('error', `No se pudo cargar el mapa: ${event.error?.message || 'error desconocido'}`);
   });
 
-  hoverPopup = new Popup({ closeButton: false, closeOnClick: false });
+  hoverPopup = new Popup({ closeButton: false, closeOnClick: false, className: 'map-hover-popup', offset: 14 });
+  // Departamento elevado: cambia al mover el puntero y sube con una animación corta.
+  let hoveredCode = null;
+  function liftDepartment(code, locked) {
+    if (code === hoveredCode || !map.getLayer('department-hover')) return;
+    hoveredCode = code;
+    map.setFilter('department-hover', ['==', ['get', 'divipola_dep'], code || '']);
+    if (!code) return;
+    map.setPaintProperty('department-hover', 'fill-extrusion-color', locked ? HOVER_COLORS.locked : HOVER_COLORS.active);
+    tweenPaint('department-hover', 'fill-extrusion-height', 0, 1, reduced ? 0 : 220, 0, hoverLift);
+  }
   // Las columnas quedan encima de los departamentos: si el puntero está sobre una, manda la columna.
   const onColumn = point => map.queryRenderedFeatures(point, { layers: COLUMN_LAYERS.filter(layer => map.getLayer(layer)) })[0];
   map.on('mousemove', COLUMN_LAYERS, event => {
@@ -552,7 +591,7 @@ export async function renderAdvisorClientMap(container, clients = [], onStatus =
     const city = cityTonnage.find(item => item.city === column.city && item.department === column.department);
     const tons = value => `${Math.round(value).toLocaleString('es-CO')} t`;
     const parts = [city?.soldTons && `${tons(city.soldTons)} vendidas`, city?.pendingTons && `${tons(city.pendingTons)} por vender`].filter(Boolean);
-    hoverPopup.setLngLat(event.lngLat).setText(`${column.city} · ${parts.join(' · ')}`).addTo(map);
+    hoverPopup.setLngLat(event.lngLat).setDOMContent(createHoverTip({ title: column.city, detail: parts.join(' · '), locked: false })).addTo(map);
   });
   map.on('mouseleave', COLUMN_LAYERS, () => {
     map.getCanvas().style.cursor = '';
@@ -565,23 +604,22 @@ export async function renderAdvisorClientMap(container, clients = [], onStatus =
   });
   map.on('mousemove', 'departments-fill', event => {
     if (onColumn(event.point)) return;
+    const code = event.features?.[0]?.properties?.divipola_dep;
+    const state = states.get(code);
+    if (!state) return;
+    liftDepartment(code, !state.clients.length);
     if (detailPopup?.isOpen()) {
       map.getCanvas().style.cursor = '';
       hoverPopup.remove();
       return;
     }
-    const code = event.features?.[0]?.properties?.divipola_dep;
-    const state = states.get(code);
-    if (!state) return;
     map.getCanvas().style.cursor = 'pointer';
-    const message = state.clients.length
-      ? `${state.name} · ${state.clients.length} ${state.clients.length === 1 ? 'cliente' : 'clientes'}`
-      : `Bloqueado · ${state.name} sin explorar`;
-    hoverPopup.setLngLat(event.lngLat).setText(message).addTo(map);
+    hoverPopup.setLngLat(event.lngLat).setDOMContent(createHoverTip(getDepartmentHoverTip(state.name, state.clients.length))).addTo(map);
   });
   map.on('mouseleave', 'departments-fill', () => {
     map.getCanvas().style.cursor = '';
     hoverPopup.remove();
+    liftDepartment(null);
   });
   map.on('click', 'departments-fill', event => {
     if (onColumn(event.point)) return;
