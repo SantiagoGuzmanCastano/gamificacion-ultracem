@@ -156,10 +156,10 @@ export function getColumnPoints(cities) {
 // Lo vendido va en dorado (como los pines vendidos); lo pendiente, en la rampa azul→rojo del calor;
 // la tapa es una versión clara del tramo de arriba.
 const SOLD_COLOR = '#ffc928';
-const HEAT_RAMP = ['interpolate', ['linear'], ['get', 'weight'], 0, '#1450ff', .25, '#00c2ff', .45, '#3cff9a', .65, '#ffe14d', .82, '#ff8a1f', 1, '#ff2d2d'];
+const HEAT_RAMP = ['interpolate', ['linear'], ['get', 'weight'], 0, '#5b8cff', .25, '#5fdcff', .45, '#7dffbc', .65, '#ffea80', .82, '#ffad5c', 1, '#ff6b6b'];
 export const COLUMN_COLOR = ['match', ['get', 'kind'],
   'sold', SOLD_COLOR,
-  'cap', ['case', ['==', ['get', 'tone'], 'sold'], '#fff2b8', ['interpolate', ['linear'], ['get', 'weight'], 0, '#b9ccff', .45, '#c9ffe4', .82, '#ffd9b0', 1, '#ffc2c2']],
+  'cap', ['case', ['==', ['get', 'tone'], 'sold'], '#fff2b8', ['interpolate', ['linear'], ['get', 'weight'], 0, '#dde7ff', .45, '#e4fff2', .82, '#ffecd8', 1, '#ffe0e0']],
   HEAT_RAMP];
 export const HEAT_FLOOR_OPACITY = .55;
 export const HALO_OPACITY = .5;
@@ -289,11 +289,11 @@ export function getEntrancePlan(reducedMotion) {
   return { from: { zoom: MAP_VIEW.zoom - 1.1, pitch: 0, bearing: 0 }, flyMs: 1200, heatDelayMs: 900, heatMs: 600, columnDelayMs: 1000, columnMs: 750, pendingDelayMs: 1550, pendingMs: 600, pinDelayMs: 1000, pinStaggerMs: 90, swayDelayMs: 2500 };
 }
 
-// Enfoque de zona: la zona elegida se aclara, el resto se atenúa y su calor aparece aparte.
+// Enfoque de zona: la zona elegida se ilumina de azul claro, el resto se atenúa y su calor aparece aparte.
 export function focusFillColor(activeCodes, focusedCode) {
   const active = ['in', ['get', 'divipola_dep'], ['literal', activeCodes]];
-  if (!focusedCode) return ['case', active, '#21507c', '#0d1724'];
-  return ['case', ['==', ['get', 'divipola_dep'], focusedCode], '#2b5d8f', active, '#13263a', '#0e1a29'];
+  if (!focusedCode) return ['case', active, '#4f93d6', '#0d1724'];
+  return ['case', ['==', ['get', 'divipola_dep'], focusedCode], '#8fd0ff', active, '#35618c', '#0e1a29'];
 }
 
 // Cada cliente trae 4 tareas y cada tarea suma XP (game.js): eso es lo que se gana al desbloquear.
@@ -306,7 +306,7 @@ export function lockedZoneMessage(department) {
 }
 
 // Hover de departamento: cuánto sube (en metros, menos al acercarse) y de qué color según su estado.
-export const HOVER_COLORS = { active: '#3478b8', locked: '#3a4a60' };
+export const HOVER_COLORS = { active: '#7cc2ff', locked: '#3a4a60' };
 
 // Contenido del tooltip: nombre, estado en texto y si está bloqueado (para el candado).
 export function getDepartmentHoverTip(name, clientCount) {
@@ -362,7 +362,7 @@ export function createMapClouds() {
 
 // Al enfocar una zona, sus columnas conservan el color y las demás se apagan.
 export function focusColumnColor(department) {
-  return department ? ['case', ['==', ['get', 'department'], department], COLUMN_COLOR, '#2a3b52'] : COLUMN_COLOR;
+  return department ? ['case', ['==', ['get', 'department'], department], COLUMN_COLOR, '#7d93b0'] : COLUMN_COLOR;
 }
 
 export function zoneHeatFilter(department) {
@@ -774,10 +774,14 @@ export async function renderAdvisorClientMap(container, clients = [], onStatus =
     hoverPopup.remove();
     detailPopup?.remove();
     if (!map.getLayer('zone-outline')) {
-      map.addLayer({ id: 'zone-outline', type: 'line', source: 'departments', paint: { 'line-color': '#ffd76a', 'line-width': 3, 'line-blur': 1.5 } }, 'opportunity-heat');
+      // Resplandor azul alrededor de la zona y un borde claro encima.
+      map.addLayer({ id: 'zone-glow', type: 'line', source: 'departments', paint: { 'line-color': '#5fc4ff', 'line-width': 16, 'line-blur': 12, 'line-opacity': 0 } }, 'opportunity-heat');
+      map.addLayer({ id: 'zone-outline', type: 'line', source: 'departments', paint: { 'line-color': '#c8ecff', 'line-width': 3, 'line-blur': 1 } }, 'opportunity-heat');
       map.addLayer({ id: 'zone-heat', type: 'heatmap', source: 'opportunity', paint: { ...heatPaint, 'heatmap-opacity': 0 } }, 'column-halo');
     }
     map.setFilter('zone-outline', ['==', ['get', 'divipola_dep'], zone.code]);
+    map.setFilter('zone-glow', ['==', ['get', 'divipola_dep'], zone.code]);
+    tweenPaint('zone-glow', 'line-opacity', 0, .85, focusPlan.heatMs, focusPlan.flyMs * .4);
     map.setFilter('zone-heat', zoneHeatFilter(zone.department));
     map.setPaintProperty('departments-fill', 'fill-color', focusFillColor(activeCodes, zone.code));
     for (const layer of COLUMN_LAYERS) map.setPaintProperty(layer, 'fill-extrusion-color', focusColumnColor(zone.department));
@@ -805,6 +809,7 @@ export async function renderAdvisorClientMap(container, clients = [], onStatus =
     for (const layer of ['sold-glow', 'sold-ring']) map.setFilter(layer, SOLD_FILTER);
     if (map.getLayer('zone-outline')) {
       map.setFilter('zone-outline', ['==', ['get', 'divipola_dep'], '']);
+      map.setFilter('zone-glow', ['==', ['get', 'divipola_dep'], '']);
       map.setPaintProperty('zone-heat', 'heatmap-opacity', 0);
     }
     tweenPaint('opportunity-heat', 'heatmap-opacity', focusPlan.dimHeatOpacity, HEAT_FLOOR_OPACITY, focusPlan.heatMs);
