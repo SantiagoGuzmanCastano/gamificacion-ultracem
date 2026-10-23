@@ -462,11 +462,62 @@ export function createMapOverlays() {
   return { heatLegend, compass, stateLegend };
 }
 
+// Vista del admin: a quién contactar en cada departamento (public/data/prospects.json), de mayor a menor volumen.
+export function topProspects(prospects, department) {
+  return prospects.filter(item => item.department === department).sort((a, b) => b.estimatedTons - a.estimatedTons);
+}
+
+// Ficha corta: quién es, una línea con qué hacer y dos botones.
+export function createProspectCard(department, prospects) {
+  const [top] = prospects;
+  const card = document.createElement('div');
+  card.className = 'map-prospect';
+  const add = (tag, className, text) => {
+    const node = document.createElement(tag);
+    node.className = className;
+    node.textContent = text;
+    card.append(node);
+    return node;
+  };
+  add('span', 'map-prospect-kicker', `Cliente potencial · ${department}`);
+  if (!top) {
+    add('p', 'map-prospect-meta', 'Sin datos en esta zona.');
+    return card;
+  }
+  add('strong', 'map-prospect-name', top.name);
+  add('p', 'map-prospect-meta', `${top.type} · ${top.city} · ${Math.round(top.estimatedTons).toLocaleString('es-CO')} t`);
+  add('p', 'map-prospect-tip', `Llama a ${(top.contact || 'la empresa').toLowerCase()} para agendar una cita y ofrecer Ultracem.`);
+  const actions = document.createElement('div');
+  actions.className = 'map-prospect-actions';
+  if (top.phone) {
+    const call = document.createElement('a');
+    call.className = 'map-prospect-call';
+    call.href = `tel:${top.phone.replace(/\s+/g, '')}`;
+    call.textContent = 'Llamar';
+    call.title = top.phone;
+    call.setAttribute('aria-label', `Llamar a ${top.name}: ${top.phone}`);
+    actions.append(call);
+  }
+  if (top.website) {
+    const web = document.createElement('a');
+    web.className = 'map-prospect-web';
+    web.href = top.website;
+    web.target = '_blank';
+    web.rel = 'noopener noreferrer';
+    web.textContent = 'Web';
+    actions.append(web);
+  }
+  card.append(actions);
+  if (top.phone) add('span', 'map-prospect-sample', `${top.phone} · muestra`);
+  return card;
+}
+
 function cityLabel(group) {
   return `${group.city}, ${group.department}: ${group.clients.length} ${group.clients.length === 1 ? 'cliente' : 'clientes'}`;
 }
 
-export async function renderAdvisorClientMap(container, clients = [], onStatus = () => {}, sales = [], { zones = [] } = {}) {
+// `unlocked` (vista del admin): todo el país activo, sin niebla ni avisos de desbloqueo; `advisorName` pone el asesor de cada cliente.
+export async function renderAdvisorClientMap(container, clients = [], onStatus = () => {}, sales = [], { zones = [], unlocked = false, advisorName = null, prospects = [] } = {}) {
   destroyAdvisorClientMap();
   const current = generation;
   const [{ Map: MapLibreMap, Popup, Marker, MercatorCoordinate, setWorkerUrl }, , response, { default: workerUrl }, departmentsResponse] = await Promise.all([
@@ -483,7 +534,7 @@ export async function renderAdvisorClientMap(container, clients = [], onStatus =
   const states = getDepartmentClientStates(clients, capitals);
   const { groups, warnings } = groupCityClients(clients, capitals);
   if (current !== generation || !container.isConnected) return;
-  const activeCodes = [...states].filter(([, state]) => state.clients.length).map(([code]) => code);
+  const activeCodes = [...states].filter(([, state]) => unlocked || state.clients.length).map(([code]) => code);
   const target = getTodayTarget(zones, capitals);
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   // La entrada corre cada vez que se abre el mapa (con "reducir movimiento", directo).
@@ -694,14 +745,15 @@ export async function renderAdvisorClientMap(container, clients = [], onStatus =
     const code = event.features?.[0]?.properties?.divipola_dep;
     const state = states.get(code);
     if (!state) return;
-    liftDepartment(code, !state.clients.length);
+    liftDepartment(code, !unlocked && !state.clients.length);
     if (detailPopup?.isOpen()) {
       map.getCanvas().style.cursor = '';
       hoverPopup.remove();
       return;
     }
     map.getCanvas().style.cursor = 'pointer';
-    hoverPopup.setLngLat(event.lngLat).setDOMContent(createHoverTip(getDepartmentHoverTip(state.name, state.clients.length))).addTo(map);
+    const tip = unlocked && !state.clients.length ? { title: state.name, detail: 'Sin clientes todavía', locked: false } : getDepartmentHoverTip(state.name, state.clients.length);
+    hoverPopup.setLngLat(event.lngLat).setDOMContent(createHoverTip(tip)).addTo(map);
   });
   map.on('mouseleave', 'departments-fill', () => {
     map.getCanvas().style.cursor = '';
@@ -714,12 +766,19 @@ export async function renderAdvisorClientMap(container, clients = [], onStatus =
     const state = states.get(code);
     if (!state) return;
     // Un departamento con clientes y cifras de zona se enfoca; los demás muestran su detalle.
+    if (unlocked && prospects.length) { showProspects(state.name, event.lngLat); return; }
     const zone = zones.find(item => item.code === code);
     if (zone && state.clients.length) { focusZone(zone); return; }
     hoverPopup.remove();
     detailPopup?.remove();
     const content = document.createElement('div');
-    if (!state.clients.length) {
+    if (unlocked && !state.clients.length) {
+      const title = document.createElement('strong');
+      title.textContent = state.name;
+      const body = document.createElement('p');
+      body.textContent = 'Ningún asesor tiene clientes aquí todavía.';
+      content.append(title, body);
+    } else if (!state.clients.length) {
       // Zona bloqueada: el borde parpadea y un aviso de videojuego explica cómo desbloquearla.
       const message = lockedZoneMessage(state.name);
       content.className = 'map-locked-popup';
@@ -743,7 +802,7 @@ export async function renderAdvisorClientMap(container, clients = [], onStatus =
       for (const client of state.clients) {
         const city = client.city || 'Sin ciudad';
         if (!cities.has(city)) cities.set(city, []);
-        cities.get(city).push(`${client.name} · ${client.type}`);
+        cities.get(city).push([client.name, client.type, advisorName?.(client.advisor_id)].filter(Boolean).join(' · '));
       }
       for (const [city, names] of cities) {
         const item = document.createElement('li');
@@ -762,6 +821,26 @@ export async function renderAdvisorClientMap(container, clients = [], onStatus =
     node.textContent = label.text;
     markers.push(new Marker({ element: node }).setLngLat(label.lngLat).addTo(map));
   }
+  function showProspects(department, lngLat) {
+    hoverPopup.remove();
+    detailPopup?.remove();
+    detailPopup = new Popup({ maxWidth: '240px' }).setLngLat(lngLat).setDOMContent(createProspectCard(department, topProspects(prospects, department))).addTo(map);
+  }
+  // Una estrella por departamento, un poco al sur de la capital para no tapar los pines de clientes.
+  if (unlocked) {
+    for (const capital of capitals) {
+      const [top] = topProspects(prospects, capital.department);
+      if (!top) continue;
+      const star = document.createElement('button');
+      star.type = 'button';
+      star.className = 'map-prospect-pin';
+      star.setAttribute('aria-label', `Cliente potencial en ${capital.department}: ${top.name}`);
+      star.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></svg>';
+      const at = [capital.longitude, capital.latitude - .35];
+      star.addEventListener('click', event => { event.stopPropagation(); showProspects(capital.department, at); });
+      markers.push(new Marker({ element: star }).setLngLat(at).addTo(map));
+    }
+  }
   function showCityDetail(group) {
     hoverPopup.remove();
     detailPopup?.remove();
@@ -773,7 +852,8 @@ export async function renderAdvisorClientMap(container, clients = [], onStatus =
       const item = document.createElement('li');
       const sale = confirmedSales.get(client.id);
       const tons = Number(sale?.tons_sold || client.tons_requested || 0);
-      item.textContent = `${client.name} · ${client.type} · ${tons.toLocaleString('es-CO')} t ${sale ? 'vendidas' : 'por vender'}`;
+      const owner = advisorName?.(client.advisor_id);
+      item.textContent = `${client.name} · ${client.type} · ${tons.toLocaleString('es-CO')} t ${sale ? 'vendidas' : 'por vender'}${owner ? ` · ${owner}` : ''}`;
       list.append(item);
     }
     content.append(title, list);
@@ -793,7 +873,8 @@ export async function renderAdvisorClientMap(container, clients = [], onStatus =
   }
 
   const { heatLegend, compass, stateLegend } = createMapOverlays();
-  overlays = [createMapClouds(), heatLegend, compass, stateLegend];
+  // En la vista del admin sobran las leyendas de calor y de zonas bloqueadas.
+  overlays = [createMapClouds(), compass, ...(unlocked ? [] : [heatLegend, stateLegend])];
   const targetCard = target && createTargetCard(target, () => {
     userMoved = true;
     stopSway();
