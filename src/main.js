@@ -9,12 +9,18 @@ import { renderRewards } from './rewards.js';
 import { createClient } from '@supabase/supabase-js';
 import { getMascotStateForCurrentClient, getProgress, getXp, getLevelProgress, isTaskCompletionConfirmed } from './game.js';
 import { mascotImages, mascotLabels } from './mascot.js';
-import { getMonthlyTons, getSalesStreak, getWeeklySales, getRankingSlots, getPortfolioProgress, getMonthlyGoal, getClientSaleState, getClientHistoryStatus, isCurrentClient } from './advisor-metrics.js';
+import { getMonthlyTons, getSalesStreak, getWeeklySales, getRankingSlots, getPortfolioProgress, getMonthlyGoal, getClientSaleState, getClientHistoryStatus, isCurrentClient, canClearCompletedTasks } from './advisor-metrics.js';
 import { advisorIcon } from './advisor-icons.js';
 import { clearMascotFeedback, showMascotFeedback } from './mascot-feedback.js';
+import { createAdvisorCard } from './admin-advisors.js';
+import { createZoneList, getZoneOpportunities, loadZoneMarket } from './zone-opportunity.js';
+import { REMINDER_MESSAGE, isReminderDue } from './reminder.js';
+import { formatPercent } from './format.js';
+import { createStreakStat, getStreakNudge, markStreakNudgeShown, shouldShowStreakNudge, showStreakNudge } from './streak-nudge.js';
 import { clearAdvisorEntrance, playAdvisorEntrance, resetAdvisorEntrance } from './advisor-entrance.js';
 import { clearAdvisorEffects, celebrateTask, celebrateSale, revealRecommendation } from './advisor-effects.js';
 import { isValidProfileImage, profileImageExtension } from './profile.js';
+import { createDemoClient } from './demo-client.js';
 import { createProfileAvatar, createProfilePhotoPicker, renderAdvisorProfile, playProfileEntrance, clearProfileEntrance } from './profile-view.js';
 import { showLoadingScreen, clearLoadingScreen } from './loading-screen.js';
 import { attachRankingAvatars } from './ranking-avatars.js';
@@ -34,8 +40,19 @@ function supabaseFetch(input, init = {}) {
     if (import.meta.env.DEV && elapsed > 1500) console.warn(`[supabase] ${elapsed} ms`, String(input?.url ?? input).split('?')[0]);
   });
 }
-const db = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
-  ? createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY, { global: { fetch: supabaseFetch } }) : null;
+// Modo demo (VITE_DEMO=true): datos de muestra en memoria, sin Supabase. Con ?rol=admin se entra como administrador.
+const demoMode = import.meta.env.VITE_DEMO === 'true';
+const db = demoMode
+  ? createDemoClient({ role: new URLSearchParams(location.search).get('rol') === 'admin' ? 'admin' : 'advisor' })
+  : import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
+    ? createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY, { global: { fetch: supabaseFetch } }) : null;
+if (demoMode) {
+  const banner = document.createElement('p');
+  banner.className = 'demo-banner';
+  banner.setAttribute('role', 'note');
+  banner.textContent = 'Modo demo · datos de muestra, se reinician al recargar';
+  document.body.append(banner);
+}
 const root = document.querySelector('#app');
 let user = null, profile = null, advisors = [], clients = [], sales = [], ranking = [], notifications = [], selectedId = null, aiRecommendation = '', saleNotice = '';
 let theme = localStorage.getItem('ultracem-theme') || 'light';
@@ -48,6 +65,8 @@ let profilePhotoPromptPending = false;
 let profilePhotoUrlTimer = null;
 let profilePhotoSaving = false;
 let profileKeyboardNavigation = false;
+let mascotTaps = 0;
+let streakNudgeOpen = null;
 let notificationChannel = null;
 let notificationCenter = null;
 const dismissedNotificationIds = new Set();
@@ -875,36 +894,36 @@ function adminPage(page) {
   const tasks = clients.flatMap(client => client.tasks);
   page.className = 'admin-page';
   page.append(intro('Panorama comercial', 'Clientes y tareas pendientes por asesor.', 'admin-intro'));
-  const totalSales = ranking.reduce((total, row) => total + Number(row.confirmed_sales || 0), 0);
-  const totalTons = ranking.reduce((total, row) => total + Number(row.confirmed_tons || 0), 0);
-  page.append(metrics([['Asesores', advisors.length, 'cuentas registradas'], ['Clientes comerciales', clients.length, 'negocios asignados'], ['Tareas pendientes', tasks.filter(task => !task.completed).length, 'acciones por completar'], ['Ventas confirmadas', totalSales, 'resultado comercial'], ['Toneladas vendidas', totalTons.toLocaleString('es-CO'), 'volumen comercial']]));
+  // Ventas y toneladas ya salen en "Métricas generales"; aquí no se repiten.
+  page.append(metrics([['Asesores', advisors.length, 'cuentas registradas'], ['Clientes comerciales', clients.length, 'negocios asignados'], ['Tareas pendientes', tasks.filter(task => !task.completed).length, 'acciones por completar']]));
   page.append(rankingSection());
   page.append(adminMetricsSection());
+  // PRD · oportunidad por zona: el admin ve todas las zonas.
+  const zonesSlot = el('section', 'admin-zone-slot');
+  zonesSlot.append(el('p', 'muted', 'Cargando oportunidad por zona…'));
+  page.append(zonesSlot);
+  loadZoneMarket().then(market => {
+    if (zonesSlot.isConnected) zonesSlot.replaceWith(createZoneList(getZoneOpportunities(market, clients, sales), { sample: market.sample }));
+  }).catch(() => {
+    if (zonesSlot.isConnected) zonesSlot.replaceChildren(el('p', 'empty-state', 'Faltan datos de mercado por zona.'));
+  });
   const layout = el('div', 'admin-columns'), overview = el('section', 'admin-overview');
-  overview.append(el('h2', 'section-title', 'Pendientes por asesor'));
+  overview.append(el('h2', 'section-title', 'Asesores'), el('p', 'muted', 'Avance hacia la meta mensual de 100 t: ≥100 % cumple, 80–99 % en riesgo, <80 % crítico.'));
   if (!advisors.length) overview.append(el('p', 'empty-state', 'Todavía no hay asesores. Pídeles que creen una cuenta.'));
   for (const advisor of advisors) {
     const assigned = clients.filter(client => client.advisor_id === advisor.user_id);
-    const pending = assigned.flatMap(client => client.tasks).filter(task => !task.completed).length;
-    const section = el('article', 'advisor-row'), head = el('div', 'advisor-row-head'), copy = el('div');
-    copy.append(el('h3', '', advisor.full_name), el('p', 'advisor-email', advisor.email || 'Correo no disponible'), el('p', 'muted', `${assigned.length} clientes asignados`));
-    const actions = el('div', 'advisor-row-actions');
-    actions.append(el('strong', 'pending-count', `${pending} pendientes`));
-    if (assigned.length) actions.append(button('Borrar tareas', 'danger-button', () => resetAdvisorTasks(advisor, assigned.length)));
-    if (assigned.length) actions.append(button('Borrar clientes', 'danger-button', () => deleteAdvisorClients(advisor, assigned.length)));
-    actions.append(button('Borrar asesor', 'danger-button', () => deleteAdvisor(advisor)));
-    head.append(copy, actions); section.append(head);
-    if (!assigned.length) section.append(el('p', 'empty-inline', 'Aún no tiene clientes.'));
-    const list = el('ul', 'pending-list');
-    for (const client of assigned) {
-      const item = el('li');
-      const location = client.city && client.department ? ` · ${client.city}, ${client.department}` : '';
-      item.append(el('strong', '', client.name), el('span', 'muted', `${location} · ${client.tasks.filter(task => !task.completed).length} pendientes`));
-      const taskList = el('ul', 'pending-titles');
-      client.tasks.filter(task => !task.completed).forEach(task => taskList.append(el('li', '', task.title)));
-      item.append(taskList); list.append(item);
-    }
-    section.append(list); overview.append(section);
+    const row = ranking.find(item => item.advisor_id === advisor.user_id);
+    overview.append(createAdvisorCard(advisor, {
+      tons: getMonthlyTons(sales, advisor.user_id),
+      sales: Number(row?.confirmed_sales || 0),
+      goal: 100,
+      clients: assigned,
+      avatarUrl: row?.avatar_url || '',
+    }, {
+      resetTasks: () => resetAdvisorTasks(advisor, assigned.length),
+      deleteClients: () => deleteAdvisorClients(advisor, assigned.length),
+      deleteAdvisor: () => deleteAdvisor(advisor),
+    }));
   }
   const manage = el('aside', 'admin-management'), form = el('form', 'editor-form');
   form.id = 'admin-client-form';
@@ -964,19 +983,28 @@ function advisorMapPage(page) {
   status.setAttribute('role', 'status');
   const container = el('div', 'advisor-map-canvas');
   container.setAttribute('aria-label', 'Mapa de departamentos de Colombia y ciudades con clientes');
-  const legend = el('div', 'advisor-map-legend');
-  legend.append(el('span', 'advisor-map-legend-locked', 'Bloqueado'), el('span', 'advisor-map-legend-active', 'Con clientes'));
-  section.append(status, container, legend);
+  // Las leyendas, la brújula y la zona objetivo van encima del mapa (advisor-map.js).
+  section.append(status, container);
   if (!ownClients.length) section.append(el('p', 'empty-state', 'Aún no tienes clientes asignados. Todos los departamentos están bloqueados.'));
-  page.append(welcome, section);
-  import('./advisor-map.js').then(async module => {
+  const zonesSlot = el('div', 'advisor-zone-slot');
+  page.append(welcome, section, zonesSlot);
+  Promise.all([import('./advisor-map.js'), loadZoneMarket().catch(() => null)]).then(async ([module, market]) => {
     if (!container.isConnected) return;
     advisorMapModule = module;
-    await module.renderAdvisorClientMap(container, ownClients, (state, message) => {
+    // PRD · oportunidad por zona: el asesor ve solo las zonas donde tiene clientes.
+    const zones = market ? getZoneOpportunities(market, ownClients, sales, { onlyWithClients: true }) : [];
+    // Al elegir una zona de la lista, el mapa sube a la vista y la enfoca.
+    let mapControls = null;
+    const focusFromList = zone => {
+      section.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+      mapControls?.focusZone(zone);
+    };
+    if (zones.length) zonesSlot.replaceWith(createZoneList(zones, { sample: market.sample, onSelect: focusFromList }));
+    mapControls = await module.renderAdvisorClientMap(container, ownClients, (state, message) => {
       if (!container.isConnected) return;
-      status.textContent = state === 'ready' ? 'Selecciona un departamento o una ciudad para ver tus clientes.' : message;
+      status.textContent = state === 'ready' ? 'Toca un departamento o una zona de la lista para enfocarla.' : message;
       status.classList.toggle('advisor-map-error', state === 'error');
-    });
+    }, sales, { zones });
   }).catch(error => {
     if (!container.isConnected) return;
     status.textContent = `No se pudo cargar el mapa: ${error.message}`;
@@ -984,7 +1012,16 @@ function advisorMapPage(page) {
   });
 }
 function advisorProfilePage(page) {
-  renderAdvisorProfile(page, profile, { upload: uploadProfilePhoto, remove: removeProfilePhoto, signOut, deleteAccount }, profilePhotoSaving);
+  const own = ranking.find(row => row.advisor_id === user?.id);
+  const progress = {
+    sales: Number(own?.confirmed_sales || 0),
+    tons: Number(own?.confirmed_tons || 0),
+    streak: getSalesStreak(sales, user?.id),
+    position: own?.position ?? null,
+    skinImage: profile.equipped_skin === 'skeleton' ? '/skins/skeleton/happy.png' : mascotImages.happy,
+  };
+  const openShop = () => { advisorView = 'shop'; render(); refreshHalloween(); window.scrollTo(0, 0); };
+  renderAdvisorProfile(page, profile, { upload: uploadProfilePhoto, remove: removeProfilePhoto, signOut, deleteAccount, openShop }, profilePhotoSaving, progress);
   playProfileEntrance(page, profileKeyboardNavigation);
 }
 function advisorHistoryPage(page) {
@@ -1176,21 +1213,51 @@ function advisorPage(page) {
   const levelStat = el('div', 'hero-highlight hero-level-highlight');
   const levelIcon = el('span', 'hero-highlight-icon'); levelIcon.innerHTML = advisorIcon('trophy');
   levelStat.append(levelIcon, el('span', '', levelProgress.target ? `${levelProgress.sales}/${levelProgress.target} ventas para Nivel ${levelProgress.level + 1}` : 'Nivel máximo inicial'), el('strong', '', `Nivel ${levelProgress.level}`));
-  const streakStat = el('div', 'hero-highlight');
-  const flame = el('span', 'hero-highlight-icon'); flame.innerHTML = advisorIcon('flame');
-  streakStat.append(flame, el('span', '', 'Racha actual'), el('strong', '', `${streak} ${streak === 1 ? 'día' : 'días'}`));
+  const streakStat = createStreakStat(streak);
   const salesStat = el('div', 'hero-highlight');
   const salesIcon = el('span', 'hero-highlight-icon'); salesIcon.innerHTML = advisorIcon('sales');
   salesStat.append(salesIcon, el('span', '', 'Ventas confirmadas'), el('strong', '', String(ownConfirmedSales.length)));
   heroStats.append(levelStat, streakStat, salesStat);
-  heroCopy.append(heroStats, button('Ver mis tareas hoy', 'hero-cta', () => document.querySelector('#advisor-actions')?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' })));
+  const goToTasks = () => document.querySelector('#advisor-actions')?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+  heroCopy.append(heroStats);
+  // Recordatorio amable (V5): después de la hora de corte, sin tareas completadas hoy.
+  if (isReminderDue(currentClients.flatMap(client => client.tasks))) {
+    const reminder = el('p', 'hero-reminder');
+    reminder.setAttribute('role', 'status');
+    const clock = el('span', 'hero-reminder-icon'); clock.innerHTML = advisorIcon('clock');
+    reminder.append(clock, el('span', '', REMINDER_MESSAGE));
+    heroCopy.append(reminder);
+  }
+  heroCopy.append(button('Ver mis tareas hoy', 'hero-cta', goToTasks));
   const mascot = el('div', 'mascot advisor-hero-mascot');
   const mascotImage = el('img', 'mascot-image');
   mascotImage.src = mascotImagesForSkin[mascotMood];
   mascotImage.alt = `Mascota: ${mascotLabels[mascotMood]}`;
-  mascot.append(mascotImage);
+  // Topitín responde al tocarlo con una frase corta.
+  const mascotTap = el('button', 'mascot-tap');
+  mascotTap.type = 'button';
+  mascotTap.setAttribute('aria-label', 'Saludar a Topitín');
+  mascotTap.append(mascotImage);
+  mascotTap.addEventListener('click', () => showMascotFeedback('tap', ++mascotTaps));
+  mascot.append(mascotTap);
   hero.append(ring, heroCopy, mascot);
   page.append(hero);
+  // Mala racha (0 días): franja estilo Duolingo con Topitín hablando, una vez por sesión.
+  // render() reconstruye la página: la franja sigue abierta hasta que el asesor la cierre.
+  if (streakNudgeOpen === null) {
+    streakNudgeOpen = shouldShowStreakNudge(streak);
+    if (streakNudgeOpen) markStreakNudgeShown();
+  }
+  if (streakNudgeOpen && streak === 0) {
+    const nudgeRow = el('section', 'streak-nudge-row');
+    nudgeRow.setAttribute('aria-label', 'Mensaje de Topitín');
+    const nudgeMascot = el('img', 'streak-nudge-mascot');
+    nudgeMascot.src = mascotImagesForSkin.sad;
+    nudgeMascot.alt = '';
+    nudgeRow.append(nudgeMascot);
+    showStreakNudge(nudgeRow, { message: getStreakNudge(streak), onTasks: goToTasks, onClose: () => { streakNudgeOpen = false; nudgeRow.remove(); } });
+    page.append(nudgeRow);
+  }
 
   page.append(metrics([
     ['Clientes actuales', currentClients.length, 'con acciones pendientes', currentClients.length],
@@ -1290,7 +1357,7 @@ function advisorPage(page) {
     const confirmed = sales.some(sale => sale.client_id === activeClient.id && sale.confirmed);
     const saleActions = el('div', 'sale-actions');
     if (!confirmed) saleActions.append(button('Confirmar venta', 'primary confirm-sale-button', () => confirmSale(activeClient)));
-    saleActions.append(button('Limpiar tareas', 'secondary clear-tasks-button', () => clearCompletedTasks(activeClient)));
+    if (canClearCompletedTasks(activeClient, sales)) saleActions.append(button('Limpiar tareas', 'secondary clear-tasks-button', () => clearCompletedTasks(activeClient)));
     detail.append(saleActions);
   }
   const assistant = el('div', 'action-assistant');
@@ -1319,9 +1386,9 @@ function advisorPage(page) {
   const tonnageValue = el('div', 'tonnage-value');
   tonnageValue.append(el('strong', '', monthlyTons.toLocaleString('es-CO')), el('span', '', `de ${monthlyGoal} t`));
   const tonnageTrack = el('div', 'tonnage-track');
-  tonnageTrack.setAttribute('role', 'progressbar'); tonnageTrack.setAttribute('aria-label', 'Meta mensual de toneladas'); tonnageTrack.setAttribute('aria-valuemin', '0'); tonnageTrack.setAttribute('aria-valuemax', String(monthlyGoal)); tonnageTrack.setAttribute('aria-valuenow', String(Math.min(monthlyTons, monthlyGoal))); tonnageTrack.setAttribute('aria-valuetext', `${monthlyTons} de ${monthlyGoal} toneladas, ${monthlyProgress.percentage}% de la meta`);
+  tonnageTrack.setAttribute('role', 'progressbar'); tonnageTrack.setAttribute('aria-label', 'Meta mensual de toneladas'); tonnageTrack.setAttribute('aria-valuemin', '0'); tonnageTrack.setAttribute('aria-valuemax', String(monthlyGoal)); tonnageTrack.setAttribute('aria-valuenow', String(Math.min(monthlyTons, monthlyGoal))); tonnageTrack.setAttribute('aria-valuetext', `${monthlyTons} de ${monthlyGoal} toneladas, ${formatPercent(monthlyProgress.percentage)} de la meta`);
   const tonnageFill = el('span'); tonnageFill.style.width = `${progressPercent}%`; tonnageTrack.append(tonnageFill);
-  goalDetails.append(tonnageValue, tonnageTrack, el('p', 'muted', `${monthlyProgress.percentage}% de tu meta mensual`));
+  goalDetails.append(tonnageValue, tonnageTrack, el('p', 'muted', `${formatPercent(monthlyProgress.percentage)} de tu meta mensual`));
   goalBody.append(goalRing, goalDetails); goalCard.append(goalBody);
 
   const portfolioCard = el('section', 'portfolio-card');
@@ -1355,9 +1422,12 @@ function advisorPage(page) {
 function advisorProgressRing(percentage, label, className) {
   const ring = el('div', className);
   ring.setAttribute('role', 'img');
-  ring.setAttribute('aria-label', `${percentage}% · ${label}`);
+  ring.setAttribute('aria-label', `${formatPercent(percentage)} · ${label}`);
   ring.innerHTML = `<svg viewBox="0 0 100 100" aria-hidden="true"><circle class="ring-track" cx="50" cy="50" r="42"/><circle class="ring-fill" cx="50" cy="50" r="42" pathLength="100" stroke-dasharray="${Math.min(100, percentage)} 100"/></svg>`;
-  const copy = el('div', 'ring-copy'); copy.append(el('strong', '', `${percentage}%`), el('span', '', label)); ring.append(copy);
+  // El porcentaje sube de 0 al valor con la entrada del tablero (data-count-target).
+  const value = el('strong', '', formatPercent(percentage));
+  value.dataset.countTarget = String(percentage); value.dataset.countSuffix = ' %';
+  const copy = el('div', 'ring-copy'); copy.append(value, el('span', '', label)); ring.append(copy);
   return ring;
 }
 async function confirmSale(client) {

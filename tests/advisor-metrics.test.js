@@ -47,5 +47,6 @@ test('calcula una racha de días consecutivos que termina hoy', () => {
   ];
 
   assert.equal(getSalesStreak(sales, advisorId, now), 3);
-  assert.equal(getSalesStreak(sales.slice(1), advisorId, now), 0);
+  // Sin venta hoy, la racha cuenta desde ayer (20 y 19).
+  assert.equal(getSalesStreak(sales.slice(1), advisorId, now), 2);
 });

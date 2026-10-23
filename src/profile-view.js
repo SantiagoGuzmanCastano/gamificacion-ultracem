@@ -60,7 +60,60 @@ export function createProfilePhotoPicker(upload, { prompt = false, busy = false 
   return picker;
 }
 
-export function renderAdvisorProfile(page, profile, actions, busy = false) {
+// Logros calculados con datos reales; nunca se inventan.
+export function getProfileAchievements({ sales = 0, tons = 0, streak = 0 }) {
+  return [
+    { id: 'first-sale', name: 'Primera venta', unlocked: sales >= 1 },
+    { id: 'streak-3', name: 'Racha de 3 días', unlocked: streak >= 3 },
+    { id: 'tons-50', name: '50 t vendidas', unlocked: tons >= 50 },
+  ];
+}
+
+function renderProgress(progress, openShop) {
+  const section = element('section', 'profile-section profile-progress');
+  const heading = element('h2', '', 'Tu progreso');
+  heading.id = 'profile-progress-title';
+  section.setAttribute('aria-labelledby', heading.id);
+  const stats = element('div', 'profile-stats');
+  for (const [label, value, icon] of [
+    ['Ventas confirmadas', String(progress.sales), 'sales'],
+    ['Toneladas vendidas', `${Number(progress.tons).toLocaleString('es-CO')} t`, 'truck'],
+    ['Racha actual', `${progress.streak} ${progress.streak === 1 ? 'día' : 'días'}`, 'flame'],
+    ['Posición', progress.position ? `#${progress.position}` : '—', 'trophy'],
+  ]) {
+    const stat = element('div', `profile-stat profile-stat-${icon}`);
+    const glyph = element('i', 'profile-stat-icon');
+    glyph.setAttribute('aria-hidden', 'true');
+    glyph.innerHTML = advisorIcon(icon);
+    stat.append(glyph, element('span', '', label), element('strong', '', value));
+    stats.append(stat);
+  }
+  const skin = element('div', 'profile-skin');
+  const image = element('img');
+  image.src = progress.skinImage;
+  image.alt = 'Topitín con tu skin equipada';
+  image.width = image.height = 120;
+  skin.append(image, action('Cambiar en la Tienda', 'profile-action profile-action-secondary', openShop));
+  const badges = element('ul', 'profile-achievements');
+  badges.setAttribute('aria-label', 'Logros');
+  for (const item of getProfileAchievements(progress)) {
+    const badge = element('li', 'profile-achievement');
+    badge.dataset.unlocked = String(item.unlocked);
+    const glyph = element('i', 'profile-achievement-icon');
+    glyph.setAttribute('aria-hidden', 'true');
+    glyph.innerHTML = advisorIcon(item.unlocked ? 'check' : 'lock');
+    badge.append(glyph, element('strong', '', item.name), element('span', '', item.unlocked ? 'Conseguido' : 'Bloqueado'));
+    badges.append(badge);
+  }
+  const body = element('div', 'profile-progress-body');
+  const column = element('div', 'profile-progress-column');
+  column.append(stats, badges);
+  body.append(column, skin);
+  section.append(heading, body);
+  return section;
+}
+
+export function renderAdvisorProfile(page, profile, actions, busy = false, progress = null) {
   page.className = 'advisor-page profile-page';
   const header = element('header', 'advisor-welcome profile-heading');
   header.append(element('h1', '', 'Perfil'), element('p', '', 'Tu espacio personal en Ultracem.'));
@@ -116,6 +169,7 @@ export function renderAdvisorProfile(page, profile, actions, busy = false) {
   panel.append(photo);
   page.append(header, panel);
   if (profile.role !== 'advisor') return;
+  if (progress) page.append(renderProgress(progress, actions.openShop));
   for (const [kind, title, text, label, handler, icon] of [
     ['session', 'Tu sesión', 'Puedes volver a entrar cuando lo necesites.', 'Cerrar sesión', actions.signOut, 'logout'],
     ['danger', 'Eliminar cuenta', 'Se borrarán tu cuenta, clientes, tareas, ventas y progreso. Esta acción no se puede deshacer.', 'Borrar cuenta', actions.deleteAccount, 'trash'],

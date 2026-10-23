@@ -28,6 +28,9 @@ const paths = {
   arrow:'<path d="m9 5 7 7-7 7"/>',
   coin: '<circle cx="12" cy="12" r="9"/><path d="M15 9.2c-.6-.8-1.6-1.2-3-1.2-1.6 0-2.7.8-2.7 2 0 3 5.9 1.2 5.9 4.2 0 1.2-1.2 2-2.9 2-1.4 0-2.5-.5-3.2-1.4M12 6v2M12 16v2"/>',
   flag: '<path d="M5 21V4M5 4h13l-3 4.5 3 4.5H5"/>',
+  shield: '<path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6Z"/><path d="m9 12 2 2 4-4"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  alert: '<path d="M12 3 2 21h20ZM12 10v4M12 17.5v.5"/>',
 };
 
 export function advisorIcon(name) {
