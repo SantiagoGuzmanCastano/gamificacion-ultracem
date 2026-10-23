@@ -465,7 +465,8 @@ function shell() {
         container.append(control);
       }
     }
-    document.querySelector('main').prepend(mobileNav);
+    // Fuera de <main> para que ninguna animación de la página afecte la barra fija.
+    root.append(mobileNav);
     animateSidebar(sidebar);
   }
   if (profile) {
