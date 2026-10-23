@@ -66,6 +66,17 @@
 .halloween-timer img, .halloween-xp img { width: 30px; height: 30px; color: #7137ba; flex: 0 0 auto; }
 .halloween-timer strong, .halloween-xp strong { display: block; color: #34205d; font-size: .95rem; }
 .halloween-timer span, .halloween-xp span { display: block; margin-top: 4px; color: #66587b; font-size: .78rem; }
+/* Cofres arcade: pixel art, borde del color de su metal y tipografía de 8 bits. */
+.chest-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; padding: 0; margin: 0; list-style: none; }
+.chest-card { --rim: #d9853b; display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 22px 14px 18px; border: 3px solid #22163a; border-radius: 4px; background: #0b1d3a; box-shadow: inset 0 0 0 3px var(--rim); text-align: center; font-family: 'Press Start 2P', monospace; }
+.chest-card-plata { --rim: #cfd8e3; }
+.chest-card-oro { --rim: #ffcc00; }
+.chest-artwork img { display: block; width: 100%; max-width: 150px; height: auto; image-rendering: pixelated; }
+.chest-card h3 { color: var(--rim); font-size: .7rem; font-weight: 400; line-height: 1.6; }
+.chest-price { display: flex; align-items: center; justify-content: center; gap: 8px; color: #fff; font-size: .7rem; }
+.chest-price img { image-rendering: pixelated; }
+.chest-price .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+.chest-action { margin-top: auto; min-height: 44px; padding: 8px 12px; border: 2px solid #3a2e5c; border-radius: 0; background: #22163a; color: #9fb3c8; font: inherit; font-size: .7rem; cursor: not-allowed; }
 .shop-note { display: flex; align-items: center; gap: 14px; margin: 28px 0 0; padding: 18px 20px; border-left: 3px solid var(--yellow); color: var(--muted); font-size: .85rem; line-height: 1.6; }
 .shop-note > span { color: var(--accent); font-size: 1.7rem; }
 .shop-note strong { color: var(--ink); }
@@ -102,7 +113,10 @@
   .halloween-meta { grid-template-columns: 1fr; }
 }
 @media (max-width: 359px) { .shop-grid { grid-template-columns: 1fr; } .shop-artwork { height: 250px; } }
+@media (max-width: 640px) { .chest-grid { grid-template-columns: 1fr; gap: 12px; } .chest-artwork img { max-width: 120px; } }
 @media (prefers-reduced-motion: no-preference) {
+  .chest-artwork img { animation: chest-bob 1s steps(2) infinite; }
+  @keyframes chest-bob { 50% { transform: translateY(-4px); } }
   .advisor-nav button, .advisor-shell .sidebar-nav button { transition: background-color 150ms ease, transform 130ms cubic-bezier(.23, 1, .32, 1); }
   .advisor-nav button:active, .advisor-shell .sidebar-nav button:active { transform: scale(.98); }
   @media (hover: hover) and (pointer: fine) {

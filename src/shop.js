@@ -13,6 +13,11 @@ export const halloweenOutfits = [
   ['esqueleto', 'Esqueleto', 2],
 ].map(([id, name, price]) => ({ id, name: `Pingüino ${name}`, price, image: `/skins/${id}.png`, frame: `/shop/frames/skins/${id}-frame.png` }));
 
+// Solo visual: precios de muestra en ventas confirmadas; el canje no está implementado.
+export const chests = [
+  ['bronce', 'Bronce', 5], ['plata', 'Plata', 15], ['oro', 'Oro', 30],
+].map(([id, name, price]) => ({ id, name: `Cofre de ${name}`, price, image: `/shop/chests/${id}.svg` }));
+
 export function renderShop(page, sales, halloweenEnabled = false, equippedSkin = 'classic', onEquip = () => {}) {
   page.className = 'shop-page';
   page.innerHTML = `
@@ -30,9 +35,16 @@ export function renderShop(page, sales, halloweenEnabled = false, equippedSkin =
         <span class="shop-count">10 atuendos</span></div>
       <ul class="shop-grid"></ul>
     </section>
+    <section id="chest-collection" class="shop-collection chest-collection" aria-labelledby="chest-title">
+      <div class="shop-collection-heading"><div><h2 id="chest-title">Cofres</h2>
+        <p>Cofres con sorpresas para Topitín. Muy pronto podrás abrirlos con tus ventas.</p></div>
+        <span class="shop-count">3 cofres</span></div>
+      <ul class="chest-grid"></ul>
+    </section>
     <aside class="shop-note"><span aria-hidden="true">✦</span><p><strong>Cada paso cuenta.</strong>
       Sigue completando tus tareas y descubre el próximo estilo de Topitín.</p></aside>`;
   appendCards(page.querySelector('.shop-grid'), outfits, equippedSkin, sales, onEquip);
+  appendChestCards(page.querySelector('.chest-grid'));
   renderHalloweenCollection(page, halloweenEnabled, equippedSkin, sales, onEquip);
 }
 
@@ -53,6 +65,25 @@ export function renderHalloweenCollection(page, enabled, equippedSkin = 'classic
     <ul class="shop-grid"></ul></div>`;
   appendCards(section.querySelector('.shop-grid'), halloweenOutfits, equippedSkin, sales, onEquip);
   page.querySelector('.shop-collection').before(section);
+}
+
+function appendChestCards(grid) {
+  for (const chest of chests) {
+    const card = document.createElement('li');
+    card.className = `chest-card chest-card-${chest.id}`;
+    card.innerHTML = `
+      <div class="chest-artwork"><img width="150" height="120" decoding="async"></div>
+      <h3></h3>
+      <p class="chest-price"><img src="/shop/chests/coin.svg" alt="" width="15" height="15"><span aria-hidden="true"></span><span class="sr-only"></span></p>
+      <button type="button" class="chest-action" disabled>Próximamente</button>`;
+    const image = card.querySelector('.chest-artwork img');
+    image.src = chest.image;
+    image.alt = chest.name;
+    card.querySelector('h3').textContent = chest.name;
+    card.querySelector('.chest-price [aria-hidden="true"]').textContent = `x${chest.price}`;
+    card.querySelector('.chest-price .sr-only').textContent = `${chest.price} ventas para desbloquear`;
+    grid.append(card);
+  }
 }
 
 function appendCards(grid, collection, equippedSkin, sales, onEquip) {

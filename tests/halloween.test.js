@@ -14,6 +14,7 @@ test('skeleton requires two confirmed sales and displays the same requirement', 
       globalThis.document.createElement = tag => tag === 'section' ? { ...node(), querySelector: () => halloween } : node();
       const page = { querySelector(selector) {
         if (selector === '.shop-grid') return normal;
+        if (selector === '.chest-grid') return node();
         if (selector === '#halloween-collection') return null;
         return { before() {} };
       } };
