@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 
 class Element {
-  constructor(tag) { this.tagName = tag.toUpperCase(); this.children = []; this.attributes = {}; this.events = {}; this.dataset = {}; this.className = ''; this.textContent = ''; this.classList = { add: name => { this.className += ` ${name}`; }, toggle: (name, active) => { if (active) this.className += ` ${name}`; } }; }
+  constructor(tag) { this.tagName = tag.toUpperCase(); this.children = []; this.attributes = {}; this.events = {}; this.dataset = {}; this.style = {}; this.className = ''; this.textContent = ''; this.classList = { add: name => { this.className += ` ${name}`; }, toggle: (name, active) => { if (active) this.className += ` ${name}`; } }; }
   get textContent() { return this.text + this.children.map(child => child.textContent).join(''); }
   set textContent(value) { this.text = value; this.children = []; }
   append(...nodes) { nodes.forEach(node => { node.parent = this; this.children.push(node); }); }
@@ -30,6 +30,11 @@ function setup({ reducedMotion = false } = {}) {
     document: { createElement: tag => new Element(tag) },
     window: { matchMedia: () => ({ matches: reducedMotion }) },
     advisorIcon: () => '<svg></svg>',
+    getLevelProgress: (level = 1, sales = 0) => {
+      const currentLevel = Math.min(3, Math.max(1, Number(level) || 1));
+      const target = currentLevel === 1 ? 1 : currentLevel === 2 ? 5 : null;
+      return { level: currentLevel, sales: Math.max(0, Number(sales) || 0), target, percentage: target ? Math.min(100, Math.round((sales / target) * 100)) : 100 };
+    },
     gsap: { context: callback => { callback(); return { revert() { reverted++; } }; }, fromTo: (...args) => calls.push(args) },
   });
   return { ...api, calls, reverted: () => reverted };
@@ -85,6 +90,18 @@ test('profile separates identity, session and deletion while keeping action call
   assert.equal(withoutPhoto.querySelectorAll('button').some(button => button.textContent === 'Quitar foto'), false);
   assert.ok(withoutPhoto.querySelector('.profile-photo-action').disabled);
   assert.equal(withoutPhoto.querySelector('.profile-upload-label').textContent, 'Guardando foto…');
+});
+
+test('advisor profile shows stored level, points and sales progression', () => {
+  const { renderAdvisorProfile } = setup();
+  const page = new Element('div');
+  const actions = Object.fromEntries(['upload', 'remove', 'signOut', 'deleteAccount'].map(name => [name, () => {}]));
+  renderAdvisorProfile(page, { full_name: 'Asesor 2', role: 'advisor', points: 125, level: 2, progression_sales: 1 }, actions);
+  const progression = page.querySelector('.profile-progression');
+  assert.ok(progression);
+  assert.match(progression.textContent, /Nivel 2/);
+  assert.match(progression.textContent, /125 puntos/);
+  assert.match(progression.textContent, /1 de 5 ventas/);
 });
 
 test('entrance stays under 280ms, plays once per visit and cleans up', () => {

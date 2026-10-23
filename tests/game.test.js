@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as game from '../src/game.js';
 
-const { getProgress, getXp, getMascotStateForCurrentClient } = game;
+const { getProgress, getXp, getMascotStateForCurrentClient, getLevelProgress } = game;
 
 test('el progreso refleja tareas guardadas en la base', () => {
   for (let completed = 0; completed <= 4; completed++) {
@@ -35,6 +35,12 @@ test('cada tarea completada aporta diez XP', () => {
   assert.equal(getXp(1), 10);
   assert.equal(getXp(4), 40);
   assert.equal(getXp(-1), 0);
+});
+
+test('el progreso de nivel usa ventas confirmadas', () => {
+  assert.deepEqual(getLevelProgress(1, 0), { level: 1, sales: 0, target: 1, percentage: 0 });
+  assert.deepEqual(getLevelProgress(2, 1), { level: 2, sales: 1, target: 5, percentage: 20 });
+  assert.deepEqual(getLevelProgress(3, 5), { level: 3, sales: 5, target: null, percentage: 100 });
 });
 
 test('confirma la animación solo cuando la base guardó la tarea', () => {
