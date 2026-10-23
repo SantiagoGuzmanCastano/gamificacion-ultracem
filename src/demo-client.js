@@ -26,9 +26,9 @@ function seed(now) {
     ['demo-c1', 'Ferretería Norte', 'Ferretería', DEMO_ADVISOR_ID, 20, 2, 1, 'Atlántico', 'Barranquilla'],
     ['demo-c2', 'Constructora Caribe', 'Constructora', DEMO_ADVISOR_ID, 35, 0, 2, 'Bolívar', 'Cartagena de Indias'],
     ['demo-c3', 'Depósito La Sexta', 'Distribuidor', DEMO_ADVISOR_ID, 15, 4, 3, 'Atlántico', 'Barranquilla'],
-    ['demo-c4', 'Materiales del Sur', 'Distribuidor', 'demo-asesor-2', 40, 4, 4, 'Valle del Cauca', 'Cali'],
+    ['demo-c4', 'Materiales del Sur', 'Distribuidor', 'demo-asesor-2', 80, 4, 4, 'Valle del Cauca', 'Cali'],
     ['demo-c5', 'Ferretería El Puente', 'Ferretería', 'demo-asesor-2', 25, 4, 5, 'Antioquia', 'Medellín'],
-    ['demo-c6', 'Obras y Techos', 'Constructora', 'demo-asesor-3', 30, 3, 6, 'Bogotá D.C.', 'Bogotá D.C.'],
+    ['demo-c6', 'Obras y Techos', 'Constructora', 'demo-asesor-3', 85, 4, 6, 'Bogotá D.C.', 'Bogotá D.C.'],
   ];
   const clients = clientRows.map(([id, name, type, advisor_id, tons_requested, , age, department, city]) => ({ id, name, type, advisor_id, tons_requested, department, city, created_at: at(age) }));
   const tasks = clientRows.flatMap(([id, , , , , done]) => TASKS.map(([title, description], index) => ({
@@ -38,7 +38,8 @@ function seed(now) {
     id: `demo-s-${client}`, client_id: client, advisor_id: advisor, amount: tons * 25000, tons_sold: tons,
     completed_at: at(daysAgo), confirmed: true, confirmed_at: at(daysAgo),
   });
-  const sales = [sale('demo-c3', DEMO_ADVISOR_ID, 15, 1), sale('demo-c4', 'demo-asesor-2', 40, 2), sale('demo-c5', 'demo-asesor-2', 25, 0)];
+  // Semáforo del admin con meta de 100 t: Dos cumple (105 t), Tres en riesgo (85 t), Demo crítico (15 t).
+  const sales = [sale('demo-c3', DEMO_ADVISOR_ID, 15, 1), sale('demo-c4', 'demo-asesor-2', 80, 2), sale('demo-c5', 'demo-asesor-2', 25, 0), sale('demo-c6', 'demo-asesor-3', 85, 1)];
   return { profiles, clients, tasks, sales, settings: { id: true, halloween_enabled: false } };
 }
 
