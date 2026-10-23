@@ -34,7 +34,11 @@ button { transition: background-color 160ms ease, color 160ms ease; }
 button:focus-visible, input:focus-visible, select:focus-visible, [tabindex="-1"]:focus-visible { outline: 3px solid var(--yellow); outline-offset: 3px; }
 ::selection { background: #bdefff; color: var(--navy); }
 input { caret-color: var(--accent); }
-* { scrollbar-color: #a7b5ac #edf0ed; scrollbar-width: thin; }
+* { scrollbar-color: #b6c8d6 transparent; scrollbar-width: thin; }
+:root[data-theme="dark"], :root[data-theme="dark"] * { scrollbar-color: #1d4862 transparent; }
+/* La barra lateral sigue desplazándose con la rueda o el gesto, pero sin barra visible. */
+.app-sidebar { scrollbar-width: none; }
+.app-sidebar::-webkit-scrollbar { display: none; }
 [hidden] { display: none !important; }
 h1, h2, h3, p { margin: 0; }
 h1, h2, h3 { text-wrap: balance; }
