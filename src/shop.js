@@ -64,9 +64,9 @@ const webp = path => path.replace(/\.png$/, '.webp');
 const outfitStage = outfit => ({ name: outfit.name, art: webp(outfit.image), background: `/skins/backgrounds/${outfit.id}.webp` });
 const itemStage = item => ({ name: item.name, art: webp(item.image), background: webp(item.background) });
 
-function tryOnButton(stage, alt) {
+function tryOnButton(stage, alt, loading = 'lazy') {
   return `<button type="button" class="shop-artwork shop-try" style="--skin-bg: url('${stage.background}')" aria-label="Probar ${stage.name} en el probador" aria-pressed="false"
-    data-stage-name="${stage.name}" data-stage-art="${stage.art}" data-stage-bg="${stage.background}"><img src="${stage.art}" alt="${alt}" width="280" height="280" loading="lazy" decoding="async"></button>`;
+    data-stage-name="${stage.name}" data-stage-art="${stage.art}" data-stage-bg="${stage.background}"><span class="shop-try-shine" aria-hidden="true"></span><img src="${stage.art}" alt="${alt}" width="280" height="280" loading="${loading}" decoding="async"></button>`;
 }
 
 export function renderShop(page, sales, halloweenEnabled = false, equippedSkin = 'classic', onEquip = () => {}, points = 0) {
@@ -184,16 +184,17 @@ function appendCards(grid, collection, equippedSkin, sales, onEquip, points = 0)
     const classic = outfit.id === 'clasico';
     const skeleton = outfit.id === 'esqueleto';
     const equipped = classic && equippedSkin === 'classic' || skeleton && equippedSkin === 'skeleton';
-    const unlocked = skeleton && Number(sales) >= outfit.price;
-    const canEquip = classic && !equipped || skeleton && unlocked && !equipped;
-    // Display-only pricing must not change the legacy sales-based equipment rule.
     const displayPrice = skeleton ? 100 : outfit.price;
+    // El esqueleto se equipa con 100 puntos (una venta confirmada) sin descontarlos;
+    // la función equip_mvp_skin aplica la misma regla en Supabase.
+    const unlocked = skeleton && Number(points) >= displayPrice;
+    const canEquip = classic && !equipped || skeleton && unlocked && !equipped;
     const affordable = !equipped && Number.isFinite(Number(points)) && Number(points) >= displayPrice;
     const card = document.createElement('li');
     card.className = `shop-card shop-card-${outfit.id}${classic ? ' shop-card-classic' : ''}${outfit.id === 'zombie' || outfit.id === 'esqueleto' ? ' shop-card-halloween' : ''}${equipped ? ' shop-card-equipped' : ''}`;
     card.innerHTML = `
       <span class="shop-card-frame" style="--frame-image: url('${outfit.frame}')" aria-hidden="true"></span>
-      ${tryOnButton(outfitStage(outfit), outfit.name)}
+      ${tryOnButton(outfitStage(outfit), outfit.name, 'eager')}
       <div class="shop-card-details"><h3>${outfit.name}</h3>
         <button type="button" class="shop-card-action${canEquip ? ' shop-card-action-ready' : ''}${equipped ? ' shop-card-action-equipped' : ''}${affordable ? ' shop-card-action-available' : ''}" aria-pressed="${equipped}" ${canEquip || equipped ? '' : 'disabled'}>${shopActionContent(equipped ? 'Equipado' : canEquip ? 'Equipar' : affordable ? 'Disponible' : 'Desbloquear', displayPrice, equipped || canEquip || affordable ? 'check' : 'lock')}</button>
       </div>`;

@@ -143,3 +143,24 @@ test('the goal rail places every regular reward by cost and names the next one',
   assert.equal(eventCountdown(new Date(2026, 9, 30, 12)), 'Quedan 1 día y 12 h');
   assert.equal(eventCountdown(new Date(2026, 9, 31, 20)), 'Quedan 4 h');
 });
+
+test('Halloween rewards follow the admin toggle and disappear when it is off', () => {
+  const previous = globalThis.document;
+  globalThis.document = { createElement: node };
+  try {
+    const elements = new Map();
+    const page = node();
+    page.querySelector = selector => {
+      if (!elements.has(selector)) elements.set(selector, node());
+      return elements.get(selector);
+    };
+    renderRewards(page, 500, new Date(2026, 9, 23), false);
+    assert.equal(page.dataset.halloween, 'false');
+    assert.doesNotMatch(page.innerHTML, /rewards-featured|Exclusivos de Halloween|halloween-topitin/);
+    assert.equal(page.querySelector('.rewards-grid-featured').children.length, 0);
+    assert.equal(page.querySelector('.rewards-grid-collection').children.length, 5);
+    renderRewards(page, 500, new Date(2026, 9, 23), true);
+    assert.equal(page.dataset.halloween, 'true');
+    assert.match(page.innerHTML, /Exclusivos de Halloween/);
+  } finally { globalThis.document = previous; }
+});

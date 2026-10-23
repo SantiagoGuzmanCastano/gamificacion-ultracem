@@ -226,7 +226,7 @@
 .shop-stage-caption span { color: #8fdcef; font-size: .78rem; font-weight: 700; }
 .shop-stage-caption strong { font-size: .98rem; text-align: right; overflow-wrap: anywhere; }
 .shop-try { position: relative; display: grid; place-items: center; width: 100%; border: 0; border-radius: 0; color: inherit; font: inherit; cursor: pointer; }
-.shop-try::after { content: 'Probar'; position: absolute; bottom: 10px; left: 50%; z-index: 2; translate: -50% 0; padding: 5px 12px; border-radius: 999px; background: rgb(3 34 56 / 86%); color: #fff; font-size: .74rem; font-weight: 750; opacity: 0; transition: opacity 150ms ease; }
+.shop-try::after { content: 'Probar'; position: absolute; bottom: 10px; left: 50%; z-index: 3; translate: -50% 0; padding: 5px 12px; border-radius: 999px; background: rgb(3 34 56 / 86%); color: #fff; font-size: .74rem; font-weight: 750; opacity: 0; transition: opacity 150ms ease; }
 .shop-try[aria-pressed="true"]::after { content: 'Probando'; background: #ffd124; color: #032238; opacity: 1; }
 .shop-try:focus-visible { outline: 3px solid #44cbe6; outline-offset: -6px; }
 .shop-try:focus-visible::after { opacity: 1; }
@@ -243,6 +243,19 @@
   .shop-stage-pedestal { bottom: 50px; }
   .shop-stage-art { margin-bottom: 40px; }
 }
+
+/* Tarjetas: el borde del marco coincide con el borde de la tarjeta (sin franja por
+   fuera), la foto se funde con los datos y un destello recorre la ilustración. */
+.shop-page .shop-card { overflow: visible; border-radius: 4px; }
+.shop-page .shop-card-frame { inset: -2px; }
+.shop-page .shop-artwork { overflow: hidden; border-radius: 4px 4px 0 0;
+  background: radial-gradient(ellipse 58% 46% at 50% 62%, rgb(255 255 255 / 16%), transparent 72%), var(--card-surface); }
+.shop-page .shop-artwork::before { mask-image: linear-gradient(180deg, #000 62%, transparent); }
+.shop-page .shop-artwork img { z-index: 1; filter: drop-shadow(0 12px 10px rgb(0 24 48 / 28%)); }
+.shop-page .shop-try .shop-try-shine { position: absolute; inset: 0; z-index: 2; background: linear-gradient(105deg, transparent 40%, rgb(255 255 255 / 30%) 50%, transparent 60%); transform: translateX(calc(var(--card-sheen, -140) * 1%)); pointer-events: none; }
+.shop-page .shop-card .shop-card-details { border-top: 0; border-radius: 0 0 4px 4px; background: linear-gradient(180deg, transparent, rgb(6 59 103 / 4%)) var(--card-surface); }
+:root[data-theme="dark"] .shop-page .shop-card .shop-card-details { background: linear-gradient(180deg, transparent, rgb(0 0 0 / 14%)) var(--card-surface); }
+.shop-page .shop-card h3 { letter-spacing: -.01em; }
 
 /* Light storefront: isolated from dark mode and seasonal cards. */
 :root:not([data-theme="dark"]) .shop-page {
@@ -297,7 +310,7 @@
   border-color: var(--shop-border);
   box-shadow: 0 6px 18px rgb(6 59 103 / 9%);
 }
-:root:not([data-theme="dark"]) .shop-page .shop-card:not(.shop-card-halloween) .shop-artwork { background: #eaf4fc; }
+:root:not([data-theme="dark"]) .shop-page .shop-card:not(.shop-card-halloween) .shop-artwork { background: radial-gradient(ellipse 58% 46% at 50% 62%, #fff, transparent 72%), #eaf4fc; }
 :root:not([data-theme="dark"]) .shop-page .shop-card:not(.shop-card-halloween) .shop-artwork::before { opacity: .22; }
 :root:not([data-theme="dark"]) .shop-page .shop-card:not(.shop-card-halloween) .shop-card-details {
   background: #fff;

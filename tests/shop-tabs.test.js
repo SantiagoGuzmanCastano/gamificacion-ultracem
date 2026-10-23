@@ -80,7 +80,7 @@ test('Halloween refresh stays inside the outfit panel and existing equip callbac
   const tabs = page.querySelectorAll('[role="tab"]');
   assert.equal(tabs.length, 3);
   tabs[1].click();
-  renderHalloweenCollection(page, true, 'classic', 2, skin => equipped.push(skin));
+  renderHalloweenCollection(page, true, 'classic', 0, skin => equipped.push(skin), 100);
   const panel = page.querySelectorAll('[role="tabpanel"]')[0];
   assert.equal(panel.hidden, true);
   assert.ok(panel.querySelector('#halloween-collection'));
@@ -95,16 +95,18 @@ test('cards expose honest equipped, available, locked and upcoming states', () =
   assert.equal(page.querySelector('.shop-card-clasico').querySelector('.shop-card-action').getAttribute('aria-pressed'), 'true');
   assert.equal(page.querySelector('.shop-card-esqueleto').querySelector('.shop-card-action').getAttribute('disabled'), '');
   assert.equal(page.querySelector('.shop-card-playero').querySelectorAll('.shop-card-state').length, 0);
-  renderShop(page, 2, true, 'classic');
+  renderShop(page, 0, true, 'classic', () => {}, 100);
   assert.equal(page.querySelector('.shop-card-esqueleto').querySelector('.shop-card-action').getAttribute('disabled'), undefined);
 }));
 
-test('shop displays sample point costs and a real point balance without changing legacy equip rules', () => setup(page => {
+test('shop displays sample point costs and a real point balance, and 100 points unlock the skeleton', () => setup(page => {
   renderShop(page, 0, true, 'classic', () => {}, 275);
   assert.match(page.innerHTML, /<h1[^>]*>Tienda de cosméticos<\/h1>/);
   assert.match(page.innerHTML, /275/);
   assert.doesNotMatch(page.innerHTML, /Ventas confirmadas|Próximamente|Precio por definir/);
-  assert.match(page.querySelector('.shop-card-esqueleto').innerHTML, /100 puntos/);
+  assert.match(page.querySelector('.shop-card-esqueleto').innerHTML, /<span class="shop-action-copy">Equipar<\/span>/);
+  renderShop(page, 5, true, 'classic', () => {}, 50);
+  assert.match(page.querySelector('.shop-card-esqueleto').innerHTML, /<span class="shop-action-copy">100 puntos<\/span>/);
   for (const card of page.querySelectorAll('.shop-card')) assert.doesNotMatch(card.innerHTML || '', /ventas|Próximamente/);
 }));
 

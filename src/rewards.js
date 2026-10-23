@@ -1,5 +1,5 @@
 import { advisorIcon } from './advisor-icons.js';
-import { revealCards } from './store-entrance.js';
+import { revealCards, ticketParts } from './store-entrance.js';
 
 export const rewardCategories = [
   ['all', 'Todos'], ['fun', 'Entretenimiento'], ['shop', 'Compras'], ['money', 'Dinero'], ['time', 'Tiempo libre'],
@@ -88,10 +88,12 @@ export function rewardRail(points, collection = rewards.filter(reward => !reward
 
 let selectedCategory = 'all';
 
-export function renderRewards(page, profilePoints, now = new Date()) {
+// Los premios de Halloween siguen el mismo interruptor del admin que la tienda de cosméticos.
+export function renderRewards(page, profilePoints, now = new Date(), halloweenEnabled = true) {
   const points = rewardPoints(profilePoints);
   const rail = rewardRail(points);
   page.className = 'rewards-page';
+  page.dataset.halloween = String(halloweenEnabled);
   page.innerHTML = `
     <header class="shop-heading rewards-heading">
       <div class="rewards-heading-copy"><p class="shop-eyebrow">Un premio para cada logro</p>
@@ -108,6 +110,7 @@ export function renderRewards(page, profilePoints, now = new Date()) {
         </div>
       </div>
     </header>
+    ${halloweenEnabled ? `
     <section class="rewards-featured halloween-collection" aria-labelledby="rewards-featured-title">
       <div class="halloween-backdrop" aria-hidden="true"></div><div class="halloween-content">
       <div><span class="rewards-tag">Exclusivo</span><h2 id="rewards-featured-title">Exclusivos de Halloween</h2>
@@ -121,6 +124,7 @@ export function renderRewards(page, profilePoints, now = new Date()) {
         ${now.getMonth() === 9 ? '<div class="halloween-decoration" aria-hidden="true"><img class="halloween-mascot" src="/shop/halloween-topitin.webp" alt="" width="1389" height="1132" loading="lazy" decoding="async"></div>' : ''}
       </div></div>
     </section>
+` : ''}
     <section class="shop-collection" aria-labelledby="rewards-collection-title">
       <div class="shop-collection-heading"><div><h2 id="rewards-collection-title">Colección de premios</h2>
         <p id="rewards-concept-note">Vista conceptual. Prueba cualquier bono: no descontamos puntos ni enviamos correos.</p></div>
@@ -132,7 +136,7 @@ export function renderRewards(page, profilePoints, now = new Date()) {
     <aside class="shop-note"><span aria-hidden="true">✦</span><p><strong>Cada paso cuenta.</strong> Sigue completando tus tareas y descubre el próximo premio.</p></aside>
     <p class="rewards-legal">Premios de demostración. Los puntos no se convierten en dinero en esta etapa del MVP.</p>`;
 
-  appendRewardCards(page.querySelector('.rewards-grid-featured'), rewards.filter(reward => reward.featured), points);
+  if (halloweenEnabled) appendRewardCards(page.querySelector('.rewards-grid-featured'), rewards.filter(reward => reward.featured), points);
   const filters = page.querySelector('.rewards-filters');
   const paintCollection = (animate = false) => {
     const visible = filterRewards(selectedCategory);
@@ -140,7 +144,7 @@ export function renderRewards(page, profilePoints, now = new Date()) {
     page.querySelector('.rewards-grid-collection').replaceChildren();
     appendRewardCards(page.querySelector('.rewards-grid-collection'), visible, points);
     filters.querySelectorAll('button').forEach(control => control.setAttribute('aria-pressed', String(control.dataset.category === selectedCategory)));
-    if (animate) revealCards([...page.querySelector('.rewards-grid-collection').children]);
+    if (animate) revealCards([...page.querySelector('.rewards-grid-collection').children], ticketParts);
   };
   for (const [category, label] of rewardCategories) {
     const control = document.createElement('button');

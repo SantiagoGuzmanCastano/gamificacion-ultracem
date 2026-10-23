@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { getMonthlyTons, getSalesStreak, getWeeklySales } from '../src/advisor-metrics.js';
+import { getMonthlyTons, getRankingGap, getSalesStreak, getTodaySales, getWeeklySales } from '../src/advisor-metrics.js';
 
 const advisorId = 'advisor-1';
 const now = new Date(2026, 9, 21, 12);
@@ -48,4 +48,30 @@ test('calcula una racha de días consecutivos que termina hoy', () => {
 
   assert.equal(getSalesStreak(sales, advisorId, now), 3);
   assert.equal(getSalesStreak(sales.slice(1), advisorId, now), 0);
+});
+
+test('la semana también suma toneladas por día', () => {
+  const sales = [sale(new Date(2026, 9, 19, 8), 12.5), sale(new Date(2026, 9, 19, 14), 7.5), sale(new Date(2026, 9, 21, 11), 4)];
+  assert.deepEqual(getWeeklySales(sales, advisorId, now).map(day => day.tons), [20, 0, 4, 0, 0, 0, 0]);
+});
+
+test('resume solo las ventas confirmadas de hoy', () => {
+  const sales = [
+    sale(new Date(2026, 9, 21, 8), 6),
+    sale(new Date(2026, 9, 21, 15), 4.5),
+    sale(new Date(2026, 9, 20, 15), 30),
+    sale(new Date(2026, 9, 21, 9), 9, { confirmed: false }),
+  ];
+  assert.deepEqual(getTodaySales(sales, advisorId, now), { count: 2, tons: 10.5 });
+});
+
+test('calcula las ventas para subir de puesto o la ventaja del primero', () => {
+  const rows = [
+    { advisor_id: 'a', position: 1, confirmed_sales: 9 },
+    { advisor_id: advisorId, position: 2, confirmed_sales: 4 },
+    { advisor_id: 'c', position: 3, confirmed_sales: 2 },
+  ];
+  assert.deepEqual(getRankingGap(rows, advisorId), { kind: 'climb', target: 1, value: 6 });
+  assert.deepEqual(getRankingGap(rows, 'a'), { kind: 'lead', value: 5 });
+  assert.equal(getRankingGap(rows, 'nadie'), null);
 });

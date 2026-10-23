@@ -73,16 +73,21 @@ export function getWeeklySales(sales, advisorId, now = new Date()) {
   const monday = new Date(today);
   monday.setDate(today.getDate() - mondayOffset);
   const counts = Array(7).fill(0);
+  const tons = Array(7).fill(0);
 
   for (const sale of confirmedSales(sales, advisorId)) {
     const day = startOfLocalDay(sale.confirmed_at);
     const index = Math.round((day - monday) / DAY_MS);
-    if (index >= 0 && index < 7) counts[index] += 1;
+    if (index >= 0 && index < 7) {
+      counts[index] += 1;
+      tons[index] += Number(sale.tons_sold || 0);
+    }
   }
 
   return WEEK_LABELS.map((label, index) => ({
     label,
     count: counts[index],
+    tons: tons[index],
     date: new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + index),
   }));
 }
@@ -98,4 +103,24 @@ export function getSalesStreak(sales, advisorId, now = new Date()) {
   }
 
   return streak;
+}
+
+export function getTodaySales(sales, advisorId, now = new Date()) {
+  const today = localDayKey(now);
+  const list = confirmedSales(sales, advisorId).filter(sale => localDayKey(sale.confirmed_at) === today);
+  return { count: list.length, tons: list.reduce((total, sale) => total + Number(sale.tons_sold || 0), 0) };
+}
+
+// Cuántas ventas faltan para subir un puesto o, si va de primero, cuánta ventaja lleva.
+export function getRankingGap(rows, advisorId) {
+  const own = rows.find(row => row.advisor_id === advisorId);
+  if (!own) return null;
+  const sold = Number(own.confirmed_sales || 0);
+  if (own.position === 1) {
+    const next = rows.find(row => row.position === 2);
+    return { kind: 'lead', value: Math.max(0, sold - Number(next?.confirmed_sales || 0)) };
+  }
+  const ahead = rows.find(row => row.position === own.position - 1);
+  if (!ahead) return null;
+  return { kind: 'climb', target: own.position - 1, value: Math.max(1, Number(ahead.confirmed_sales || 0) - sold + 1) };
 }
