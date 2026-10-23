@@ -94,6 +94,11 @@
 .profile-upload-status:empty { display: none; }
 .profile-session, .profile-danger { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 28px 0; }
 .profile-session > .profile-action, .profile-danger > .profile-action { flex-shrink: 0; }
+.profile-appearance { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 28px 0; border-bottom: 1px solid var(--dashboard-line); }
+.profile-theme-options { display: inline-flex; flex-shrink: 0; gap: 4px; padding: 4px; border: 1px solid var(--dashboard-line); border-radius: 999px; background: var(--dashboard-inset); }
+.advisor-shell .profile-theme-options .profile-theme-option { min-height: 36px; padding: 7px 16px; border: 0; border-radius: 999px; background: transparent; color: var(--dashboard-muted); font-size: .82rem; font-weight: 750; box-shadow: none; cursor: pointer; }
+.advisor-shell .profile-theme-options .profile-theme-option.is-active { background: var(--dashboard-panel); color: var(--dashboard-ink); box-shadow: 0 1px 4px rgb(0 20 37 / 14%); }
+.advisor-shell .profile-theme-options .profile-theme-option:focus-visible { outline: 2px solid var(--dashboard-blue); outline-offset: 2px; }
 .profile-danger { align-items: start; border-top: 1px solid var(--dashboard-line); padding-top: 28px; }
 .profile-danger h2 { color: var(--profile-danger); }
 :root[data-theme="dark"] .profile-page { --profile-danger: #ffb1bc; --profile-danger-line: #8c4554; --profile-danger-hover: #3d2433; }
@@ -113,6 +118,7 @@
   .profile-progression { padding: 0 24px 24px; }
   .profile-photo-settings { padding: 24px; }
   .profile-session, .profile-danger { flex-direction: column; align-items: flex-start; gap: 16px; padding: 24px 0; }
+  .profile-appearance { flex-direction: column; align-items: flex-start; gap: 16px; padding: 24px 0; }
   .profile-photo-controls { width: 100%; }
   .profile-photo-picker, .profile-photo-controls > .profile-action { flex: 1 1 auto; }
   .profile-photo-picker .profile-action { width: 100%; }
@@ -455,7 +461,16 @@
 .advisor-map-error { background: #4a1825; color: #ffd8e1; }
 .map-glass { position: absolute; z-index: 3; border: 1px solid #1f4a6d; border-radius: 14px; background: rgb(3 18 34 / 80%); color: #e8f3ff; backdrop-filter: blur(6px); }
 .map-heat-legend { top: 14px; left: 14px; width: 230px; padding: 12px 14px; }
-.map-heat-legend strong { display: block; margin-bottom: 8px; font-size: .9rem; }
+.map-heat-legend strong { display: block; font-size: .9rem; }
+.map-heat-legend .map-heat-toggle { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; margin: 0 0 8px; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; box-shadow: none; cursor: pointer; }
+.map-heat-legend .map-heat-toggle:hover { scale: 1; }
+.map-heat-legend .map-heat-toggle:focus-visible { outline: 2px solid #79e5f4; outline-offset: 3px; border-radius: 4px; }
+.map-heat-chevron { width: 8px; height: 8px; flex: 0 0 auto; margin-top: 3px; border-right: 2px solid #a9c1d6; border-bottom: 2px solid #a9c1d6; rotate: -135deg; transition: rotate 200ms ease, margin 200ms ease; }
+.map-heat-legend { transition: width 220ms cubic-bezier(.23, 1, .32, 1); }
+.map-heat-legend.is-collapsed { width: auto; }
+.map-heat-legend.is-collapsed .map-heat-toggle { margin-bottom: 0; }
+.map-heat-legend.is-collapsed .map-heat-chevron { margin-top: -3px; rotate: 45deg; }
+.map-heat-legend.is-collapsed .map-heat-body { display: none; }
 .map-heat-ramp { height: 14px; border-radius: 7px; background: linear-gradient(90deg, #1450ff, #00c2ff, #3cff9a, #ffe14d, #ff8a1f, #ff2d2d); }
 .map-heat-labels { display: flex; justify-content: space-between; margin-top: 6px; color: #a9c1d6; font-size: .8rem; }
 .map-sold-key { display: flex; align-items: center; gap: 7px; margin-top: 8px; color: #e8f3ff; font-size: .8rem; }
@@ -519,7 +534,8 @@
 @media (max-width: 600px) {
   .advisor-map-canvas { height: clamp(460px, 74vh, 620px); }
   .map-heat-legend { top: 10px; left: 10px; width: 176px; padding: 8px 10px; }
-  .map-heat-legend strong { margin-bottom: 6px; font-size: .74rem; white-space: nowrap; }
+  .map-heat-legend strong { font-size: .74rem; white-space: nowrap; }
+  .map-heat-legend .map-heat-toggle { margin-bottom: 6px; }
   .map-heat-labels { font-size: .72rem; }
   .map-sold-key { margin-top: 5px; font-size: .72rem; }
   .map-heat-ramp { height: 10px; }

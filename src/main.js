@@ -63,13 +63,20 @@ let profileKeyboardNavigation = false;
 let notificationChannel = null;
 let notificationCenter = null;
 const dismissedNotificationIds = new Set();
-// Sin selector manual: el tema sigue la preferencia clara/oscura del dispositivo.
+// Tema: «system» sigue al dispositivo; claro u oscuro se eligen en Perfil › Apariencia.
 const darkSchemeQuery = window.matchMedia('(prefers-color-scheme: dark)');
-document.documentElement.dataset.theme = darkSchemeQuery.matches ? 'dark' : 'light';
-darkSchemeQuery.addEventListener('change', event => {
-  document.documentElement.dataset.theme = event.matches ? 'dark' : 'light';
-  render();
-});
+let themeMode = 'system';
+try { themeMode = ['light', 'dark'].includes(localStorage.getItem('ultracem-theme-mode')) ? localStorage.getItem('ultracem-theme-mode') : 'system'; } catch { /* sin almacenamiento: sigue al dispositivo */ }
+const applyTheme = () => { document.documentElement.dataset.theme = themeMode === 'system' ? (darkSchemeQuery.matches ? 'dark' : 'light') : themeMode; };
+applyTheme();
+darkSchemeQuery.addEventListener('change', () => { if (themeMode === 'system') { applyTheme(); render(); } });
+function setThemeMode(mode) {
+  themeMode = mode;
+  try { localStorage.setItem('ultracem-theme-mode', mode); } catch { /* solo dura esta sesión */ }
+  const update = () => { applyTheme(); render(); };
+  if (document.startViewTransition && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) document.startViewTransition(update);
+  else update();
+}
 const taskOrder = ['Preparar una visita', 'Contactar al cliente', 'Revisar una cotización', 'Planear el siguiente paso'];
 
 function el(tag, className = '', value = '') {
@@ -1323,7 +1330,7 @@ function advisorProgressPage(page) {
     });
 }
 function advisorProfilePage(page) {
-  renderAdvisorProfile(page, profile, { upload: uploadProfilePhoto, remove: removeProfilePhoto, signOut, deleteAccount }, profilePhotoSaving);
+  renderAdvisorProfile(page, profile, { upload: uploadProfilePhoto, remove: removeProfilePhoto, signOut, deleteAccount, theme: { mode: themeMode, set: setThemeMode } }, profilePhotoSaving);
   playProfileEntrance(page, profileKeyboardNavigation);
 }
 // Archivada: la pestaña Historial de clientes ya no aparece en la navegación.

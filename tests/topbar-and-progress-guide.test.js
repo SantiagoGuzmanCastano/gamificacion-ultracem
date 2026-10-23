@@ -4,8 +4,11 @@ import { readFileSync } from 'node:fs';
 
 const main = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
 
-test('theme follows the device and the notification bell lives in the top bar', () => {
-  assert.doesNotMatch(main, /theme-button|ultracem-theme/);
+test('theme lives in Perfil › Apariencia and the notification bell lives in the top bar', () => {
+  assert.doesNotMatch(main, /theme-button/);
+  assert.match(main, /theme: \{ mode: themeMode, set: setThemeMode \}/);
+  const profileView = readFileSync(new URL('../src/profile-view.js', import.meta.url), 'utf8');
+  for (const label of ['Automático', 'Claro', 'Oscuro']) assert.ok(profileView.includes(`'${label}'`));
   assert.match(main, /matchMedia\('\(prefers-color-scheme: dark\)'\)/);
   assert.match(main, /createNotificationCenter\(actions, \{/);
   const css = readFileSync(new URL('../src/notification-center.css', import.meta.url), 'utf8');
@@ -28,4 +31,11 @@ test('each advisor task opens a Topitín guide and the sidebar card drops the le
   assert.doesNotMatch(main, /profile-card-level/);
   const guide = readFileSync(new URL('../src/topitin-guide.js', import.meta.url), 'utf8');
   for (const title of ['Preparar una visita', 'Contactar al cliente', 'Revisar una cotización', 'Planear el siguiente paso']) assert.ok(guide.includes(`'${title}'`));
+});
+
+test('the map heat legend can be collapsed', () => {
+  const map = readFileSync(new URL('../src/advisor-map.js', import.meta.url), 'utf8');
+  assert.match(map, /class="map-heat-toggle" aria-expanded="true"/);
+  const css = readFileSync(new URL('../src/advisor.css', import.meta.url), 'utf8');
+  assert.match(css, /\.map-heat-legend\.is-collapsed \.map-heat-body \{ display: none; \}/);
 });

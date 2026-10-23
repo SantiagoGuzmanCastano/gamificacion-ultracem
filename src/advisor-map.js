@@ -448,10 +448,22 @@ export function createCityPin(count, label, progress = null) {
 
 const COMPASS_SVG = '<svg viewBox="-50 -50 100 100"><circle r="44" fill="none" stroke="#2c5677"/><path d="M0-40 8-8 40 0 8 8 0 40-8 8-40 0-8-8Z" fill="#c9dcef"/><path d="M0-40 8-8 0 0-8-8Z" fill="#fff"/><text y="-28" text-anchor="middle" fill="#dfeaf5" font-size="11">N</text><text y="37" text-anchor="middle" fill="#dfeaf5" font-size="11">S</text><text x="34" y="4" text-anchor="middle" fill="#dfeaf5" font-size="11">E</text><text x="-34" y="4" text-anchor="middle" fill="#dfeaf5" font-size="11">O</text></svg>';
 
+let heatLegendCollapsed = false;
+
 export function createMapOverlays() {
   const heatLegend = document.createElement('div');
   heatLegend.className = 'map-glass map-heat-legend';
-  heatLegend.innerHTML = '<strong>Toneladas por vender</strong><div class="map-heat-ramp"></div><div class="map-heat-labels"><span>Baja</span><span>Alta</span></div><span class="map-sold-key">Base dorada: vendidas</span>';
+  // El título es un botón que pliega la leyenda para dejar ver el mapa; se recuerda en la sesión.
+  heatLegend.innerHTML = '<button type="button" class="map-heat-toggle" aria-expanded="true" aria-controls="map-heat-body"><strong>Toneladas por vender</strong><span class="map-heat-chevron" aria-hidden="true"></span></button><div class="map-heat-body" id="map-heat-body"><div class="map-heat-ramp"></div><div class="map-heat-labels"><span>Baja</span><span>Alta</span></div><span class="map-sold-key">Base dorada: vendidas</span></div>';
+  const toggle = heatLegend.querySelector('.map-heat-toggle');
+  const setCollapsed = collapsed => {
+    heatLegend.classList.toggle('is-collapsed', collapsed);
+    toggle.setAttribute('aria-expanded', String(!collapsed));
+    toggle.setAttribute('aria-label', collapsed ? 'Mostrar leyenda de toneladas' : 'Ocultar leyenda de toneladas');
+    heatLegendCollapsed = collapsed;
+  };
+  setCollapsed(heatLegendCollapsed);
+  toggle.addEventListener('click', () => setCollapsed(!heatLegendCollapsed));
   const compass = document.createElement('div');
   compass.className = 'map-glass map-compass';
   compass.setAttribute('aria-hidden', 'true');
