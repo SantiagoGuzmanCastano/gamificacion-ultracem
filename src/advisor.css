@@ -426,6 +426,8 @@
 .map-heat-legend strong { display: block; margin-bottom: 8px; font-size: .9rem; }
 .map-heat-ramp { height: 14px; border-radius: 7px; background: linear-gradient(90deg, #1450ff, #00c2ff, #3cff9a, #ffe14d, #ff8a1f, #ff2d2d); }
 .map-heat-labels { display: flex; justify-content: space-between; margin-top: 6px; color: #a9c1d6; font-size: .8rem; }
+.map-sold-key { display: flex; align-items: center; gap: 7px; margin-top: 8px; color: #e8f3ff; font-size: .8rem; }
+.map-sold-key::before { content: ''; width: 12px; height: 12px; border-radius: 3px; background: #ffc928; box-shadow: 0 0 8px rgb(255 201 40 / 60%); }
 .map-compass { top: 14px; right: 14px; width: 72px; height: 72px; border-radius: 50%; display: grid; place-items: center; }
 .map-compass svg { width: 60px; height: 60px; transition: transform 120ms linear; }
 .map-state-legend { left: 14px; bottom: 14px; display: flex; gap: 14px; padding: 9px 14px; font-size: .88rem; }
@@ -487,15 +489,16 @@
   .map-heat-legend { top: 10px; left: 10px; width: 176px; padding: 8px 10px; }
   .map-heat-legend strong { margin-bottom: 6px; font-size: .74rem; white-space: nowrap; }
   .map-heat-labels { font-size: .72rem; }
+  .map-sold-key { margin-top: 5px; font-size: .72rem; }
   .map-heat-ramp { height: 10px; }
   .map-compass { top: 10px; right: 10px; width: 48px; height: 48px; }
   .map-compass svg { width: 40px; height: 40px; }
   .map-geo-label { font-size: 14px; }
   .map-geo-label-sea { display: none; }
-  .map-state-legend { left: 10px; bottom: auto; top: 92px; gap: 10px; padding: 6px 10px; font-size: .78rem; }
+  .map-state-legend { left: 10px; bottom: auto; top: 122px; gap: 10px; padding: 6px 10px; font-size: .78rem; }
   .map-target-card, .map-zone-card { left: 10px; right: 10px; bottom: 34px; width: auto; padding: 10px 12px; }
   .map-target-reason { font-size: .82rem; }
-  .advisor-map-warning { bottom: auto; top: 132px; left: 10px; }
+  .advisor-map-warning { bottom: auto; top: 162px; left: 10px; }
 }
 /* PRD · oportunidad por zona (asesor y admin). Estado siempre con ícono y texto. */
 .zone-list { margin-top: 18px; padding: 20px 22px; border: 1px solid var(--dashboard-line, var(--line)); border-radius: 16px; background: var(--dashboard-panel, transparent); }
@@ -514,6 +517,28 @@
 .zone-status[data-status="attack"] { color: #e0793a; }
 .zone-status[data-status="defend"] { color: #3f9d72; }
 .zone-item-defend { opacity: .85; }
+/* Nubes: manchas suaves que cruzan muy despacio; no tapan nada importante ni reciben clics. */
+.map-clouds { position: absolute; inset: 0; z-index: 2; overflow: hidden; pointer-events: none; }
+.map-clouds span { position: absolute; width: 46%; height: 30%; border-radius: 50%; background: radial-gradient(closest-side, rgb(220 235 255 / 13%), rgb(220 235 255 / 0)); filter: blur(6px); }
+.map-clouds span:nth-child(1) { top: 8%; left: -10%; }
+.map-clouds span:nth-child(2) { top: 38%; left: 30%; width: 38%; height: 24%; opacity: .8; }
+.map-clouds span:nth-child(3) { top: 62%; left: 64%; width: 50%; }
+.map-clouds span:nth-child(4) { top: 20%; left: 78%; width: 30%; height: 20%; opacity: .7; }
+@media (prefers-reduced-motion: no-preference) {
+  .map-clouds span { animation: map-cloud-drift 90s linear infinite; }
+  .map-clouds span:nth-child(2) { animation-duration: 120s; animation-delay: -40s; }
+  .map-clouds span:nth-child(3) { animation-duration: 105s; animation-delay: -70s; }
+  .map-clouds span:nth-child(4) { animation-duration: 140s; animation-delay: -20s; }
+}
+@keyframes map-cloud-drift { from { translate: -30% 0; } to { translate: 160% -8%; } }
+/* Zona bloqueada: aviso de videojuego con candado y la recompensa en dorado. */
+.map-state-locked::before { background: repeating-linear-gradient(135deg, #3b4b5e 0 2px, #0d1724 2px 4px); }
+.advisor-map-container .maplibregl-popup-content:has(.map-locked-popup) { padding: 14px 16px; border: 1px solid #ff7598; border-radius: 12px; background: #071423; color: #e8f3ff; box-shadow: 0 0 22px rgb(255 117 152 / 25%); }
+.map-locked-popup { max-width: 250px; }
+.map-locked-popup strong { display: block; font-size: .95rem; }
+.map-locked-popup strong::before { content: '🔒 '; }
+.map-locked-popup p { margin: 6px 0 0; color: #c9dcef; font-size: .84rem; line-height: 1.45; }
+.map-locked-popup .map-locked-reward { color: #ffd76a; font-weight: 700; }
 .advisor-map-container .maplibregl-popup-content { color: #102f49; }
 .advisor-map-container .maplibregl-popup-close-button { color: #102f49; }
 .client-history-list { display: grid; gap: 12px; }
