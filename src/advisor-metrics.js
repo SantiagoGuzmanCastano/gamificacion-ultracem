@@ -12,6 +12,21 @@ export function getClientSaleState(client, sales) {
   return client.tasks.length === 4 && client.tasks.every(task => task.completed) ? 'ready' : 'pending';
 }
 
+export function getClientHistoryStatus(client, sales) {
+  const completed = client.tasks.filter(task => task.completed).length;
+  const percentage = client.tasks.length ? Math.round(completed / client.tasks.length * 100) : 0;
+  const state = getClientSaleState(client, sales);
+  return {
+    label: state === 'confirmed' ? 'Venta confirmada' : state === 'ready' ? 'Listo para venta' : 'Pendiente',
+    percentage,
+    current: state !== 'confirmed',
+  };
+}
+
+export function isCurrentClient(client, sales) {
+  return getClientHistoryStatus(client, sales).current;
+}
+
 export function getPortfolioProgress(clients, sales) {
   const tasks = clients.flatMap(client => client.tasks);
   const completed = tasks.filter(task => task.completed).length;
