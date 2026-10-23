@@ -1,7 +1,9 @@
 import './style.css';
 import './shop.css';
 import './advisor.css';
+import './rewards.css';
 import { renderShop, renderHalloweenCollection } from './shop.js';
+import { renderRewards } from './rewards.js';
 import { createClient } from '@supabase/supabase-js';
 import { getMascotStateForCurrentClient, getProgress, getXp, isTaskCompletionConfirmed } from './game.js';
 import { mascotImages, mascotLabels } from './mascot.js';
@@ -240,7 +242,7 @@ function shell() {
     nav.replaceChildren();
     const mobileNav = el('nav', 'advisor-nav');
     mobileNav.setAttribute('aria-label', 'Portal del asesor');
-    for (const [view, label, icon] of [['dashboard', 'Inicio', 'home'], ['history', 'Historial clientes', 'clients'], ['map', 'Mapa clientela', 'map'], ['shop', 'Tienda', 'shop'], ['profile', 'Perfil', 'profile']]) {
+    for (const [view, label, icon] of [['dashboard', 'Inicio', 'home'], ['history', 'Historial clientes', 'clients'], ['map', 'Mapa clientela', 'map'], ['shop', 'Tienda', 'shop'], ['rewards', 'Premios', 'gift'], ['profile', 'Perfil', 'profile']]) {
       for (const [container, className] of [[nav, 'sidebar-item'], [mobileNav, '']]) {
         const control = button(label, className, event => navigate(view, event));
         const navIcon = el('span', 'advisor-nav-icon');
@@ -1023,6 +1025,7 @@ function render() {
   else if (profile.role === 'admin' && adminView === 'shop') renderShop(page, sales.filter(sale => sale.confirmed).length, halloweenReady && halloweenEnabled, profile.equipped_skin, equipSkin);
   else if (profile.role === 'admin') adminPage(page);
   else if (advisorView === 'shop') renderShop(page, sales.filter(sale => sale.advisor_id === user?.id && sale.confirmed).length, halloweenReady && halloweenEnabled, profile.equipped_skin, equipSkin);
+  else if (advisorView === 'rewards') renderRewards(page, sales.filter(sale => sale.advisor_id === user?.id && sale.confirmed).length);
   else if (advisorView === 'history') advisorHistoryPage(page);
   else if (advisorView === 'map') advisorMapPage(page);
   else if (advisorView === 'profile') advisorProfilePage(page);
