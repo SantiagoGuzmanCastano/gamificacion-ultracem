@@ -173,3 +173,73 @@ Este documento registra las decisiones que cambiaron el alcance o la implementac
 **Decisión elegida:** la clave queda fuera del frontend y la función devuelve una recomendación de máximo 25 palabras. La integración se puede activar configurando secretos sin cambiar la interfaz.
 
 **Conclusión:** el MVP tiene una demostración de IA acotada y segura, sin construir todavía un sistema de recomendaciones avanzado.
+
+## Decisión 18: pantalla de carga de `main` y sin bienvenida
+
+**Propuesta de la persona usuaria:** al fusionar `main` en `interfaz`, usar la pantalla de carga de `main` y no mostrar la bienvenida animada.
+
+**Propuesta del asistente:** quedarse con el `main.js` de `main` y conservar solo el modo demo de `interfaz`.
+
+**Decisión elegida:** la pantalla de carga con cemento de `main` queda en el flujo. La bienvenida y el loader de `interfaz` se eliminaron, junto con `animaciones.md`.
+
+**Conclusión:** un solo loader y menos animación al entrar, como pide la guía (§14).
+
+## Decisión 19: cofres arcade solo visuales
+
+**Propuesta de la persona usuaria:** agregar tarjetas con cofres debajo de las skins en la tienda, con estilo arcade.
+
+**Propuesta del asistente:** tres cofres en pixel art (Bronce, Plata y Oro) con precios de muestra en ventas confirmadas (5, 15 y 30) y el botón "Próximamente".
+
+**Decisión elegida:** los cofres no se abren ni guardan nada; las imágenes son SVG livianos en `public/shop/chests/`.
+
+**Conclusión:** la tienda muestra la idea sin tocar Supabase ni prometer premios.
+
+## Decisión 20: mapa de calor de oportunidad
+
+**Propuesta de la persona usuaria:** un mapa de calor que muestre zonas de oportunidad de mercado.
+
+**Propuesta del asistente:** como no hay datos de mercado por departamento, medir el calor con las toneladas pedidas por clientes sin venta confirmada (opción A).
+
+**Decisión elegida:** opción A sobre el mapa de `main` (MapLibre), con leyenda propia. El mapa con Leaflet de `interfaz` se guardó en la rama local `wip/mapa-leaflet`.
+
+**Conclusión:** el mapa señala dónde hay cierres pendientes sin inventar cifras.
+
+## Decisión 21: racha viva, Topitín que habla y racha desde ayer
+
+**Propuesta de la persona usuaria:** fuego de la racha con movimiento y Topitín hablando, estilo Duolingo, cuando hay mala racha.
+
+**Propuesta del asistente:** mala racha = 0 días; la llama titila con racha y queda gris en 0; una franja con Topitín y dos botones sale una vez por sesión. Además, la racha cuenta desde ayer si hoy todavía no hay venta.
+
+**Decisión elegida:** todo lo anterior, con tres mensajes amables que no regañan ni comparan, y respeto por "reducir movimiento".
+
+**Conclusión:** la racha ya no se pierde cada mañana y el ánimo aparece solo cuando hace falta.
+
+## Decisión 22: perfil con progreso y semáforo de asesores
+
+**Propuesta de la persona usuaria:** mejorar el perfil y la vista de asesores del administrador.
+
+**Propuesta del asistente:** perfil con "Tu progreso", Topitín con su skin y tres logros con datos reales; en el admin, una tarjeta por asesor con el semáforo del PRD sobre una meta mensual de 100 t (≥100 % cumple, 80–99 % en riesgo, <80 % crítico) y los borrados dentro de "Gestionar".
+
+**Decisión elegida:** se implementa así. "Limpiar tareas" solo aparece con la venta confirmada (corrige el punto frágil n.º 3). Las toneladas de muestra se ajustaron para que la demo muestre los tres estados.
+
+**Conclusión:** el perfil y el admin muestran avance real, y el color siempre va con ícono y texto.
+
+## Decisión 23: recordatorio amable y celebraciones sobrias
+
+**Propuesta de la persona usuaria:** mejorar lo simple del flujo principal siguiendo la guía.
+
+**Propuesta del asistente:** recordatorio amable (V5) después de las 14:00 si hoy no hay tareas completadas; confeti de tarea de 36 a 12 piezas; destello dorado de 1,1 s en lugar de la lluvia de 96 piezas al vender; porcentajes con formato "50 %".
+
+**Decisión elegida:** se implementa así. La hora de corte (14:00) sigue siendo Propuesta.
+
+**Conclusión:** el flujo cumple mejor §14 ("sin confeti saturado") y el PRD (V5), sin datos inventados.
+
+## Decisión 24: mapa de calor 3D y oportunidad por zona
+
+**Propuesta de la persona usuaria:** convertir Mapa clientela en un mapa de calor menos plano, parecido a la referencia (vista 3D, relieve, brillo, brújula y leyendas), con animación al abrirlo; gamificarlo con la "Zona objetivo de hoy" y pines con progreso; y agregar la oportunidad por zona del PRD (participación actual y objetivo, brecha, oportunidad en toneladas, clientes totales, atendidos y por atender; orden de mayor a menor oportunidad y "Defender" al final).
+
+**Propuesta del asistente:** mantener MapLibre de `main`; simular la losa 3D con copias desplazadas (una extrusión tapa el calor); relieve de AWS Terrain Tiles agregado después de cargar; vecinos de Natural Earth (dominio público); entrada de ~1,6 s una vez por sesión; zona = departamento, objetivo = 10 %, atendido = con venta confirmada.
+
+**Decisión elegida:** se implementa así. El mercado por zona sale de `public/data/zone-market.json`, marcado como **Muestra** (totales iguales al PRD: 7,83 %) hasta tener el archivo real. La zona objetivo de hoy es la primera zona en "Atacar". El asesor ve sus zonas bajo el mapa y el admin ve todas. La tienda de `main` reemplazó a los cofres arcade (Decisión 19).
+
+**Conclusión:** el mapa muestra dónde atacar con cifras explicadas y sin exponer a nadie; falta reemplazar el reparto de muestra por datos reales.

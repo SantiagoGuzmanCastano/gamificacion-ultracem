@@ -12,21 +12,28 @@ function setup(reduced = false) {
   const api = runInNewContext(`${source}\n({ celebrateTask, celebrateSale, clearAdvisorEffects });`, {
     window: { innerWidth: 1280, innerHeight: 800, matchMedia: () => ({ matches: reduced }) },
     document: { createElement, body: { append(layer) { layers.push(layer); } } },
-    gsap: { set: (node, position) => positions.push(position), timeline: () => ({ to() { return this; }, kill() { killed++; } }) },
+    gsap: { set: (node, position) => positions.push(position), timeline: () => {
+      let total = 0;
+      const add = vars => { total += vars?.duration || 0; flashDurations.push(total); };
+      return { to(node, vars) { add(vars); return this; }, fromTo(node, from, vars) { add(vars); return this; }, kill() { killed++; } };
+    } },
   });
   return { api, layers, positions, killed: () => killed };
 }
+const flashDurations = [];
 
-test('task celebration bursts from the button and sale celebration rains across the viewport', () => {
+// §14 de CLAUDE.md: sin confeti saturado. Tarea = ráfaga corta; venta = destello dorado de menos de 1,5 s.
+test('task celebration is a small burst and sale celebration is a short golden flash', () => {
   const { api, layers, positions, killed } = setup();
   api.celebrateTask({ x: 120, y: 240 });
-  assert.equal(layers[0].children.length, 36);
+  assert.equal(layers[0].children.length, 12);
   assert.equal(positions[0].x, 120);
   assert.equal(positions[0].y, 240);
   api.celebrateSale();
   assert.equal(layers[0].removed, true);
-  assert.equal(layers[1].children.length, 96);
-  assert.equal(positions[36].y, -20);
+  assert.match(layers[1].className, /advisor-sale-flash/);
+  assert.equal(layers[1].children.length, 0);
+  assert.ok(flashDurations.at(-1) < 1.5);
   api.clearAdvisorEffects();
   assert.equal(layers[1].removed, true);
   assert.ok(killed() >= 2);

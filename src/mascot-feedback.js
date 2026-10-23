@@ -6,6 +6,10 @@ let bubble = null;
 
 export function getMascotFeedbackMessage(event, completedTasks = 1) {
   if (event === 'sale') return '¡Venta confirmada! ¡Buen trabajo!';
+  if (event === 'tap') {
+    const phrases = ['¡Hola! Aquí sigo contigo.', '¡Vamos por esa venta!', 'Cada paso cuenta.'];
+    return phrases[(Math.max(1, completedTasks) - 1) % phrases.length];
+  }
   if (event !== 'task') return null;
   const messages = ['¡Primer paso completado!', '¡Cada paso cuenta!', '¡Vas con todo!', '¡Buen trabajo! Ya puedes confirmar la venta.'];
   return messages[Math.min(3, Math.max(0, completedTasks - 1))];
