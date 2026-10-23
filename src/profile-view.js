@@ -1,5 +1,6 @@
 import { gsap } from 'gsap';
 import { advisorIcon } from './advisor-icons.js';
+import { getLevelProgress } from './game.js';
 
 let entrance = null;
 let entered = false;
@@ -127,6 +128,28 @@ export function renderAdvisorProfile(page, profile, actions, busy = false, progr
   role.append(roleIcon, element('span', '', profile.role === 'advisor' ? 'Asesor comercial' : 'Administrador'));
   copy.append(role);
   identity.append(createProfileAvatar(profile, 'profile-page-avatar'), copy);
+  if (profile.role === 'advisor') {
+    const levelProgress = getLevelProgress(profile.level, profile.progression_sales);
+    const progression = element('section', 'profile-progression');
+    progression.setAttribute('aria-label', 'Progreso del asesor');
+    const heading = element('h3', '', 'Progreso del asesor');
+    const values = element('div', 'profile-progression-values');
+    const level = element('div', 'profile-progression-value');
+    const levelIcon = element('span', 'profile-progression-icon'); levelIcon.innerHTML = advisorIcon('trophy');
+    level.append(levelIcon, element('span', '', `Nivel ${levelProgress.level}`));
+    const points = element('div', 'profile-progression-value profile-progression-points');
+    const pointsIcon = element('span', 'profile-progression-icon'); pointsIcon.innerHTML = advisorIcon('sparkles');
+    points.append(pointsIcon, element('span', '', `${Number(profile.points || 0).toLocaleString('es-CO')} puntos`));
+    values.append(level, points);
+    const salesLabel = levelProgress.target
+      ? `${levelProgress.sales} de ${levelProgress.target} ventas para Nivel ${levelProgress.level + 1}`
+      : 'Nivel máximo inicial alcanzado';
+    const track = element('div', 'profile-progression-track');
+    const fill = element('span'); fill.style.width = `${levelProgress.percentage}%`;
+    track.append(fill);
+    progression.append(heading, values, element('p', 'profile-progression-sales', salesLabel), track);
+    panel.append(identity, progression);
+  } else panel.append(identity);
   const photo = element('div', 'profile-photo-settings');
   const description = element('div', 'profile-section-copy');
   const hint = element('p', '', 'JPG, PNG o WebP. Máximo 5 MB.');
@@ -143,7 +166,7 @@ export function renderAdvisorProfile(page, profile, actions, busy = false, progr
   const status = element('p', 'profile-upload-status', busy ? 'Guardando foto…' : '');
   status.setAttribute('role', 'status');
   photo.append(description, controls, status);
-  panel.append(identity, photo);
+  panel.append(photo);
   page.append(header, panel);
   if (profile.role !== 'advisor') return;
   if (progress) page.append(renderProgress(progress, actions.openShop));

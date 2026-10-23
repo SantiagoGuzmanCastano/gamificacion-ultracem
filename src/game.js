@@ -26,6 +26,18 @@ export function getXp(completedTasks) {
   return Math.max(0, completedTasks) * 10;
 }
 
+export function getLevelProgress(level = 1, progressionSales = 0) {
+  const currentLevel = Math.min(3, Math.max(1, Number(level) || 1));
+  const sales = Math.max(0, Number(progressionSales) || 0);
+  const target = currentLevel === 1 ? 1 : currentLevel === 2 ? 5 : null;
+  return {
+    level: currentLevel,
+    sales,
+    target,
+    percentage: target ? Math.min(100, Math.round((sales / target) * 100)) : 100,
+  };
+}
+
 export function isTaskCompletionConfirmed(result) {
   return result?.error == null && result?.data === true;
 }

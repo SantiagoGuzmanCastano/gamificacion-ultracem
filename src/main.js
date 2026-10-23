@@ -1,9 +1,13 @@
 import './style.css';
 import './shop.css';
 import './advisor.css';
+import './rewards.css';
+import './notification-center.css';
+import { createNotificationCenter } from './notification-center.js';
 import { renderShop, renderHalloweenCollection } from './shop.js';
+import { renderRewards } from './rewards.js';
 import { createClient } from '@supabase/supabase-js';
-import { getMascotStateForCurrentClient, getProgress, getXp, isTaskCompletionConfirmed } from './game.js';
+import { getMascotStateForCurrentClient, getProgress, getXp, getLevelProgress, isTaskCompletionConfirmed } from './game.js';
 import { mascotImages, mascotLabels } from './mascot.js';
 import { getMonthlyTons, getSalesStreak, getWeeklySales, getRankingSlots, getPortfolioProgress, getMonthlyGoal, getClientSaleState, getClientHistoryStatus, isCurrentClient, canClearCompletedTasks } from './advisor-metrics.js';
 import { advisorIcon } from './advisor-icons.js';
@@ -20,6 +24,7 @@ import { createProfileAvatar, createProfilePhotoPicker, renderAdvisorProfile, pl
 import { showLoadingScreen, clearLoadingScreen } from './loading-screen.js';
 import { attachRankingAvatars } from './ranking-avatars.js';
 import { COLOMBIA_DEPARTMENTS, citiesForDepartment, normalizeClientLocation } from './client-location.js';
+import { commissionSummary, getCommissionStatus } from './commission-wallet.js';
 
 // Modo demo (VITE_DEMO=true): datos de muestra en memoria, sin Supabase. Con ?rol=admin se entra como administrador.
 const demoMode = import.meta.env.VITE_DEMO === 'true';
@@ -35,7 +40,7 @@ if (demoMode) {
   document.body.append(banner);
 }
 const root = document.querySelector('#app');
-let user = null, profile = null, advisors = [], clients = [], sales = [], ranking = [], selectedId = null, aiRecommendation = '', saleNotice = '';
+let user = null, profile = null, advisors = [], clients = [], sales = [], ranking = [], notifications = [], selectedId = null, aiRecommendation = '', saleNotice = '';
 let theme = localStorage.getItem('ultracem-theme') || 'light';
 let advisorView = 'dashboard', adminView = 'dashboard';
 let advisorMapModule;
@@ -48,6 +53,9 @@ let profilePhotoSaving = false;
 let profileKeyboardNavigation = false;
 let mascotTaps = 0;
 let streakNudgeOpen = null;
+let notificationChannel = null;
+let notificationCenter = null;
+const dismissedNotificationIds = new Set();
 document.documentElement.dataset.theme = theme;
 const taskOrder = ['Preparar una visita', 'Contactar al cliente', 'Revisar una cotización', 'Planear el siguiente paso'];
 
@@ -82,10 +90,11 @@ async function signOut() {
   const result = await db.auth.signOut();
   if (result.error) { notice('No se pudo cerrar la sesión. Intenta de nuevo.', true); return; }
   resetAdvisorEntrance();
+  if (notificationChannel) { await db.removeChannel(notificationChannel); notificationChannel = null; }
   stopHalloweenSync();
   window.clearInterval(profilePhotoUrlTimer);
   profilePhotoUrlTimer = null;
-  user = profile = null; advisors = clients = sales = ranking = []; aiRecommendation = ''; saleNotice = ''; advisorView = 'dashboard'; adminView = 'dashboard';
+  user = profile = null; advisors = clients = sales = ranking = notifications = []; aiRecommendation = ''; saleNotice = ''; advisorView = 'dashboard'; adminView = 'dashboard';
   render();
 }
 function scheduleProfilePhotoUrlRefresh() {
@@ -200,7 +209,14 @@ function openProfilePanel(prompt = false) {
 }
 function advisorProfileCard() {
   const card = el('section', 'advisor-profile-card');
-  card.append(profileAvatar(), el('div', 'advisor-profile-copy', profile.full_name));
+  const identity = el('div', 'advisor-profile-identity');
+  const balance = el('div', 'advisor-profile-points');
+  const pointsIcon = el('span', 'advisor-profile-points-icon');
+  pointsIcon.setAttribute('aria-hidden', 'true');
+  pointsIcon.innerHTML = advisorIcon('sparkles');
+  balance.append(pointsIcon, el('strong', '', Number(profile.points || 0).toLocaleString('es-CO')), el('span', '', 'puntos'));
+  identity.append(el('div', 'advisor-profile-copy', profile.full_name), balance);
+  card.append(profileAvatar(), identity);
   card.append(button('Perfil', 'profile-button', event => { profileKeyboardNavigation = event.detail === 0; advisorView = 'profile'; render(); }));
   return card;
 }
@@ -210,7 +226,7 @@ function notice(text, error = false) {
   node.textContent = text;
   node.hidden = !text;
   node.classList.toggle('error-notice', error);
-  const successToast = !error && ['Skin equipada.', 'Foto de perfil actualizada.', 'Foto de perfil eliminada.'].includes(text);
+  const successToast = !error && ['Skin equipada.', 'Foto de perfil actualizada.', 'Foto de perfil eliminada.', 'La comisión fue canjeada satisfactoriamente.'].includes(text);
   const validationToast = error && text === 'Selecciona una imagen JPG, PNG o WebP de máximo 5 MB.';
   node.classList.toggle('success-notice', successToast);
   node.classList.toggle('validation-notice', validationToast);
@@ -225,7 +241,74 @@ function authError(cause) {
   }
   return cause.message || 'No se pudo acceder.';
 }
+async function notifyEmail(eventType, eventId) {
+  if (!db || !eventId) return 'No se pudo identificar el evento del correo.';
+  try {
+    const { data, error } = await db.functions.invoke('send-notification-email', { body: { event_type: eventType, event_id: eventId } });
+    if (error) {
+      const detail = await error.context?.json?.().catch(() => null);
+      return detail?.error || 'No se pudo enviar el correo. Revisa la función de notificaciones.';
+    }
+    if (data?.error || !Number.isInteger(data?.sent) || data.sent < 1) return data?.error || 'No se confirmó el envío de ningún correo.';
+    return null;
+  } catch {
+    return 'No se pudo conectar con el servicio de correo.';
+  }
+}
+async function markNotificationsRead(notification) {
+  if (notification.read_at) return;
+  if (profile.role === 'admin' && notification.kind === 'client_request' && notification.related_request_id) {
+    const requestResult = await db.from('mvp_client_requests').select('status').eq('id', notification.related_request_id).single();
+    if (requestResult.error) throw new Error('No se pudo comprobar el estado de la solicitud.');
+    if (requestResult.data?.status !== 'handled') throw new Error('Asigna el cliente antes de marcar esta solicitud como leída.');
+  }
+  const result = await db.rpc('mark_mvp_notification_read', { target_notification: notification.id });
+  if (result.error) throw result.error;
+  notifications = notifications.map(item => item.id === notification.id ? { ...item, read_at: new Date().toISOString() } : item);
+}
+function clearReadNotifications() {
+  for (const notification of notifications) if (notification.read_at) dismissedNotificationIds.add(notification.id);
+  notifications = notifications.filter(notification => !dismissedNotificationIds.has(notification.id));
+  notificationCenter?.update(notifications);
+}
+async function openNotification(notification) {
+  if (profile.role === 'admin' && notification.kind === 'client_request') {
+    const result = await db.from('mvp_client_requests').select('advisor_id').eq('id', notification.related_request_id).single();
+    if (result.error) throw result.error;
+    if (!advisors.some(item => item.user_id === result.data.advisor_id)) throw new Error('El asesor ya no está disponible.');
+    adminView = 'dashboard';
+    render();
+    document.querySelector('#notification-assigned-advisor').value = result.data.advisor_id;
+    const form = document.querySelector('#admin-client-form');
+    form.scrollIntoView({ block: 'center' });
+    form.querySelector('input').focus({ preventScroll: true });
+  } else if (profile.role === 'advisor' && notification.kind === 'client_assigned') {
+    await loadData();
+    selectedId = notification.related_client_id;
+    advisorView = 'dashboard';
+    render();
+    const target = document.querySelector('#advisor-actions') || document.querySelector('#page h1');
+    if (target) { target.tabIndex = -1; target.scrollIntoView({ block: 'start' }); target.focus({ preventScroll: true }); }
+  }
+}
+function startNotificationSync() {
+  if (!db || !user) return;
+  if (notificationChannel) db.removeChannel(notificationChannel);
+  notificationChannel = db.channel(`mvp-notifications-${user.id}`)
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mvp_notifications', filter: `recipient_id=eq.${user.id}` }, payload => {
+      if (notifications.some(item => item.id === payload.new.id)) return;
+      notifications = [payload.new, ...notifications].slice(0, 20);
+      notificationCenter?.update(notifications);
+      notice(`${payload.new.title}: ${payload.new.body}`);
+      if (profile.role === 'advisor' && payload.new.kind === 'client_assigned') {
+        void openNotification(payload.new).catch(() => notice('No se pudieron cargar las próximas acciones.', true));
+      }
+    })
+    .subscribe();
+}
 function shell() {
+  notificationCenter?.destroy();
+  notificationCenter = null;
   clearLoadingScreen(root);
   clearAdvisorEffects();
   clearAdvisorEntrance();
@@ -258,9 +341,11 @@ function shell() {
     nav.replaceChildren();
     const mobileNav = el('nav', 'advisor-nav');
     mobileNav.setAttribute('aria-label', 'Portal del asesor');
-    for (const [view, label, icon] of [['dashboard', 'Inicio', 'home'], ['history', 'Historial clientes', 'clients'], ['map', 'Mapa clientela', 'map'], ['shop', 'Tienda', 'shop'], ['profile', 'Perfil', 'profile']]) {
+    const mobileLabels = { dashboard: 'Inicio', history: 'Clientes', commissions: 'Comisiones', map: 'Mapa', shop: 'Cosméticos', rewards: 'Premios', profile: 'Perfil' };
+    for (const [view, label, icon] of [['dashboard', 'Inicio', 'home'], ['history', 'Historial clientes', 'clients'], ['commissions', 'Cartera de comisiones', 'sales'], ['map', 'Mapa clientela', 'map'], ['shop', 'Tienda cosméticos', 'shop'], ['rewards', 'Premios', 'gift'], ['profile', 'Perfil', 'profile']]) {
       for (const [container, className] of [[nav, 'sidebar-item'], [mobileNav, '']]) {
-        const control = button(label, className, event => navigate(view, event));
+        const control = button(container === mobileNav ? mobileLabels[view] : label, className, event => navigate(view, event));
+        if (container === mobileNav) control.setAttribute('aria-label', label);
         const navIcon = el('span', 'advisor-nav-icon');
         navIcon.innerHTML = advisorIcon(icon);
         control.prepend(navIcon);
@@ -277,7 +362,7 @@ function shell() {
     const nav = sidebar.querySelector('.sidebar-nav');
     const navigate = view => { adminView = view; render(); window.scrollTo(0, 0); };
     nav.setAttribute('aria-label', 'Portal de administración');
-    for (const [view, label, icon] of [['dashboard', 'Tablero de admin', '01'], ['shop', 'Tienda', '02']]) {
+    for (const [view, label, icon] of [['dashboard', 'Tablero de admin', '01'], ['shop', 'Tienda cosméticos', '02']]) {
       const control = button(label, 'sidebar-item', () => navigate(view));
       control.prepend(el('b', '', icon));
       if (adminView === view) { control.classList.add('active'); control.setAttribute('aria-current', 'page'); }
@@ -287,6 +372,33 @@ function shell() {
   if (profile) {
     const actions = document.querySelector('#actions');
     if (profile.role === 'admin') actions.append(el('span', 'session-name', `${profile.full_name} · Administrador`));
+    else {
+      const mobilePoints = el('span', 'advisor-mobile-points');
+      const mobilePointsIcon = el('span', 'advisor-mobile-points-icon');
+      mobilePointsIcon.setAttribute('aria-hidden', 'true');
+      mobilePointsIcon.innerHTML = advisorIcon('sparkles');
+      mobilePoints.append(mobilePointsIcon, el('strong', '', Number(profile.points || 0).toLocaleString('es-CO')), el('span', '', 'puntos'));
+      actions.append(mobilePoints);
+    }
+    notificationCenter = createNotificationCenter(root, {
+      role: profile.role, notifications, onRead: markNotificationsRead, onAction: openNotification,
+      onClearRead: clearReadNotifications,
+      onRefresh: async () => {
+        const recipientId = user.id;
+        const result = await db.from('mvp_notifications').select('id,recipient_id,kind,title,body,related_request_id,related_client_id,created_at,read_at').eq('recipient_id', recipientId).order('created_at', { ascending: false }).limit(20);
+        if (result.error) throw result.error;
+        if (user?.id !== recipientId) throw new Error('La sesión cambió.');
+        // Retain realtime inserts that arrive while this snapshot is in flight.
+        const merged = new Map((result.data ?? []).filter(item => !dismissedNotificationIds.has(item.id)).map(item => [item.id, item]));
+        for (const item of notifications) {
+          const saved = merged.get(item.id);
+          if (!saved) merged.set(item.id, item);
+          else if (item.read_at && !saved.read_at) merged.set(item.id, { ...saved, read_at: item.read_at });
+        }
+        notifications = [...merged.values()].sort((a, b) => String(b.created_at).localeCompare(String(a.created_at))).slice(0, 20);
+        return notifications;
+      },
+    });
     const themeToggle = button('', 'theme-button', () => {
       const applyTheme = () => {
         theme = theme === 'dark' ? 'light' : 'dark';
@@ -353,10 +465,10 @@ function authPage(mode = 'login') {
   page.replaceChildren(form, button(mode === 'login' ? 'Crear cuenta de asesor' : 'Ya tengo cuenta', 'text-button auth-toggle', () => authPage(mode === 'login' ? 'signup' : 'login')));
 }
 async function loadData() {
-  let own = await db.from('mvp_profiles').select('user_id,full_name,role,equipped_skin,avatar_path,photo_prompted_at').eq('user_id', user.id).single();
-  if (own.error && /avatar_path|photo_prompted_at|column/i.test(own.error.message || '')) {
+  let own = await db.from('mvp_profiles').select('user_id,full_name,role,equipped_skin,avatar_path,photo_prompted_at,points,level,progression_sales').eq('user_id', user.id).single();
+  if (own.error && /avatar_path|photo_prompted_at|points|level|progression_sales|column/i.test(own.error.message || '')) {
     own = await db.from('mvp_profiles').select('user_id,full_name,role,equipped_skin').eq('user_id', user.id).single();
-    if (!own.error) own.data.photo_prompted_at = new Date().toISOString();
+    if (!own.error) Object.assign(own.data, { photo_prompted_at: new Date().toISOString(), points: 0, level: 1, progression_sales: 0 });
   }
   if (own.error) throw own.error;
   profile = own.data;
@@ -383,9 +495,12 @@ async function loadData() {
         return (aIndex < 0 ? taskOrder.length : aIndex) - (bIndex < 0 ? taskOrder.length : bIndex);
       }),
   }));
-  const salesResult = await db.from('mvp_sales').select('id,client_id,advisor_id,amount,tons_sold,completed_at,confirmed,confirmed_at');
+  const salesResult = await db.from('mvp_sales').select('id,client_id,advisor_id,amount,tons_sold,completed_at,confirmed,confirmed_at,commission_price_per_ton,commission_rate,commission_amount,commission_status,commission_claimed_at');
   if (salesResult.error) throw salesResult.error;
   sales = salesResult.data ?? [];
+  const notificationsResult = await db.from('mvp_notifications').select('id,recipient_id,kind,title,body,related_request_id,related_client_id,created_at,read_at').order('created_at', { ascending: false }).limit(20);
+  if (notificationsResult.error && !/relation .*mvp_notifications.* does not exist|could not find the table/i.test(notificationsResult.error.message || '')) throw notificationsResult.error;
+  notifications = (notificationsResult.data ?? []).filter(item => !dismissedNotificationIds.has(item.id));
   const rankingResult = await db.rpc('get_mvp_advisor_ranking');
   if (rankingResult.error) throw rankingResult.error;
   ranking = await attachRankingAvatars(db, rankingResult.data ?? [], profile);
@@ -402,6 +517,7 @@ async function boot() {
     if (!user) { resetAdvisorEntrance(); profile = null; render(); return; }
     await loadData();
     await refreshHalloween();
+    if (typeof startNotificationSync === 'function') startNotificationSync();
     render();
     halloweenTimer = window.setInterval(() => {
       if (!document.hidden && (profile?.role === 'admin' || advisorView === 'shop')) refreshHalloween();
@@ -430,7 +546,7 @@ function paintHalloween() {
   }
   const page = document.querySelector('.shop-page');
   if (page) {
-    renderHalloweenCollection(page, halloweenReady && halloweenEnabled, profile?.equipped_skin, ranking.find(row => row.advisor_id === user?.id)?.confirmed_sales ?? 0, equipSkin);
+    renderHalloweenCollection(page, halloweenReady && halloweenEnabled, profile?.equipped_skin, ranking.find(row => row.advisor_id === user?.id)?.confirmed_sales ?? 0, equipSkin, profile?.points);
     const status = page.querySelector('.shop-mode-status');
     status.textContent = halloweenError;
     status.hidden = !halloweenError;
@@ -687,6 +803,7 @@ function adminPage(page) {
     }));
   }
   const manage = el('aside', 'admin-management'), form = el('form', 'editor-form');
+  form.id = 'admin-client-form';
   form.append(el('h2', '', 'Nuevo cliente comercial'));
   const name = input('text', 'Ej. Ferretería Norte'); name.minLength = 2; name.maxLength = 100;
   const city = el('select'); city.required = true; city.disabled = true;
@@ -714,6 +831,7 @@ function adminPage(page) {
     city.disabled = !citiesForDepartment(department.value).length;
   });
   const advisor = el('select');
+  advisor.id = 'notification-assigned-advisor';
   advisors.forEach(item => { const option = el('option', '', item.full_name); option.value = item.user_id; advisor.append(option); });
   form.append(field('Nombre del negocio', name), field('Departamento', department), field('Ciudad del cliente', city), field('Tipo de cliente', type), field('Asesor responsable', advisor), field('Toneladas solicitadas', tons));
   const error = el('p', 'form-error'); error.setAttribute('role', 'alert');
@@ -725,9 +843,10 @@ function adminPage(page) {
     if (!Number.isFinite(requestedTons) || requestedTons <= 0) { error.textContent = 'Indica una cantidad de toneladas mayor que cero.'; submit.disabled = false; submit.textContent = 'Crear cliente y tareas'; return; }
     const location = normalizeClientLocation(city.value, department.value);
     if (!location) { error.textContent = 'Indica una ciudad válida y selecciona un departamento.'; submit.disabled = false; submit.textContent = 'Crear cliente y tareas'; return; }
-    const result = await db.from('mvp_clients').insert({ name: name.value.trim(), type: type.value, advisor_id: advisor.value, city: location.city, department: location.department, tons_requested: requestedTons });
+    const result = await db.rpc('assign_mvp_client', { client_name: name.value.trim(), client_type: type.value, target_advisor: advisor.value, target_department: location.department, target_city: location.city, requested_tons: requestedTons });
     if (result.error) { error.textContent = result.error.message; submit.disabled = false; submit.textContent = 'Crear cliente y tareas'; return; }
     await refresh('Cliente creado con cuatro tareas.');
+    notice('Cliente guardado. 🐧 Topitín ya avisó al asesor y dejó su nueva misión lista en el sistema.');
   });
   manage.append(halloweenControl(), form); layout.append(overview, manage); page.append(layout);
 }
@@ -807,6 +926,87 @@ function advisorHistoryPage(page) {
   }
   page.append(list);
 }
+function money(value) {
+  return Number(value || 0).toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
+}
+function commissionDate(value) {
+  return value ? new Date(value).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Fecha no disponible';
+}
+async function requestCommission(sale, control) {
+  control.disabled = true;
+  control.textContent = 'Registrando…';
+  const result = await db.rpc('request_mvp_commission', { target_sale: sale.id });
+  if (result.error) {
+    control.disabled = false;
+    control.textContent = 'Reclamar comisión';
+    notice(result.error.message, true);
+    return;
+  }
+  await refresh('La comisión fue canjeada satisfactoriamente.');
+}
+function advisorCommissionsPage(page) {
+  page.className = 'advisor-page commission-wallet-page';
+  const ownSales = sales.filter(sale => sale.advisor_id === user?.id && sale.confirmed).sort((a, b) => new Date(b.confirmed_at || b.completed_at) - new Date(a.confirmed_at || a.completed_at));
+  const summary = commissionSummary(ownSales, user?.id);
+  const welcome = el('header', 'advisor-welcome');
+  welcome.append(el('h1', '', 'Cartera de comisiones'), el('p', '', 'Revisa lo que tienes disponible y lo que ya canjeaste.'));
+  const overview = el('section', 'commission-overview');
+  const available = el('div', 'commission-balance');
+  const availableSale = ownSales.find(sale => getCommissionStatus(sale).claimable);
+  available.append(el('span', '', 'Comisión disponible'), el('strong', '', money(summary.available)), el('small', '', availableSale ? `Por la venta de ${clients.find(client => client.id === availableSale.client_id)?.name || 'tu cliente'}` : 'No tienes comisiones disponibles'));
+  const redeemed = el('div', 'commission-summary-item');
+  redeemed.append(el('span', '', 'Total neto comisiones canjeadas'), el('strong', '', money(summary.pending)), el('small', '', `${ownSales.filter(sale => sale.commission_status === 'pending').length} ventas canjeadas`));
+  overview.append(available, redeemed);
+  page.append(welcome, overview);
+  if (!ownSales.length) {
+    page.append(el('p', 'empty-state', 'Aún no tienes ventas confirmadas para mostrar en tu cartera.'));
+    return;
+  }
+  const availableList = el('section', 'commission-list');
+  const redeemedList = el('section', 'commission-list commission-redeemed-list');
+  const renderSale = (sale, list) => {
+    const client = clients.find(item => item.id === sale.client_id);
+    const status = getCommissionStatus(sale);
+    const item = el('article', 'commission-item');
+    const head = el('div', 'commission-item-head');
+    const copy = el('div', 'commission-client');
+    copy.append(el('h2', '', client?.name || 'Cliente confirmado'), el('p', 'muted', `${client?.type || 'Venta confirmada'} · ${commissionDate(sale.confirmed_at || sale.completed_at)}`));
+    head.append(copy, el('span', `commission-status ${status.claimable ? 'available' : status.label === 'Canjeada' ? 'redeemed' : ''}`, status.label));
+    const details = el('dl', 'commission-details');
+    for (const [label, value] of [
+      ['Toneladas vendidas', `${Number(sale.tons_sold || 0).toLocaleString('es-CO')} t`],
+      ['Precio aplicado', sale.commission_price_per_ton ? `${money(sale.commission_price_per_ton)} / t` : '—'],
+      ['Comisión', sale.commission_rate ? `${Math.round(Number(sale.commission_rate) * 100)}%` : '—'],
+      ['Generada', sale.commission_amount ? money(sale.commission_amount) : 'Sin comisión configurada'],
+    ]) {
+      const row = el('div'); row.append(el('dt', '', label), el('dd', '', value)); details.append(row);
+    }
+    item.append(head, details);
+    if (status.claimable) item.append(button('Reclamar comisión', 'primary commission-claim', event => requestCommission(sale, event.currentTarget)));
+    list.append(item);
+  };
+  for (const sale of ownSales) renderSale(sale, getCommissionStatus(sale).claimable ? availableList : redeemedList);
+  if (availableList.childElementCount) page.append(el('h2', 'commission-section-title', 'Comisiones disponibles'), availableList);
+  if (redeemedList.childElementCount) page.append(el('h2', 'commission-section-title', 'Comisiones canjeadas'), redeemedList);
+}
+async function requestClient(control) {
+  control.disabled = true;
+  control.textContent = 'Enviando…';
+  const result = await db.rpc('request_mvp_client');
+  if (result.error) {
+    control.disabled = false;
+    control.textContent = 'Solicitar un cliente';
+    notice(result.error.message, true);
+    return;
+  }
+  const requestId = result.data?.request_id;
+  if (!result.data?.duplicate) {
+    notice('Solicitud guardada. 🐧 Topitín ya avisó al administrador que necesitas un nuevo cliente.');
+  } else notice('Ya tienes una solicitud pendiente.');
+  control.disabled = false;
+  control.textContent = 'Solicitar un cliente';
+  if (requestId) await loadData().then(() => render());
+}
 function advisorPage(page) {
   page.className = 'advisor-page';
   const portfolio = getPortfolioProgress(clients, sales);
@@ -817,6 +1017,7 @@ function advisorPage(page) {
   const activeClient = currentClients.find(item => item.id === selectedId) ?? currentClients[0] ?? null;
   const activeProgress = getProgress(activeClient?.tasks ?? []);
   const mascotMood = getMascotStateForCurrentClient(activeClient);
+  const levelProgress = getLevelProgress(profile?.level, profile?.progression_sales);
   const monthlyGoal = 100;
   const monthlyTons = getMonthlyTons(sales, user?.id);
   const weeklySales = getWeeklySales(sales, user?.id);
@@ -837,14 +1038,15 @@ function advisorPage(page) {
     el('span', 'ring-task-caption', 'completadas'),
   );
   const heroCopy = el('div', 'advisor-hero-copy');
-  const progressLabel = el('h2', 'advisor-kicker', 'Tu avance de cartera');
-  heroCopy.append(progressLabel);
   const heroStats = el('div', 'hero-highlight-stats');
+  const levelStat = el('div', 'hero-highlight hero-level-highlight');
+  const levelIcon = el('span', 'hero-highlight-icon'); levelIcon.innerHTML = advisorIcon('trophy');
+  levelStat.append(levelIcon, el('span', '', levelProgress.target ? `${levelProgress.sales}/${levelProgress.target} ventas para Nivel ${levelProgress.level + 1}` : 'Nivel máximo inicial'), el('strong', '', `Nivel ${levelProgress.level}`));
   const streakStat = createStreakStat(streak);
   const salesStat = el('div', 'hero-highlight');
   const salesIcon = el('span', 'hero-highlight-icon'); salesIcon.innerHTML = advisorIcon('sales');
   salesStat.append(salesIcon, el('span', '', 'Ventas confirmadas'), el('strong', '', String(ownConfirmedSales.length)));
-  heroStats.append(streakStat, salesStat);
+  heroStats.append(levelStat, streakStat, salesStat);
   const goToTasks = () => document.querySelector('#advisor-actions')?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
   heroCopy.append(heroStats);
   // Recordatorio amable (V5): después de la hora de corte, sin tareas completadas hoy.
@@ -909,10 +1111,9 @@ function advisorPage(page) {
     const icon = el('span', 'advisor-empty-icon'); icon.innerHTML = advisorIcon('clients');
     illustration.append(icon, el('span', 'advisor-empty-plus', '+'));
     const request = el('button', 'request-client-button', 'Solicitar un cliente');
-    request.type = 'button'; request.disabled = true;
-    request.title = 'Próximamente. Esta opción todavía no envía avisos.';
+    request.type = 'button'; request.addEventListener('click', () => requestClient(request));
     request.setAttribute('aria-describedby', 'request-client-hint');
-    const hint = el('p', 'advisor-empty-hint', 'Próximamente · Esta opción aún no envía avisos.');
+    const hint = el('p', 'advisor-empty-hint', 'El administrador recibirá tu solicitud y podrá asignarte un cliente.');
     hint.id = 'request-client-hint';
     empty.append(illustration, el('h3', '', clients.length ? 'No tienes clientes actuales pendientes' : 'Tu próxima oportunidad empieza aquí'),
       el('p', 'muted', clients.length ? 'Tus clientes con venta confirmada están en Historial de clientes.' : 'Aún no tienes clientes asignados. El administrador puede asignarte uno para empezar tu ruta comercial.'), request, hint);
@@ -1071,10 +1272,12 @@ function render() {
   const page = document.querySelector('#page');
   if (!db) page.replaceChildren(el('p', 'empty-state', 'Falta configurar Supabase en .env.local.'));
   else if (!profile) authPage();
-  else if (profile.role === 'admin' && adminView === 'shop') renderShop(page, sales.filter(sale => sale.confirmed).length, halloweenReady && halloweenEnabled, profile.equipped_skin, equipSkin);
+  else if (profile.role === 'admin' && adminView === 'shop') renderShop(page, sales.filter(sale => sale.confirmed).length, halloweenReady && halloweenEnabled, profile.equipped_skin, equipSkin, profile.points);
   else if (profile.role === 'admin') adminPage(page);
-  else if (advisorView === 'shop') renderShop(page, sales.filter(sale => sale.advisor_id === user?.id && sale.confirmed).length, halloweenReady && halloweenEnabled, profile.equipped_skin, equipSkin);
+  else if (advisorView === 'shop') renderShop(page, sales.filter(sale => sale.advisor_id === user?.id && sale.confirmed).length, halloweenReady && halloweenEnabled, profile.equipped_skin, equipSkin, profile.points);
+  else if (advisorView === 'rewards') renderRewards(page, profile.points);
   else if (advisorView === 'history') advisorHistoryPage(page);
+  else if (advisorView === 'commissions') advisorCommissionsPage(page);
   else if (advisorView === 'map') advisorMapPage(page);
   else if (advisorView === 'profile') advisorProfilePage(page);
   else {

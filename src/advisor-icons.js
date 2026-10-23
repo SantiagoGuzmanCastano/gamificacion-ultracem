@@ -17,6 +17,7 @@ const paths = {
   tasks: '<path d="M9 5h12M9 12h12M9 19h12m-19-14 1 1 2-2m-3 8 1 1 2-2m-3 8 1 1 2-2"/>',
   phone: '<path d="m6 3 4 5-3 3c2 3 3 4 6 6l3-3 5 4c-1 7-8 4-13-1S0 5 6 3Z"/>',
   document: '<path d="M5 2h10l4 4v16H5zM14 2v5h5M9 11h6M9 15h6M9 19h4"/>',
+  gift: '<path d="M3 8h18v4H3zM5 12v9h14v-9M12 8v13M12 8S10 3 7.5 4 9 8 12 8Zm0 0s2-5 4.5-4S15 8 12 8Z"/>',
   arrow: '<path d="m9 5 7 7-7 7"/>',
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
   lock:'<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',

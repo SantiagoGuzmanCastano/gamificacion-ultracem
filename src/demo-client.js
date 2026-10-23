@@ -74,22 +74,24 @@ export function createDemoClient({ role = 'advisor', now = new Date() } = {}) {
 
   function query(table) {
     const filters = [];
-    let columns = '*', single = false, insertRow = null, patch = null;
+    let columns = '*', single = false, insertRow = null, patch = null, max = Infinity;
     const builder = {
       select(value = '*') { columns = value; return builder; },
       eq(column, value) { filters.push(row => row[column] === value); return builder; },
       order() { return builder; },
+      limit(value) { max = value; return builder; },
       abortSignal() { return builder; },
       single() { single = true; return builder; },
       insert(row) { insertRow = row; return builder; },
       update(values) { patch = values; return builder; },
       then(resolve, reject) { return Promise.resolve().then(run).then(resolve, reject); },
     };
-    const finish = rows => (single ? (rows[0] ? ok(rows[0]) : fail('No se encontró el registro.')) : ok(rows));
+    const finish = rows => (single ? (rows[0] ? ok(rows[0]) : fail('No se encontró el registro.')) : ok(rows.slice(0, max)));
     function run() {
       if (!signedIn) return fail('Sesión cerrada.');
       if (table === 'mvp_profiles') {
-        const rows = state.profiles.filter(row => (isAdmin() || row.user_id === userId) && filters.every(test => test(row)));
+        const rows = state.profiles.filter(row => (isAdmin() || row.user_id === userId) && filters.every(test => test(row)))
+          .map(row => Object.assign(row, { progression_sales: state.sales.filter(item => item.advisor_id === row.user_id && item.confirmed).length }));
         if (patch) rows.forEach(row => Object.assign(row, patch));
         return finish(rows.map(row => pick(row, columns)));
       }
@@ -113,6 +115,8 @@ export function createDemoClient({ role = 'advisor', now = new Date() } = {}) {
           .map(client => ({ ...pick(client, plain), mvp_tasks: tasksOf(client.id).map(task => ({ ...task })) }));
         return finish(rows);
       }
+      // Notificaciones y solicitudes de cliente (de main): la demo no tiene, pero responde vacío.
+      if (table === 'mvp_notifications' || table === 'mvp_client_requests') return finish([]);
       return fail(`Tabla no disponible en modo demo: ${table}`);
     }
     return builder;
@@ -171,7 +175,18 @@ export function createDemoClient({ role = 'advisor', now = new Date() } = {}) {
         me().equipped_skin = 'skeleton';
         return ok('skeleton');
       }
+      case 'assign_mvp_client': {
+        if (!isAdmin()) return fail('Solo el administrador puede crear clientes.');
+        const id = `demo-c${state.clients.length + 1}-${Date.now()}`;
+        state.clients.unshift({ id, name: args.client_name, type: args.client_type, advisor_id: args.target_advisor, department: args.target_department, city: args.target_city, tons_requested: args.requested_tons, created_at: new Date().toISOString() });
+        TASKS.forEach(([title, description], index) => state.tasks.push({ id: `${id}-t${index + 1}`, client_id: id, title, description, completed_at: null }));
+        return ok(id);
+      }
+      case 'mark_mvp_notification_read':
+        return ok(true);
       case 'delete_mvp_own_account':
+      case 'request_mvp_commission':
+      case 'request_mvp_client':
         return fail(DEMO_ONLY);
       default:
         return fail(`Función no disponible en modo demo: ${name}`);
@@ -187,6 +202,9 @@ export function createDemoClient({ role = 'advisor', now = new Date() } = {}) {
     },
     from: query,
     rpc,
+    // Tiempo real (notificaciones de main): sin red, el canal no emite nada.
+    channel() { const channel = { on() { return channel; }, subscribe() { return channel; } }; return channel; },
+    async removeChannel() { return 'ok'; },
     storage: {
       from() {
         return {
