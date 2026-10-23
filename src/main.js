@@ -27,7 +27,7 @@ import { showLoadingScreen, clearLoadingScreen } from './loading-screen.js';
 import { attachRankingAvatars } from './ranking-avatars.js';
 import { COLOMBIA_DEPARTMENTS, citiesForDepartment, normalizeClientLocation } from './client-location.js';
 import { commissionSummary, getCommissionStatus } from './commission-wallet.js';
-import { getProgressModel, renderProgressPage, showLevelBanner } from './progress-page.js';
+import { getProgressModel, renderProgressPage, showLevelBanner, showProgressGuide } from './progress-page.js';
 import { celebrateCommissionClaim, celebrateCommissionClaimed, commissionGoals, commissionMilestones, commissionStats, commissionTakeHome, playCommissionEntrance, resetCommissionEntrance } from './commission-gamification.js';
 
 const SUPABASE_TIMEOUT_MS = 15000;
@@ -46,7 +46,6 @@ const db = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_PU
   ? createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY, { global: { fetch: supabaseFetch } }) : null;
 const root = document.querySelector('#app');
 let user = null, profile = null, advisors = [], clients = [], sales = [], ranking = [], notifications = [], goals = [], selectedId = null, aiRecommendation = '', saleNotice = '';
-let theme = localStorage.getItem('ultracem-theme') || 'light';
 let advisorView = 'dashboard', adminView = 'dashboard';
 let advisorMapModule;
 // The 3D world survives re-renders of the Progreso page; it is destroyed when leaving it.
@@ -61,7 +60,13 @@ let profileKeyboardNavigation = false;
 let notificationChannel = null;
 let notificationCenter = null;
 const dismissedNotificationIds = new Set();
-document.documentElement.dataset.theme = theme;
+// Sin selector manual: el tema sigue la preferencia clara/oscura del dispositivo.
+const darkSchemeQuery = window.matchMedia('(prefers-color-scheme: dark)');
+document.documentElement.dataset.theme = darkSchemeQuery.matches ? 'dark' : 'light';
+darkSchemeQuery.addEventListener('change', event => {
+  document.documentElement.dataset.theme = event.matches ? 'dark' : 'light';
+  render();
+});
 const taskOrder = ['Preparar una visita', 'Contactar al cliente', 'Revisar una cotización', 'Planear el siguiente paso'];
 
 function el(tag, className = '', value = '') {
@@ -515,7 +520,8 @@ function shell() {
       mobilePoints.append(mobilePointsIcon, el('strong', '', Number(profile.points || 0).toLocaleString('es-CO')), el('span', '', 'puntos'));
       actions.append(mobilePoints);
     }
-    notificationCenter = createNotificationCenter(root, {
+    // La campana vive en la barra superior, junto a los puntos.
+    notificationCenter = createNotificationCenter(actions, {
       role: profile.role, notifications, onRead: markNotificationsRead, onAction: openNotification,
       onClearRead: clearReadNotifications,
       onRefresh: async () => {
@@ -534,22 +540,6 @@ function shell() {
         return notifications;
       },
     });
-    const themeToggle = button('', 'theme-button', () => {
-      const applyTheme = () => {
-        theme = theme === 'dark' ? 'light' : 'dark';
-        localStorage.setItem('ultracem-theme', theme);
-        document.documentElement.dataset.theme = theme;
-        shell();
-        render();
-      };
-      if (document.startViewTransition && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) document.startViewTransition(applyTheme);
-      else applyTheme();
-    });
-    themeToggle.innerHTML = '<span class="theme-toggle-icon" aria-hidden="true"><i></i></span><span class="theme-toggle-label"></span>';
-    themeToggle.querySelector('.theme-toggle-label').textContent = theme === 'dark' ? 'Claro' : 'Oscuro';
-    themeToggle.setAttribute('aria-label', `Cambiar a modo ${theme === 'dark' ? 'claro' : 'oscuro'}`);
-    themeToggle.setAttribute('aria-pressed', String(theme === 'dark'));
-    actions.append(themeToggle);
     if (profile.role === 'admin') actions.append(button('Cerrar sesión', 'text-button', signOut));
   }
 }
@@ -1278,7 +1268,14 @@ function advisorProgressPage(page) {
     onSelect: select,
     onClients: () => { advisorView = 'dashboard'; render(); window.scrollTo(0, 0); },
     onReplay: () => celebrate(model.level - 1, model.level),
+    onGuide: () => showProgressGuide(),
   });
+  // La guía sale sola solo la primera vez; luego queda en «¿Cómo funciona?».
+  const guideKey = `ultracem-progress-guide-${user.id}`;
+  if (!readSeenLevel(guideKey) && !document.querySelector('.progress-guide')) {
+    storeSeenLevel(guideKey, 1);
+    showProgressGuide();
+  }
   if (progressWorld) {
     view.status.textContent = '';
     progressWorld.attach(view.stage, view.labels, select);

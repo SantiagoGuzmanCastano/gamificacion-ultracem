@@ -17,9 +17,6 @@
 .advisor-shell .topbar .brand { display: none; }
 .advisor-shell .top-actions { justify-content: end; width: 100%; }
 .advisor-shell .session-name, .advisor-shell .topbar .text-button { color: var(--dashboard-ink); }
-.advisor-shell .theme-button { display: inline-flex; align-items: center; gap: 8px; background: #07334e; border-color: #285772; }
-.theme-toggle-icon { display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: #ffd124; }
-.theme-toggle-icon i { display: block; width: 8px; height: 8px; border-radius: 50%; background: #07334e; box-shadow: 3px -2px #ffd124; }
 .advisor-shell .app-sidebar { grid-column: 1; grid-row: 1 / 3; position: sticky; top: 0; align-self: start; height: 100dvh; overflow-y: auto; padding: 24px 16px; gap: 12px; border: 0; background: linear-gradient(165deg, #001b2c, #003049); }
 .sidebar-brand, .sidebar-mvp, .sidebar-motto { display: none; }
 .advisor-shell .sidebar-brand { display: block; margin: 0 7px; }
@@ -296,7 +293,7 @@
   .advisor-hero .hero-cta:hover { background-color: #ffe16b; border-color: #fff1b3; box-shadow: 0 0 0 4px #ffd12412, 0 8px 24px #ffd12433; }
   .advisor-shell :where(button:not(:disabled), a):hover { box-shadow: 0 4px 12px #00142514; }
   .advisor-shell .customer-option:hover, .advisor-shell .assistant-button:hover, .advisor-shell .sale-actions .secondary:hover { background: color-mix(in srgb, var(--dashboard-blue) 9%, var(--dashboard-panel)); border-color: var(--dashboard-blue); }
-  .advisor-shell .sidebar-item:hover, .advisor-shell .theme-button:hover { box-shadow: 0 0 18px #04cce91a; }
+  .advisor-shell .sidebar-item:hover { box-shadow: 0 0 18px #04cce91a; }
   .advisor-shell .topbar .text-button:hover { text-decoration-color: var(--dashboard-blue); }
   .advisor-shell .advisor-overview .advisor-dashboard-column > section:hover { border-color: color-mix(in srgb, var(--dashboard-blue) 42%, var(--dashboard-line)); box-shadow: 0 10px 28px #00142514, 0 0 0 1px color-mix(in srgb, var(--dashboard-blue) 7%, transparent); }
   .advisor-shell .advisor-metrics .metric:hover::before { opacity: 1; }
@@ -401,7 +398,6 @@
   .advisor-more-backdrop { position: fixed; z-index: 29; inset: 0; display: block; background: rgb(0 12 24 / 45%); opacity: 0; visibility: hidden; transition: opacity 200ms ease, visibility 0s linear 200ms; }
   .advisor-more-backdrop.open { opacity: 1; visibility: visible; transition-delay: 0s; }
   .advisor-shell .notice { bottom: calc(var(--advisor-tabbar-height) + 14px + env(safe-area-inset-bottom)); }
-  .advisor-shell .notification-center { bottom: calc(var(--advisor-tabbar-height) + 12px + env(safe-area-inset-bottom)); }
   .topitin-toast { bottom: calc(var(--advisor-tabbar-height, 66px) + 76px + env(safe-area-inset-bottom)); }
   .advisor-shell .advisor-welcome { margin-top: 4px; }
 }
@@ -413,7 +409,6 @@
 :root[data-theme="dark"] .profile-dialog { border-color: #12465e; background: #00263b; }
 :root[data-theme="dark"] .profile-dialog h2 { color: #edf6ff; }
 @media (max-width: 420px) {
-  .theme-toggle-label { display: none; }
   .advisor-shell .topbar .text-button { font-size: .7rem; }
   .advisor-welcome h1 { font-size: 1.3rem; }
   .advisor-shell .advisor-metrics .metric { grid-template-columns: 32px minmax(0, 1fr); column-gap: 8px; padding: 0 8px; }

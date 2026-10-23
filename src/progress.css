@@ -87,3 +87,29 @@
 @media (prefers-reduced-motion: reduce) {
   .progress-label, .progress-meter span, .progress-cta { transition: none; }
 }
+
+.progress-heading-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.progress-guide {
+  --guide-bg: #fff; --guide-ink: #102f49; --guide-muted: #46637b; --guide-line: #ccdfec; --guide-soft: #e8f7fc; --guide-accent: #00688d;
+  width: min(calc(100vw - 32px), 380px); padding: 26px 24px 20px; border: 1px solid var(--guide-line); border-radius: 22px;
+  background: var(--guide-bg); color: var(--guide-ink); text-align: center; box-shadow: 0 24px 60px rgb(0 20 37 / 30%);
+}
+:root[data-theme="dark"] .progress-guide { --guide-bg: #00263b; --guide-ink: #edf6ff; --guide-muted: #b5cce1; --guide-line: #285772; --guide-soft: #04384a; --guide-accent: #67dcf0; }
+.progress-guide::backdrop { background: rgb(0 14 26 / 62%); }
+.progress-guide-art { display: grid; place-items: center; width: 72px; height: 72px; margin: 0 auto 14px; border-radius: 22px; background: var(--guide-soft); color: var(--guide-accent); }
+.progress-guide-icon { display: grid; width: 36px; height: 36px; }
+.progress-guide-icon svg { width: 100%; height: 100%; }
+.progress-guide-step { margin: 0 0 6px; color: var(--guide-accent); font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.progress-guide h2 { margin: 0 0 8px; color: var(--guide-ink); font-size: 1.3rem; letter-spacing: -.02em; }
+.progress-guide-body { min-height: 4.5em; margin: 0 0 16px; color: var(--guide-muted); font-size: .92rem; line-height: 1.5; }
+.progress-guide-dots { display: flex; justify-content: center; gap: 6px; margin-bottom: 18px; }
+.progress-guide-dots span { width: 8px; height: 8px; border-radius: 999px; background: var(--guide-line); transition: width 200ms cubic-bezier(.23, 1, .32, 1), background-color 200ms ease; }
+.progress-guide-dots span.is-active { width: 22px; background: #ffd124; }
+.progress-guide-actions { display: flex; gap: 10px; }
+.progress-guide-actions button { flex: 1; min-height: 44px; border-radius: 999px; font-size: .88rem; font-weight: 800; cursor: pointer; }
+.progress-guide-skip { border: 1px solid var(--guide-line); background: transparent; color: var(--guide-ink); }
+.progress-guide-next { border: 0; background: #ffd124; color: #00243b; }
+.progress-guide-skip[hidden] { display: none; }
+.progress-guide button:focus-visible { outline: 3px solid var(--guide-accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: no-preference) { .progress-guide[open] { animation: progress-guide-in 220ms cubic-bezier(.23, 1, .32, 1); } }
+@keyframes progress-guide-in { from { opacity: 0; translate: 0 12px; scale: .97; } }
