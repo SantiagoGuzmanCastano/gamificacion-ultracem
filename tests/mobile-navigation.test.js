@@ -12,9 +12,19 @@ test('mobile advisor navigation uses compact names but retains full accessible l
 
 test('mobile navigation is a fixed bottom tab bar and Halloween cards are horizontally centered', () => {
   const advisor = readFileSync(new URL('../src/advisor.css', import.meta.url), 'utf8');
-  // Siete accesos en una sola fila fija abajo, sin botones desplazados.
-  assert.match(advisor, /\.advisor-shell \.advisor-nav\s*\{[^}]*position: fixed;[^}]*bottom: 0;[^}]*grid-template-columns: repeat\(7, minmax\(0, 1fr\)\)/);
+  // Accesos en una sola fila fija abajo, sin botones desplazados.
+  assert.match(advisor, /\.advisor-shell \.advisor-nav\s*\{[^}]*position: fixed;[^}]*bottom: 0;[^}]*grid-auto-flow: column/);
   assert.doesNotMatch(advisor, /\.advisor-nav button:nth-child/);
   const shop = readFileSync(new URL('../src/shop.css', import.meta.url), 'utf8');
   assert.match(shop, /\.halloween-showcase > \.shop-grid\s*\{[^}]*max-width: 360px;[^}]*margin-inline: auto;/);
+});
+
+test('advisor mobile bar keeps four fixed tabs and moves the rest into a «Más» sheet', () => {
+  const main = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
+  assert.ok(main.includes("const moreViews = admin ? [] : ['commissions', 'shop', 'rewards'];"));
+  assert.ok(main.includes("['dashboard', 'map', 'progress', 'profile']"));
+  assert.match(main, /more\.setAttribute\('aria-expanded', 'false'\)/);
+  assert.match(main, /event\.key === 'Escape'/);
+  const advisor = readFileSync(new URL('../src/advisor.css', import.meta.url), 'utf8');
+  assert.match(advisor, /\.advisor-nav\.more-open \.advisor-more-sheet\s*\{[^}]*visibility: visible/);
 });

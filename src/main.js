@@ -450,6 +450,7 @@ function shell() {
       ? [['dashboard', 'Resumen', 'home'], ['team', 'Asesores', 'clients'], ['zones', 'Zonas', 'target'], ['map', 'Mapa de ventas', 'map'], ['manage', 'Gestión', 'tasks']]
       : [['dashboard', 'Inicio', 'home'], ['commissions', 'Cartera de comisiones', 'sales'], ['map', 'Mapa clientela', 'map'], ['shop', 'Tienda cosméticos', 'shop'], ['rewards', 'Premios', 'gift'], ['progress', 'Progreso', 'flag'], ['profile', 'Perfil', 'profile']];
     if (admin) mobileLabels.dashboard = 'Resumen';
+    const mobileButtons = new Map();
     for (const [view, label, icon] of items) {
       // En escritorio el perfil vive en la tarjeta inferior; en móvil sigue en la barra.
       for (const [container, className] of view === 'profile' ? [[mobileNav, '']] : [[nav, 'sidebar-item'], [mobileNav, '']]) {
@@ -462,11 +463,45 @@ function shell() {
           control.classList.add('active');
           control.setAttribute('aria-current', 'page');
         }
-        container.append(control);
+        if (container === mobileNav) mobileButtons.set(view, control); else container.append(control);
       }
     }
+    // En móvil caben cuatro accesos fijos; el resto del asesor se abre desde «Más».
+    const moreViews = admin ? [] : ['commissions', 'shop', 'rewards'];
+    const barViews = admin ? items.map(([view]) => view) : ['dashboard', 'map', 'progress', 'profile'];
+    mobileNav.append(...barViews.map(view => mobileButtons.get(view)));
+    const mobileExtras = [];
+    if (moreViews.length) {
+      const sheet = el('div', 'advisor-more-sheet');
+      sheet.id = 'advisor-more-sheet';
+      sheet.inert = true;
+      const grid = el('div', 'advisor-more-grid');
+      grid.append(...moreViews.map(view => mobileButtons.get(view)));
+      sheet.append(el('p', 'advisor-more-title', 'Más secciones'), grid);
+      const backdrop = el('div', 'advisor-more-backdrop');
+      const more = button('Más', 'advisor-more-button', () => setMore(more.getAttribute('aria-expanded') !== 'true'));
+      const moreIcon = el('span', 'advisor-nav-icon');
+      moreIcon.innerHTML = advisorIcon('apps');
+      more.prepend(moreIcon);
+      more.setAttribute('aria-expanded', 'false');
+      more.setAttribute('aria-controls', sheet.id);
+      if (moreViews.includes(advisorView)) more.classList.add('active');
+      const setMore = open => {
+        sheet.inert = !open;
+        mobileNav.classList.toggle('more-open', open);
+        backdrop.classList.toggle('open', open);
+        more.setAttribute('aria-expanded', String(open));
+        if (open) grid.querySelector('button')?.focus({ preventScroll: true });
+      };
+      backdrop.addEventListener('click', () => setMore(false));
+      mobileNav.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && more.getAttribute('aria-expanded') === 'true') { setMore(false); more.focus(); }
+      });
+      mobileNav.append(more, sheet);
+      mobileExtras.push(backdrop);
+    }
     // Fuera de <main> para que ninguna animación de la página afecte la barra fija.
-    root.append(mobileNav);
+    root.append(...mobileExtras, mobileNav);
     animateSidebar(sidebar);
   }
   if (profile) {
