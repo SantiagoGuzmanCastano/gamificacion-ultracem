@@ -5,3 +5,13 @@ output/
 .playwright-cli/
 .env.local
 .env.*.local
+
+# Material de entrega y temporales locales (no van al repo)
+/ENTREGA-CLIENTE/
+/ENTREGA-CLIENTE.zip
+/AVATAR DECORATIONS Y FONDOS AVATAR DECORATIONS/
+/COFRES Y FONDOS DE COFRE/
+/Premios/
+/tmp/
+/supabase/.temp/
+/.codex-remote-attachments/

@@ -5,17 +5,27 @@ export const rewardCategories = [
 ];
 
 export const rewards = [
-  { id: 'half-day', name: 'Medio día libre', description: 'Termina tu jornada al mediodía un día de tu elección.', cost: 500, category: 'time', icon: 'sun', color: '#e0a100', featured: 'Exclusivo' },
-  { id: 'cash-100', name: 'Bono de dinero $100.000', description: 'Disponible solo durante el reto del mes.', cost: 400, category: 'money', icon: 'cash', color: '#7a5af5', featured: 'Evento limitado' },
   { id: 'cinema', name: 'Bono de cine', description: 'Dos entradas para la función que prefieras.', cost: 100, category: 'fun', icon: 'film', color: '#0aa5d6' },
-  { id: 'grocery', name: 'Bono de supermercado', description: '$50.000 para tu mercado de la semana.', cost: 150, category: 'shop', icon: 'cart', color: '#14a37f' },
+  { id: 'grocery', name: 'Bono de Falabella', description: '$50.000 para tu mercado de la semana.', cost: 150, category: 'shop', icon: 'cart', color: '#14a37f' },
   { id: 'restaurant', name: 'Bono de restaurante', description: '$60.000 para disfrutar con tu familia.', cost: 200, category: 'fun', icon: 'food', color: '#e0731a' },
-  { id: 'clothes', name: 'Bono de ropa', description: '$80.000 en tu tienda de ropa favorita.', cost: 250, category: 'shop', icon: 'shirt', color: '#2f7fe0' },
-  { id: 'cash-200', name: 'Bono de dinero $200.000', description: 'Un bono para lo que necesites.', cost: 600, category: 'money', icon: 'cash', color: '#7a5af5' },
-  { id: 'free-day', name: 'Medio día libre', description: 'Un día con jornada hasta el mediodía.', cost: 500, category: 'time', icon: 'sun', color: '#e0a100' },
+  { id: 'free-afternoon', name: 'Bono de tarde libre', description: 'Una tarde para desconectarte y disfrutar a tu ritmo.', cost: 350, category: 'time', icon: 'sun', color: '#e0a100' },
+  { id: 'cash-200', name: 'Bono de Zara', description: 'Un bono para lo que necesites.', cost: 600, category: 'money', icon: 'cash', color: '#7a5af5' },
+  { id: 'haunted-cinema', name: 'Noche de cine de terror', description: 'Dos entradas y un combo para una noche de sustos.', cost: 180, category: 'fun', icon: 'film', color: '#7a5af5', featured: 'Evento limitado' },
+  { id: 'sweet-treat', name: 'Bono dulce de Halloween', description: '$40.000 para compartir tus dulces favoritos.', cost: 120, category: 'shop', icon: 'cart', color: '#e0731a', featured: 'Evento limitado' },
 ];
 
+const rewardImages = {
+  cinema: '/premios/bono-cine.png',
+  grocery: '/premios/bono-falabella.png',
+  restaurant: '/premios/bono-restaurante.png',
+  'free-afternoon': '/premios/bono-tarde-libre.jpg',
+  'cash-200': '/premios/bono-zara.png',
+  'haunted-cinema': '/premios/bono-noche-de-terror.png',
+  'sweet-treat': '/premios/bono-dulce-halloween.png',
+};
+
 const icons = {
+  all: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
   cash: '<rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.8"/>',
   film: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 4v16M17 4v16M3 9h4M3 15h4M17 9h4M17 15h4"/>',
@@ -51,8 +61,6 @@ let selectedCategory = 'all';
 
 export function renderRewards(page, profilePoints, now = new Date()) {
   const points = rewardPoints(profilePoints);
-  const left = daysLeftInMonth(now);
-  const month = now.toLocaleDateString('es-CO', { month: 'long' });
   page.className = 'rewards-page';
   page.innerHTML = `
     <header class="shop-heading">
@@ -64,19 +72,23 @@ export function renderRewards(page, profilePoints, now = new Date()) {
         <div><span>Puntos acumulados</span><strong>${points.toLocaleString('es-CO')} <small>pts</small></strong></div>
       </div>
     </header>
-    <section class="rewards-featured" aria-labelledby="rewards-featured-title">
-      <div><span class="rewards-tag">Destacados</span><h2 id="rewards-featured-title">Premios del mes</h2>
-        <p>Dos recompensas especiales durante el reto de ${month}.</p>
+    <section class="rewards-featured halloween-collection" aria-labelledby="rewards-featured-title">
+      <div class="halloween-backdrop" aria-hidden="true"></div><div class="halloween-content">
+      <div><span class="rewards-tag">Exclusivo</span><h2 id="rewards-featured-title">Exclusivos de Halloween</h2>
+        <p>Dos premios especiales durante el evento de Halloween.</p>
       </div>
       <div class="rewards-chips">
-        <div><strong>Quedan ${left.days} ${left.days === 1 ? 'día' : 'días'} ${left.hours} h</strong><span>Suma puntos antes de que termine el reto.</span></div>
+        <div><strong>Quedan 06 días 14 h 32 min</strong><span>Suma puntos antes de que termine el evento.</span></div>
         <div><strong>Tu saldo está sincronizado</strong><span>Los puntos provienen de tu perfil y reflejan tu progreso actual.</span></div>
       </div>
-      <ul class="rewards-grid rewards-grid-featured"></ul>
+      <div class="rewards-showcase">
+        <ul class="rewards-grid rewards-grid-featured"></ul>
+        ${now.getMonth() === 9 ? '<div class="halloween-decoration" aria-hidden="true"><img class="halloween-mascot" src="/shop/halloween-topitin.png" alt="" width="1389" height="1132" loading="lazy" decoding="async"></div>' : ''}
+      </div></div>
     </section>
     <section class="shop-collection" aria-labelledby="rewards-collection-title">
       <div class="shop-collection-heading"><div><h2 id="rewards-collection-title">Colección de premios</h2>
-        <p>Conoce cómo podrás usar tus puntos. Los canjes estarán disponibles próximamente.</p></div>
+        <p id="rewards-concept-note">Vista conceptual. Prueba cualquier bono: no descontamos puntos ni enviamos correos.</p></div>
         <span class="shop-count" aria-live="polite"></span>
       </div>
       <div class="rewards-filters" role="group" aria-label="Filtrar por categoría"></div>
@@ -96,7 +108,8 @@ export function renderRewards(page, profilePoints, now = new Date()) {
   };
   for (const [category, label] of rewardCategories) {
     const control = document.createElement('button');
-    control.type = 'button'; control.className = 'rewards-filter'; control.dataset.category = category; control.textContent = label;
+    control.type = 'button'; control.className = 'rewards-filter'; control.dataset.category = category;
+    control.innerHTML = `${rewardIcon({ all: 'all', fun: 'film', shop: 'cart', money: 'cash', time: 'sun' }[category])}<span>${label}</span>`;
     control.addEventListener('click', () => { selectedCategory = category; paintCollection(); });
     filters.append(control);
   }
@@ -109,15 +122,45 @@ function appendRewardCards(grid, collection, points) {
     const card = document.createElement('li');
     card.className = `rewards-card${reward.featured ? ' rewards-card-featured' : ''}${progress.reachable ? ' rewards-card-reachable' : ''}`;
     card.style.setProperty('--reward-color', reward.color);
+    const frame = reward.featured ? 'hechicero' : 'clasico';
     card.innerHTML = `
+      <span class="rewards-card-frame" style="--frame-image: url('/shop/frames/skins/${frame}-frame.png')" aria-hidden="true"></span>
       <div class="rewards-art">${reward.featured ? `<span class="rewards-tag rewards-tag-${reward.featured === 'Exclusivo' ? 'exclusive' : 'event'}">${reward.featured}</span>` : ''}
-        <span class="rewards-art-icon">${rewardIcon(reward.icon)}</span>
+        <div class="rewards-photo" aria-hidden="true">${rewardImages[reward.id] ? `<img src="${rewardImages[reward.id]}" alt="" width="4" height="3" decoding="async" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 35%;">` : ''}</div>
       </div>
       <div class="rewards-card-details"><h3>${reward.name}</h3><p>${reward.description}</p>
         <p class="rewards-cost">${reward.cost.toLocaleString('es-CO')} puntos</p>
-        <button type="button" class="shop-card-action" disabled>${progress.reachable ? 'Canje próximamente' : `Te faltan ${progress.missing.toLocaleString('es-CO')} puntos`}</button>
-        ${progress.reachable ? `<p class="rewards-ready">${advisorIcon('check')} Ya tienes los puntos</p>` : `<div class="rewards-track" role="progressbar" aria-label="Progreso hacia ${reward.name}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progress.percentage}"><span style="width: ${progress.percentage}%"></span></div>`}
+        <p class="rewards-availability">${progress.reachable ? `${advisorIcon('check')} Disponible` : `Te faltan ${progress.missing.toLocaleString('es-CO')} puntos`}</p>
+        <button type="button" class="rewards-action" aria-label="Simular canje de ${reward.name}" aria-describedby="rewards-concept-note">Simular canje</button>
+        ${progress.reachable ? '' : `<div class="rewards-track" role="progressbar" aria-label="Progreso hacia ${reward.name}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progress.percentage}"><span style="width: ${progress.percentage}%"></span></div>`}
       </div>`;
+    card.addEventListener('click', () => showRewardPreview(reward, card.querySelector('button')));
     grid.append(card);
   }
+}
+
+export function showRewardPreview(reward, trigger) {
+  document.querySelector('.rewards-dialog')?.close();
+  const dialog = document.createElement('dialog');
+  dialog.className = 'rewards-dialog';
+  dialog.setAttribute('aria-labelledby', 'rewards-dialog-title');
+  dialog.setAttribute('aria-describedby', 'rewards-dialog-message rewards-dialog-disclaimer');
+  dialog.innerHTML = `
+    <img class="rewards-dialog-mascot" src="/mascot/pinguino-feliz.png" alt="Topitín feliz" width="140" height="140">
+    <p class="rewards-dialog-speaker">Topitín celebra contigo</p>
+    <h2 id="rewards-dialog-title">¡Bono reclamado!</h2>
+    <p id="rewards-dialog-message">¡Te llegó al correo! Disfruta tu <strong>${reward.name}</strong>. ¡Cada logro merece celebrarse!</p>
+    <p id="rewards-dialog-disclaimer">Solo es una simulación. No enviamos ningún correo, no descontamos puntos y no registramos un canje.</p>
+    <button type="button" class="rewards-action" autofocus>¡A seguir sumando!</button>`;
+  const close = () => dialog.close();
+  dialog.querySelector('button').addEventListener('click', close);
+  dialog.addEventListener('click', event => {
+    if (event.target === dialog) {
+      const bounds = dialog.getBoundingClientRect();
+      if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) close();
+    }
+  });
+  dialog.addEventListener('close', () => { dialog.remove(); trigger?.focus(); }, { once: true });
+  document.body.append(dialog);
+  dialog.showModal();
 }
