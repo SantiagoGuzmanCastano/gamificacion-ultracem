@@ -74,3 +74,11 @@ test('background renewal keeps each ranking photo linked to its own advisor', as
     assert.equal(images[1].replacement.src, ownPath ? '/renewed-own.png' : '/own.png');
   }
 });
+
+test('signed ranking photos are reused while they are still valid', async () => {
+  const db = client();
+  await attachRankingAvatars(db, rows, own);
+  const second = await attachRankingAvatars(db, rows, own);
+  assert.equal(second[1].avatar_url, '/signed-b.png');
+  assert.equal(db.calls.filter(call => call?.paths).length, 1);
+});
