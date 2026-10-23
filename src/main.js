@@ -323,9 +323,11 @@ function shell() {
     nav.replaceChildren();
     const mobileNav = el('nav', 'advisor-nav');
     mobileNav.setAttribute('aria-label', 'Portal del asesor');
-    for (const [view, label, icon] of [['dashboard', 'Inicio', 'home'], ['history', 'Historial clientes', 'clients'], ['commissions', 'Cartera de comisiones', 'sales'], ['map', 'Mapa clientela', 'map'], ['shop', 'Tienda', 'shop'], ['rewards', 'Premios', 'gift'], ['profile', 'Perfil', 'profile']]) {
+    const mobileLabels = { dashboard: 'Inicio', history: 'Clientes', commissions: 'Comisiones', map: 'Mapa', shop: 'Cosméticos', rewards: 'Premios', profile: 'Perfil' };
+    for (const [view, label, icon] of [['dashboard', 'Inicio', 'home'], ['history', 'Historial clientes', 'clients'], ['commissions', 'Cartera de comisiones', 'sales'], ['map', 'Mapa clientela', 'map'], ['shop', 'Tienda cosméticos', 'shop'], ['rewards', 'Premios', 'gift'], ['profile', 'Perfil', 'profile']]) {
       for (const [container, className] of [[nav, 'sidebar-item'], [mobileNav, '']]) {
-        const control = button(label, className, event => navigate(view, event));
+        const control = button(container === mobileNav ? mobileLabels[view] : label, className, event => navigate(view, event));
+        if (container === mobileNav) control.setAttribute('aria-label', label);
         const navIcon = el('span', 'advisor-nav-icon');
         navIcon.innerHTML = advisorIcon(icon);
         control.prepend(navIcon);
@@ -342,7 +344,7 @@ function shell() {
     const nav = sidebar.querySelector('.sidebar-nav');
     const navigate = view => { adminView = view; render(); window.scrollTo(0, 0); };
     nav.setAttribute('aria-label', 'Portal de administración');
-    for (const [view, label, icon] of [['dashboard', 'Tablero de admin', '01'], ['shop', 'Tienda', '02']]) {
+    for (const [view, label, icon] of [['dashboard', 'Tablero de admin', '01'], ['shop', 'Tienda cosméticos', '02']]) {
       const control = button(label, 'sidebar-item', () => navigate(view));
       control.prepend(el('b', '', icon));
       if (adminView === view) { control.classList.add('active'); control.setAttribute('aria-current', 'page'); }
@@ -526,7 +528,7 @@ function paintHalloween() {
   }
   const page = document.querySelector('.shop-page');
   if (page) {
-    renderHalloweenCollection(page, halloweenReady && halloweenEnabled, profile?.equipped_skin, ranking.find(row => row.advisor_id === user?.id)?.confirmed_sales ?? 0, equipSkin);
+    renderHalloweenCollection(page, halloweenReady && halloweenEnabled, profile?.equipped_skin, ranking.find(row => row.advisor_id === user?.id)?.confirmed_sales ?? 0, equipSkin, profile?.points);
     const status = page.querySelector('.shop-mode-status');
     status.textContent = halloweenError;
     status.hidden = !halloweenError;
@@ -1219,9 +1221,9 @@ function render() {
   const page = document.querySelector('#page');
   if (!db) page.replaceChildren(el('p', 'empty-state', 'Falta configurar Supabase en .env.local.'));
   else if (!profile) authPage();
-  else if (profile.role === 'admin' && adminView === 'shop') renderShop(page, sales.filter(sale => sale.confirmed).length, halloweenReady && halloweenEnabled, profile.equipped_skin, equipSkin);
+  else if (profile.role === 'admin' && adminView === 'shop') renderShop(page, sales.filter(sale => sale.confirmed).length, halloweenReady && halloweenEnabled, profile.equipped_skin, equipSkin, profile.points);
   else if (profile.role === 'admin') adminPage(page);
-  else if (advisorView === 'shop') renderShop(page, sales.filter(sale => sale.advisor_id === user?.id && sale.confirmed).length, halloweenReady && halloweenEnabled, profile.equipped_skin, equipSkin);
+  else if (advisorView === 'shop') renderShop(page, sales.filter(sale => sale.advisor_id === user?.id && sale.confirmed).length, halloweenReady && halloweenEnabled, profile.equipped_skin, equipSkin, profile.points);
   else if (advisorView === 'rewards') renderRewards(page, profile.points);
   else if (advisorView === 'history') advisorHistoryPage(page);
   else if (advisorView === 'commissions') advisorCommissionsPage(page);
