@@ -38,7 +38,28 @@ export function groupCityClients(clients, capitals) {
   return { groups: [...groups.values()], warnings };
 }
 
-export async function renderAdvisorClientMap(container, clients = [], onStatus = () => {}) {
+// Mapa de calor de oportunidad: toneladas pedidas por clientes sin venta confirmada, por ciudad.
+export function getOpportunityHeat(clients, sales, capitals) {
+  const sold = new Set(sales.filter(sale => sale.confirmed).map(sale => sale.client_id));
+  const pending = clients.filter(client => !sold.has(client.id) && Number(client.tons_requested) > 0);
+  const points = groupCityClients(pending, capitals).groups.map(group => ({
+    city: group.city,
+    department: group.department,
+    coordinates: group.coordinates,
+    tons: group.clients.reduce((total, client) => total + Number(client.tons_requested), 0),
+  }));
+  const max = Math.max(0, ...points.map(point => point.tons));
+  return {
+    type: 'FeatureCollection',
+    features: points.map(point => ({
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: point.coordinates },
+      properties: { city: point.city, department: point.department, tons: point.tons, weight: point.tons / max },
+    })),
+  };
+}
+
+export async function renderAdvisorClientMap(container, clients = [], onStatus = () => {}, sales = []) {
   destroyAdvisorClientMap();
   const current = generation;
   const [{ Map: MapLibreMap, Popup, Marker, setWorkerUrl }, , response, { default: workerUrl }] = await Promise.all([
@@ -66,6 +87,7 @@ export async function renderAdvisorClientMap(container, clients = [], onStatus =
           data: '/data/colombia-departments.geojson',
           attribution: 'Cartografía: DANE MGN 2025 · Simplificación: ytolosa/mapas-colombia (CC BY 4.0)',
         },
+        opportunity: { type: 'geojson', data: getOpportunityHeat(clients, sales, capitals) },
       },
       layers: [
         { id: 'background', type: 'background', paint: { 'background-color': '#08121f' } },
@@ -74,6 +96,14 @@ export async function renderAdvisorClientMap(container, clients = [], onStatus =
           'fill-opacity': 1,
         } },
         { id: 'departments-border', type: 'line', source: 'departments', paint: { 'line-color': '#7892aa', 'line-width': 1 } },
+        { id: 'opportunity-heat', type: 'heatmap', source: 'opportunity', paint: {
+          'heatmap-weight': ['get', 'weight'],
+          'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 4, 1, 8, 2],
+          'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 4, 60, 8, 110],
+          'heatmap-opacity': .85,
+          'heatmap-color': ['interpolate', ['linear'], ['heatmap-density'],
+            0, 'rgba(255, 201, 40, 0)', .2, 'rgba(255, 201, 40, .35)', .5, '#ffc928', .8, '#ff8a1f', 1, '#ff4d2e'],
+        } },
       ],
     },
     bounds: [[-81.8, -4.3], [-66.8, 13.5]],

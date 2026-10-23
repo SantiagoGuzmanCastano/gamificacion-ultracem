@@ -21,16 +21,16 @@ function seed(now) {
     { user_id: 'demo-asesor-3', full_name: 'Asesor Tres', role: 'advisor', equipped_skin: 'classic', avatar_path: null, photo_prompted_at: at(1), email: 'tres@demo.test' },
     { user_id: DEMO_ADMIN_ID, full_name: 'Administración Demo', role: 'admin', equipped_skin: 'classic', avatar_path: null, photo_prompted_at: at(1), email: 'admin@demo.test' },
   ];
-  // [id, nombre, tipo, asesor, toneladas pedidas, tareas completadas, días desde la creación]
+  // [id, nombre, tipo, asesor, toneladas pedidas, tareas completadas, días desde la creación, departamento, ciudad]
   const clientRows = [
-    ['demo-c1', 'Ferretería Norte', 'Ferretería', DEMO_ADVISOR_ID, 20, 2, 1],
-    ['demo-c2', 'Constructora Caribe', 'Constructora', DEMO_ADVISOR_ID, 35, 0, 2],
-    ['demo-c3', 'Depósito La Sexta', 'Distribuidor', DEMO_ADVISOR_ID, 15, 4, 3],
-    ['demo-c4', 'Materiales del Sur', 'Distribuidor', 'demo-asesor-2', 40, 4, 4],
-    ['demo-c5', 'Ferretería El Puente', 'Ferretería', 'demo-asesor-2', 25, 4, 5],
-    ['demo-c6', 'Obras y Techos', 'Constructora', 'demo-asesor-3', 30, 3, 6],
+    ['demo-c1', 'Ferretería Norte', 'Ferretería', DEMO_ADVISOR_ID, 20, 2, 1, 'Atlántico', 'Barranquilla'],
+    ['demo-c2', 'Constructora Caribe', 'Constructora', DEMO_ADVISOR_ID, 35, 0, 2, 'Bolívar', 'Cartagena de Indias'],
+    ['demo-c3', 'Depósito La Sexta', 'Distribuidor', DEMO_ADVISOR_ID, 15, 4, 3, 'Atlántico', 'Barranquilla'],
+    ['demo-c4', 'Materiales del Sur', 'Distribuidor', 'demo-asesor-2', 40, 4, 4, 'Valle del Cauca', 'Cali'],
+    ['demo-c5', 'Ferretería El Puente', 'Ferretería', 'demo-asesor-2', 25, 4, 5, 'Antioquia', 'Medellín'],
+    ['demo-c6', 'Obras y Techos', 'Constructora', 'demo-asesor-3', 30, 3, 6, 'Bogotá D.C.', 'Bogotá D.C.'],
   ];
-  const clients = clientRows.map(([id, name, type, advisor_id, tons_requested, , age]) => ({ id, name, type, advisor_id, tons_requested, created_at: at(age) }));
+  const clients = clientRows.map(([id, name, type, advisor_id, tons_requested, , age, department, city]) => ({ id, name, type, advisor_id, tons_requested, department, city, created_at: at(age) }));
   const tasks = clientRows.flatMap(([id, , , , , done]) => TASKS.map(([title, description], index) => ({
     id: `${id}-t${index + 1}`, client_id: id, title, description, completed_at: index < done ? at(1) : null,
   })));

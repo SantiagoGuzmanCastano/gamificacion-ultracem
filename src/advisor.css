@@ -404,6 +404,7 @@
 .advisor-map-legend span::before { display: inline-block; width: 12px; height: 12px; margin-right: 8px; border-radius: 3px; vertical-align: -1px; content: ''; }
 .advisor-map-legend-locked::before { background: #1b3047; }
 .advisor-map-legend-active::before { background: #1378c6; }
+.advisor-map-legend-heat::before { background: linear-gradient(90deg, #ffc928, #ff8a1f, #ff4d2e); }
 .advisor-city-marker {
   width: 32px; height: 32px; border: 2px solid #fff; border-radius: 50%;
   background: #0b88d4; color: #fff; font: 700 13px/1 system-ui, sans-serif;
@@ -432,3 +433,39 @@
 .client-history-tasks { margin-top: 12px; color: var(--dashboard-ink); font-size: .84rem; }
 .client-history-tasks summary { cursor: pointer; color: var(--dashboard-blue); font-weight: 700; }
 .client-history-tasks ul { display: grid; gap: 5px; margin: 10px 0 0; padding-left: 20px; }
+
+/* Racha viva: la llama titila con racha y queda gris y quieta en 0 días. */
+.hero-streak-flame { transform-origin: 50% 90%; }
+.hero-streak[data-streak="cold"] .hero-streak-flame { color: #7d93a8; filter: none; }
+/* Topitín se puede tocar; la burbuja de mala racha imita a Duolingo: blanca, borde grueso y cola hacia él. */
+.mascot-tap { display: flex; justify-content: center; width: 100%; padding: 0; border: 0; background: none; cursor: pointer; border-radius: 16px; }
+.mascot-tap:focus-visible { outline: 3px solid #ffc928; outline-offset: 4px; }
+.streak-nudge-row { display: flex; align-items: center; gap: 18px; margin: 18px 0 0; }
+.streak-nudge-mascot { flex: 0 0 auto; width: 96px; height: 96px; object-fit: contain; }
+.mascot-nudge { position: relative; flex: 0 1 460px; padding: 14px 18px; border: 2px solid #d7e3ee; border-radius: 16px; background: #fff; color: #0b2a45; box-shadow: 0 4px 0 #d7e3ee; }
+.mascot-nudge::before { content: ''; position: absolute; left: -11px; top: calc(50% - 9px); width: 18px; height: 18px; border: solid #d7e3ee; border-width: 0 0 2px 2px; background: #fff; transform: rotate(45deg); }
+.mascot-nudge-text { margin: 0; font-size: .92rem; font-weight: 750; line-height: 1.45; }
+.mascot-nudge-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.mascot-nudge-actions button { min-height: 44px; padding: 8px 12px; border: 0; border-radius: 12px; background: none; color: #3f6584; font: inherit; font-size: .82rem; font-weight: 750; cursor: pointer; }
+.mascot-nudge-actions .mascot-nudge-primary { background: #ffc928; color: #063b67; box-shadow: 0 3px 0 #d79f00; }
+.mascot-nudge-actions button:focus-visible { outline: 3px solid #1378c6; outline-offset: 2px; }
+@media (max-width: 520px) {
+  .streak-nudge-row { gap: 12px; }
+  .streak-nudge-mascot { width: 72px; height: 72px; }
+}
+:root[data-theme="dark"] .mascot-nudge, :root[data-theme="dark"] .mascot-nudge::before { border-color: #3e7d99; background: #0f2c44; color: #fff; }
+:root[data-theme="dark"] .mascot-nudge { box-shadow: 0 4px 0 #3e7d99; }
+:root[data-theme="dark"] .mascot-nudge-actions button:not(.mascot-nudge-primary) { color: #b9d3e8; }
+@media (prefers-reduced-motion: no-preference) {
+  .hero-streak[data-streak="hot"] .hero-streak-flame { animation: streak-flicker 1.2s ease-in-out infinite; }
+  .advisor-hero-mascot .mascot-tap { animation: mascot-breathe 3.2s ease-in-out infinite; }
+  .mascot-nudge { animation: mascot-nudge-in 260ms cubic-bezier(.23, 1, .32, 1) both; }
+  .mascot-tap:active { scale: .97; }
+}
+@keyframes streak-flicker {
+  0%, 100% { transform: scale(1) rotate(-2deg); filter: drop-shadow(0 0 6px #ffbe2566); }
+  35% { transform: scale(1.08, 1.12) rotate(2deg); filter: drop-shadow(0 0 11px #ff9d2599); }
+  65% { transform: scale(.97, 1.04) rotate(-1deg); filter: drop-shadow(0 0 8px #ffbe2588); }
+}
+@keyframes mascot-breathe { 50% { translate: 0 -4px; } }
+@keyframes mascot-nudge-in { from { opacity: 0; transform: translateY(8px) scale(.94); } }

@@ -8,6 +8,7 @@ import { mascotImages, mascotLabels } from './mascot.js';
 import { getMonthlyTons, getSalesStreak, getWeeklySales, getRankingSlots, getPortfolioProgress, getMonthlyGoal, getClientSaleState, getClientHistoryStatus, isCurrentClient } from './advisor-metrics.js';
 import { advisorIcon } from './advisor-icons.js';
 import { clearMascotFeedback, showMascotFeedback } from './mascot-feedback.js';
+import { createStreakStat, getStreakNudge, markStreakNudgeShown, shouldShowStreakNudge, showStreakNudge } from './streak-nudge.js';
 import { clearAdvisorEntrance, playAdvisorEntrance, resetAdvisorEntrance } from './advisor-entrance.js';
 import { clearAdvisorEffects, celebrateTask, celebrateSale, revealRecommendation } from './advisor-effects.js';
 import { isValidProfileImage, profileImageExtension } from './profile.js';
@@ -42,6 +43,8 @@ let profilePhotoPromptPending = false;
 let profilePhotoUrlTimer = null;
 let profilePhotoSaving = false;
 let profileKeyboardNavigation = false;
+let mascotTaps = 0;
+let streakNudgeOpen = null;
 document.documentElement.dataset.theme = theme;
 const taskOrder = ['Preparar una visita', 'Contactar al cliente', 'Revisar una cotización', 'Planear el siguiente paso'];
 
@@ -745,7 +748,7 @@ function advisorMapPage(page) {
   const container = el('div', 'advisor-map-canvas');
   container.setAttribute('aria-label', 'Mapa de departamentos de Colombia y ciudades con clientes');
   const legend = el('div', 'advisor-map-legend');
-  legend.append(el('span', 'advisor-map-legend-locked', 'Bloqueado'), el('span', 'advisor-map-legend-active', 'Con clientes'));
+  legend.append(el('span', 'advisor-map-legend-locked', 'Bloqueado'), el('span', 'advisor-map-legend-active', 'Con clientes'), el('span', 'advisor-map-legend-heat', 'Oportunidad: toneladas pedidas sin venta confirmada'));
   section.append(status, container, legend);
   if (!ownClients.length) section.append(el('p', 'empty-state', 'Aún no tienes clientes asignados. Todos los departamentos están bloqueados.'));
   page.append(welcome, section);
@@ -756,7 +759,7 @@ function advisorMapPage(page) {
       if (!container.isConnected) return;
       status.textContent = state === 'ready' ? 'Selecciona un departamento o una ciudad para ver tus clientes.' : message;
       status.classList.toggle('advisor-map-error', state === 'error');
-    });
+    }, sales);
   }).catch(error => {
     if (!container.isConnected) return;
     status.textContent = `No se pudo cargar el mapa: ${error.message}`;
@@ -834,21 +837,42 @@ function advisorPage(page) {
   const progressLabel = el('h2', 'advisor-kicker', 'Tu avance de cartera');
   heroCopy.append(progressLabel);
   const heroStats = el('div', 'hero-highlight-stats');
-  const streakStat = el('div', 'hero-highlight');
-  const flame = el('span', 'hero-highlight-icon'); flame.innerHTML = advisorIcon('flame');
-  streakStat.append(flame, el('span', '', 'Racha actual'), el('strong', '', `${streak} ${streak === 1 ? 'día' : 'días'}`));
+  const streakStat = createStreakStat(streak);
   const salesStat = el('div', 'hero-highlight');
   const salesIcon = el('span', 'hero-highlight-icon'); salesIcon.innerHTML = advisorIcon('sales');
   salesStat.append(salesIcon, el('span', '', 'Ventas confirmadas'), el('strong', '', String(ownConfirmedSales.length)));
   heroStats.append(streakStat, salesStat);
-  heroCopy.append(heroStats, button('Ver mis tareas hoy', 'hero-cta', () => document.querySelector('#advisor-actions')?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' })));
+  const goToTasks = () => document.querySelector('#advisor-actions')?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+  heroCopy.append(heroStats, button('Ver mis tareas hoy', 'hero-cta', goToTasks));
   const mascot = el('div', 'mascot advisor-hero-mascot');
   const mascotImage = el('img', 'mascot-image');
   mascotImage.src = mascotImagesForSkin[mascotMood];
   mascotImage.alt = `Mascota: ${mascotLabels[mascotMood]}`;
-  mascot.append(mascotImage);
+  // Topitín responde al tocarlo con una frase corta.
+  const mascotTap = el('button', 'mascot-tap');
+  mascotTap.type = 'button';
+  mascotTap.setAttribute('aria-label', 'Saludar a Topitín');
+  mascotTap.append(mascotImage);
+  mascotTap.addEventListener('click', () => showMascotFeedback('tap', ++mascotTaps));
+  mascot.append(mascotTap);
   hero.append(ring, heroCopy, mascot);
   page.append(hero);
+  // Mala racha (0 días): franja estilo Duolingo con Topitín hablando, una vez por sesión.
+  // render() reconstruye la página: la franja sigue abierta hasta que el asesor la cierre.
+  if (streakNudgeOpen === null) {
+    streakNudgeOpen = shouldShowStreakNudge(streak);
+    if (streakNudgeOpen) markStreakNudgeShown();
+  }
+  if (streakNudgeOpen && streak === 0) {
+    const nudgeRow = el('section', 'streak-nudge-row');
+    nudgeRow.setAttribute('aria-label', 'Mensaje de Topitín');
+    const nudgeMascot = el('img', 'streak-nudge-mascot');
+    nudgeMascot.src = mascotImagesForSkin.sad;
+    nudgeMascot.alt = '';
+    nudgeRow.append(nudgeMascot);
+    showStreakNudge(nudgeRow, { message: getStreakNudge(streak), onTasks: goToTasks, onClose: () => { streakNudgeOpen = false; nudgeRow.remove(); } });
+    page.append(nudgeRow);
+  }
 
   page.append(metrics([
     ['Clientes actuales', currentClients.length, 'con acciones pendientes', currentClients.length],
