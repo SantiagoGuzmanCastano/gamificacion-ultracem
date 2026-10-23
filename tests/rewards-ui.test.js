@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { renderRewards, rewards, showRewardPreview } from '../src/rewards.js';
+import { eventCountdown, renderRewards, rewardRail, rewards, showRewardPreview } from '../src/rewards.js';
 import { readFileSync } from 'node:fs';
 
 test('rewards decoration overrides the shared mobile hiding rule without changing shop CSS', () => {
@@ -86,27 +86,30 @@ test('reward cards show affordability without enabling a transaction and retain 
     assert.match(page.innerHTML, /class="halloween-backdrop"/);
     assert.match(page.innerHTML, /class="halloween-content"/);
     assert.match(page.innerHTML, /Exclusivos de Halloween/);
-    assert.match(page.innerHTML, /Quedan 06 días 14 h 32 min/);
+    assert.match(page.innerHTML, /Quedan 9 días y 0 h/);
+    assert.doesNotMatch(page.innerHTML, /sincronizado/);
     for (const filter of page.querySelector('.rewards-filters').children) {
       assert.match(filter.innerHTML, /<svg/);
     }
     const cards = page.querySelector('.rewards-grid-collection').children;
     for (const card of cards) {
-      assert.match(card.innerHTML, /rewards-card-frame/);
+      assert.doesNotMatch(card.innerHTML, /rewards-card-frame/);
+      assert.match(card.className, /rewards-ticket/);
       assert.match(card.innerHTML, /rewards-photo/);
-      assert.match(card.innerHTML, /<img src="\/premios\/[^"]+" alt=""[^>]*--photo-focus: \d+%/);
+      assert.match(card.innerHTML, /<img src="\/premios\/[^"]+\.webp" alt=""[^>]*--photo-focus: \d+%/);
     }
     assert.match(cards[0].innerHTML, /Disponible/);
     assert.doesNotMatch(cards[0].innerHTML, /disabled/);
-    assert.match(cards[0].innerHTML, /Simular canje/);
+    assert.match(cards[0].innerHTML, />Reclamar</);
+    assert.doesNotMatch(cards[0].innerHTML, /Simular canje/);
     assert.match(cards[1].innerHTML, /Te faltan 50/);
     assert.match(page.innerHTML, /Vista conceptual/);
-    assert.match(page.innerHTML, /halloween-topitin\.png/);
+    assert.match(page.innerHTML, /halloween-topitin\.webp/);
     page.querySelector('.rewards-filters').children[1].click();
     assert.equal(page.querySelector('.rewards-grid-collection').children.length, 2);
     page.querySelector('.rewards-filters').children[0].click();
     renderRewards(page, 0, new Date(2026, 10, 1));
-    assert.doesNotMatch(page.innerHTML, /halloween-topitin\.png/);
+    assert.doesNotMatch(page.innerHTML, /halloween-topitin\.webp/);
   } finally { globalThis.document = previous; }
 });
 
@@ -120,8 +123,23 @@ test('reward photos stay inside a square frame and each one sets its own focus',
   }
 });
 
-test('reward cards rely on the nine-slice frame instead of a second border', () => {
+test('reward cards are coupons with notches and a perforation instead of a cosmetics frame', () => {
   const css = readFileSync(new URL('../src/rewards.css', import.meta.url), 'utf8');
-  assert.match(css, /\.rewards-card \{ position: relative; border: 0; border-radius: 6px; \}/);
-  assert.doesNotMatch(css, /\.rewards-card:hover \{[^}]*0 0 0 1px/);
+  assert.doesNotMatch(css, /\.rewards-card-frame/);
+  assert.match(css, /\.rewards-ticket \.rewards-art \{[^}]*mask: radial-gradient/);
+  assert.match(css, /\.rewards-ticket \.rewards-card-details::before \{[^}]*border-top: 2px dashed/);
+});
+
+test('the goal rail places every regular reward by cost and names the next one', () => {
+  const rail = rewardRail(160);
+  assert.deepEqual(rail.stops.map(stop => stop.cost), [100, 150, 200, 350, 600]);
+  assert.deepEqual(rail.stops.map(stop => stop.at), [20, 40, 60, 80, 100]);
+  assert.equal(rail.fill, 44);
+  assert.equal(rewardRail(0).fill, 0);
+  assert.equal(rewardRail(900).fill, 100);
+  assert.equal(rail.reached, 2);
+  assert.match(rail.status, /Te faltan 40 puntos para el Bono de restaurante\./);
+  assert.equal(rewardRail(900).status, 'Te alcanza para todos los bonos de la colección.');
+  assert.equal(eventCountdown(new Date(2026, 9, 30, 12)), 'Quedan 1 día y 12 h');
+  assert.equal(eventCountdown(new Date(2026, 9, 31, 20)), 'Quedan 4 h');
 });

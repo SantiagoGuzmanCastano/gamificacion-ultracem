@@ -13,7 +13,7 @@
   background: var(--rewards-bg);
 }
 :root[data-theme="dark"] .rewards-page {
-  --rewards-bg: #0b1f36;
+  --rewards-bg: transparent; /* mismo fondo uniforme de la app, como en Cosméticos */
   --rewards-surface: #142d43;
   --rewards-soft: #09283e;
   --rewards-ink: #eef8ff;
@@ -118,18 +118,10 @@
 }
 @media (prefers-reduced-motion: no-preference) and (hover: hover) and (pointer: fine) {
   .rewards-card { transition: transform 180ms cubic-bezier(.23, 1, .32, 1), box-shadow 180ms ease; }
-  .rewards-card:hover { transform: translateY(-3px); box-shadow: 0 0 20px rgb(255 201 40 / 20%); }
+  .rewards-card:hover { transform: translateY(-3px) rotate(-.6deg); }
 }
 
-/* Existing nine-slice shop frames surround the reserved photo and prize content. */
-/* El marco nine-slice ya dibuja el borde: sin borde propio y con su mismo radio, para no duplicarlo. */
-.rewards-card { position: relative; border: 0; border-radius: 6px; }
-.rewards-card-frame {
-  position: absolute; inset: 0; z-index: 4; box-sizing: border-box;
-  border: 11.5px solid transparent; border-image-source: var(--frame-image);
-  border-image-slice: 48; border-image-width: 11.5px;
-  border-image-repeat: stretch; pointer-events: none;
-}
+.rewards-card { position: relative; }
 .rewards-art { position: relative; display: block; padding: 0; }
 .rewards-art > .rewards-tag { position: absolute; top: 22px; left: 24px; z-index: 1; }
 /* Fotos verticales en un marco cuadrado: cada imagen trae su encuadre en --photo-focus. */
@@ -207,4 +199,48 @@
 @media (prefers-reduced-motion: no-preference) {
   .rewards-dialog[open] { animation: rewards-dialog-in 220ms ease-out; }
   @keyframes rewards-dialog-in { from { opacity: 0; transform: translateY(12px) scale(.97); } to { opacity: 1; transform: none; } }
+}
+
+/* Cabecera con riel de metas: cada bono es una parada según su costo. */
+.rewards-page .rewards-heading { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 22px 28px; }
+.rewards-page .rewards-balance { position: relative; isolation: isolate; overflow: hidden; }
+.rewards-page .rewards-balance::after { content: ''; position: absolute; inset: 0; z-index: -1; background: linear-gradient(105deg, transparent 38%, rgb(255 255 255 / 60%) 50%, transparent 62%); transform: translateX(calc(var(--sheen, -120) * 1%)); pointer-events: none; }
+.rewards-rail { grid-column: 1 / -1; padding-top: 4px; }
+.rewards-rail-status { color: var(--rewards-muted); font-size: .88rem; line-height: 1.5; }
+.rewards-rail-status strong { color: var(--rewards-ink); }
+.rewards-rail-track { position: relative; height: 10px; margin: 34px 26px 44px; border-radius: 999px; background: var(--rewards-state); box-shadow: inset 0 1px 2px rgb(6 59 103 / 18%); }
+.rewards-rail-fill { position: absolute; inset: 0 auto 0 0; border-radius: inherit; background: linear-gradient(90deg, #f5a800, #ffd124); transform-origin: left center; box-shadow: 0 0 14px rgb(255 201 40 / 45%); }
+.rewards-rail-stop { position: absolute; top: 50%; display: grid; justify-items: center; gap: 6px; translate: -50% -22px; }
+.rewards-rail-stop img { width: 44px; height: 44px; border: 3px solid var(--rewards-border); border-radius: 50%; object-fit: cover; object-position: 50% var(--photo-focus, 50%); background: var(--rewards-surface); filter: grayscale(.85); opacity: .75; }
+.rewards-rail-stop b { color: var(--rewards-muted); font-size: .74rem; font-variant-numeric: tabular-nums; }
+.rewards-rail-stop-reached img { border-color: #ffc928; filter: none; opacity: 1; box-shadow: 0 0 0 3px rgb(255 201 40 / 25%); }
+.rewards-rail-stop-reached b { color: var(--rewards-ink); }
+
+/* Bonos como cupones: muescas laterales y una perforación entre la foto y los datos. */
+.rewards-page .rewards-ticket { --notch: 11px; --perforation: #9fb7cb; overflow: visible; border: 0; border-radius: 0; background: transparent; box-shadow: none; filter: drop-shadow(0 8px 14px rgb(6 59 103 / 14%)); }
+.rewards-ticket .rewards-art { overflow: hidden; border-radius: 16px 16px 0 0; background: var(--rewards-surface); border-bottom: 0;
+  mask: radial-gradient(circle var(--notch) at 0 100%, #0000 calc(var(--notch) - .5px), #000 var(--notch)) left / 51% 100% no-repeat,
+        radial-gradient(circle var(--notch) at 100% 100%, #0000 calc(var(--notch) - .5px), #000 var(--notch)) right / 51% 100% no-repeat; }
+.rewards-ticket .rewards-card-details { position: relative; border-radius: 0 0 16px 16px; background: var(--rewards-surface);
+  mask: radial-gradient(circle var(--notch) at 0 0, #0000 calc(var(--notch) - .5px), #000 var(--notch)) left / 51% 100% no-repeat,
+        radial-gradient(circle var(--notch) at 100% 0, #0000 calc(var(--notch) - .5px), #000 var(--notch)) right / 51% 100% no-repeat; }
+.rewards-ticket .rewards-card-details::before { content: ''; position: absolute; top: -1px; right: calc(var(--notch) + 6px); left: calc(var(--notch) + 6px); border-top: 2px dashed var(--perforation); }
+.rewards-ticket .rewards-cost { display: inline-flex; align-self: flex-start; padding: 4px 12px; border: 2px solid currentColor; border-radius: 8px; color: #8a5a00; background: #fff6d6; }
+.rewards-ticket.rewards-card-featured { --perforation: #a98bd8; }
+.rewards-ticket:focus-within { outline: 0; }
+.rewards-ticket:focus-within .rewards-action { outline: 3px solid #0876c9; outline-offset: 3px; }
+:root[data-theme="dark"] .rewards-page .rewards-ticket { --perforation: #4b7591; filter: drop-shadow(0 10px 16px rgb(0 0 0 / 35%)); }
+:root[data-theme="dark"] .rewards-ticket.rewards-card-featured { --perforation: #7a5fb0; }
+:root[data-theme="dark"] .rewards-ticket .rewards-cost { color: #ffd76a; background: #3a2f0d; }
+:root[data-theme="dark"] .rewards-rail-track { box-shadow: inset 0 1px 2px rgb(0 0 0 / 40%); }
+@media (max-width: 780px) {
+  .rewards-page .rewards-heading { grid-template-columns: 1fr; }
+  .rewards-rail-track { margin-inline: 22px; }
+  .rewards-rail-stop img { width: 36px; height: 36px; }
+  .rewards-rail-stop { translate: -50% -18px; }
+}
+@media (max-width: 420px) {
+  .rewards-rail-stop b { font-size: .68rem; }
+  .rewards-rail-stop img { width: 30px; height: 30px; border-width: 2px; }
+  .rewards-rail-stop { translate: -50% -15px; }
 }

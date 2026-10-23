@@ -6,6 +6,7 @@ import './notification-center.css';
 import { createNotificationCenter } from './notification-center.js';
 import { renderShop, renderHalloweenCollection } from './shop.js';
 import { renderRewards } from './rewards.js';
+import { playStoreEntrance, resetStoreEntrance } from './store-entrance.js';
 import { createClient } from '@supabase/supabase-js';
 import { getMascotStateForCurrentClient, getProgress, getXp, getLevelProgress, isTaskCompletionConfirmed } from './game.js';
 import { mascotImages, mascotLabels } from './mascot.js';
@@ -1423,14 +1424,16 @@ function render() {
   advisorMapModule?.destroyAdvisorClientMap();
   clearProfileEntrance(!profile || profile.role !== 'advisor' || advisorView !== 'profile');
   if (!profile || profile.role !== 'advisor' || advisorView !== 'commissions') resetCommissionEntrance();
+  const storeView = profile?.role === 'admin' ? (adminView === 'shop' ? 'shop' : null) : ['shop', 'rewards'].includes(advisorView) ? advisorView : null;
+  if (!profile || !storeView) resetStoreEntrance();
   shell();
   const page = document.querySelector('#page');
   if (!db) page.replaceChildren(el('p', 'empty-state', 'Falta configurar Supabase en .env.local.'));
   else if (!profile) authPage();
-  else if (profile.role === 'admin' && adminView === 'shop') renderShop(page, sales.filter(sale => sale.confirmed).length, halloweenReady && halloweenEnabled, profile.equipped_skin, equipSkin, profile.points);
+  else if (profile.role === 'admin' && adminView === 'shop') { renderShop(page, sales.filter(sale => sale.confirmed).length, halloweenReady && halloweenEnabled, profile.equipped_skin, equipSkin, profile.points); playStoreEntrance(page, 'shop'); }
   else if (profile.role === 'admin') adminPage(page);
-  else if (advisorView === 'shop') renderShop(page, sales.filter(sale => sale.advisor_id === user?.id && sale.confirmed).length, halloweenReady && halloweenEnabled, profile.equipped_skin, equipSkin, profile.points);
-  else if (advisorView === 'rewards') renderRewards(page, profile.points);
+  else if (advisorView === 'shop') { renderShop(page, sales.filter(sale => sale.advisor_id === user?.id && sale.confirmed).length, halloweenReady && halloweenEnabled, profile.equipped_skin, equipSkin, profile.points); playStoreEntrance(page, 'shop'); }
+  else if (advisorView === 'rewards') { renderRewards(page, profile.points); playStoreEntrance(page, 'rewards'); }
   else if (advisorView === 'history') advisorHistoryPage(page);
   else if (advisorView === 'commissions') advisorCommissionsPage(page);
   else if (advisorView === 'map') advisorMapPage(page);

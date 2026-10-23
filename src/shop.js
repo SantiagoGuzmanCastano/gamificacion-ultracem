@@ -1,3 +1,6 @@
+import { revealCards, swapStageArt } from './store-entrance.js';
+import { eventCountdown } from './rewards.js';
+
 const collection = [
   ['clasico', 'Clásico'], ['playero', 'Playero'], ['urbano', 'Urbano'],
   ['jazzy-dancer', 'Jazzy Dancer'], ['luchador', 'Luchador'], ['empresario', 'Empresario'],
@@ -56,17 +59,34 @@ function shopActionContent(label, price, icon = 'lock') {
   return `${shopIcon(icon)}<span class="shop-action-copy">${label === 'Desbloquear' ? `${price} puntos` : label === 'Disponible' ? `Disponible · ${price} puntos` : label}</span>`;
 }
 
+// Los catálogos conservan los PNG originales; las vistas cargan su versión WebP liviana.
+const webp = path => path.replace(/\.png$/, '.webp');
+const outfitStage = outfit => ({ name: outfit.name, art: webp(outfit.image), background: `/skins/backgrounds/${outfit.id}.webp` });
+const itemStage = item => ({ name: item.name, art: webp(item.image), background: webp(item.background) });
+
+function tryOnButton(stage, alt) {
+  return `<button type="button" class="shop-artwork shop-try" style="--skin-bg: url('${stage.background}')" aria-label="Probar ${stage.name} en el probador" aria-pressed="false"
+    data-stage-name="${stage.name}" data-stage-art="${stage.art}" data-stage-bg="${stage.background}"><img src="${stage.art}" alt="${alt}" width="280" height="280" loading="lazy" decoding="async"></button>`;
+}
+
 export function renderShop(page, sales, halloweenEnabled = false, equippedSkin = 'classic', onEquip = () => {}, points = 0) {
   const balance = Number.isFinite(Number(points)) ? Math.max(0, Number(points)) : 0;
+  const worn = outfitStage([...outfits, ...halloweenOutfits].find(outfit => outfit.id === (equippedSkin === 'skeleton' ? 'esqueleto' : 'clasico')));
   page.className = 'shop-page';
   page.innerHTML = `
     <header class="shop-heading">
       <div class="shop-heading-copy"><p class="shop-eyebrow">${shopIcon('crown')}<span>Un estilo para cada logro</span></p>
         <h1 tabindex="-1">Tienda de cosméticos</h1>
-        <p>Tu esfuerzo ahora tiene su propio estilo.<br>Colecciona, personaliza y brilla con Topitín.</p></div>
-      <div class="shop-xp"><span class="shop-balance-icon" aria-hidden="true">${shopIcon('sparkle')}</span>
-        <div><span>Tus puntos para brillar</span><strong>${balance.toLocaleString('es-CO')} <small>puntos</small></strong></div>
-        <p class="shop-balance-note">¡Cada logro le da color a tu colección!</p></div>
+        <p>Tu esfuerzo ahora tiene su propio estilo.<br>Colecciona, personaliza y brilla con Topitín.</p>
+        <div class="shop-xp"><span class="shop-balance-icon" aria-hidden="true">${shopIcon('sparkle')}</span>
+          <div><span>Tus puntos para brillar</span><strong><span data-count>${balance.toLocaleString('es-CO')}</span> <small>puntos</small></strong></div>
+          <p class="shop-balance-note">Toca un atuendo para ver cómo le queda a Topitín.</p></div></div>
+      <figure class="shop-stage" style="--stage-bg: url('${worn.background}')">
+        <span class="shop-stage-light" aria-hidden="true"></span>
+        <span class="shop-stage-pedestal" aria-hidden="true"></span>
+        <img class="shop-stage-art" src="${worn.art}" alt="Topitín con el atuendo ${worn.name}" width="320" height="320" decoding="async">
+        <figcaption class="shop-stage-caption" aria-live="polite"><span>Llevas puesto</span><strong>${worn.name}</strong></figcaption>
+      </figure>
     </header>
     <p class="shop-mode-status form-error" role="status" hidden></p>
     <div class="shop-tabs" role="tablist" aria-label="Colecciones de cosméticos">
@@ -84,7 +104,7 @@ export function renderShop(page, sales, halloweenEnabled = false, equippedSkin =
       <section id="shop-panel-${id}" class="shop-panel shop-collection" role="tabpanel" aria-labelledby="shop-tab-${id}" tabindex="0" hidden>
         <ul class="shop-grid">${catalog.map(item => `<li class="shop-card shop-card-${id}">
           <span class="shop-card-frame" style="--frame-image: url('${item.frame}')" aria-hidden="true"></span>
-          <div class="shop-artwork" style="--skin-bg: url('${item.background}')"><img src="${item.image}" alt="${item.name}" width="280" height="280" loading="lazy" decoding="async"></div>
+          ${tryOnButton(itemStage(item), item.name)}
           <div class="shop-card-details"><h3>${item.name}</h3><button type="button" class="shop-card-action${balance >= item.price ? ' shop-card-action-available' : ''}" disabled>${shopActionContent(balance >= item.price ? 'Disponible' : 'Desbloquear', item.price, balance >= item.price ? 'check' : 'lock')}</button></div>
         </li>`).join('')}</ul>
       </section>`).join('')}
@@ -92,27 +112,50 @@ export function renderShop(page, sales, halloweenEnabled = false, equippedSkin =
       Precios conceptuales: no se descuentan puntos. El equipamiento existente conserva sus reglas actuales.</p></aside>`;
   appendCards(page.querySelector('.shop-grid'), outfits, equippedSkin, sales, onEquip, balance);
   renderHalloweenCollection(page, halloweenEnabled, equippedSkin, sales, onEquip, balance);
+  page.addEventListener('click', event => {
+    const control = event.target?.closest?.('.shop-try');
+    if (control) tryOn(page, control, worn);
+  });
   const tabs = [...page.querySelectorAll('[role="tab"]')];
   const panels = [...page.querySelectorAll('[role="tabpanel"]')];
-  const selectTab = index => {
+  const selectTab = (index, animate = false) => {
     tabs.forEach((tab, position) => {
       const selected = position === index;
       tab.setAttribute('aria-selected', String(selected));
       tab.tabIndex = selected ? 0 : -1;
       panels[position].hidden = !selected;
     });
+    if (animate) revealCards([...panels[index].querySelectorAll('.shop-card')]);
   };
   tabs.forEach((tab, index) => {
-    tab.addEventListener('click', () => selectTab(index));
+    tab.addEventListener('click', () => selectTab(index, tab.getAttribute('aria-selected') !== 'true'));
     tab.addEventListener('keydown', event => {
       const next = { ArrowRight: (index + 1) % tabs.length, ArrowLeft: (index + tabs.length - 1) % tabs.length, Home: 0, End: tabs.length - 1 }[event.key];
       if (next === undefined) return;
       event.preventDefault();
-      selectTab(next);
+      selectTab(next, true);
       tabs[next].focus();
     });
   });
   selectTab(0);
+}
+
+// Solo cambia la vista previa: equipar sigue dependiendo del botón de la tarjeta.
+function tryOn(page, control, worn) {
+  const stage = page.querySelector('.shop-stage');
+  const art = stage.querySelector('.shop-stage-art');
+  const caption = stage.querySelector('.shop-stage-caption');
+  const wasPressed = control.getAttribute('aria-pressed') === 'true';
+  page.querySelectorAll('.shop-try[aria-pressed="true"]').forEach(other => other.setAttribute('aria-pressed', 'false'));
+  const preview = wasPressed ? worn : { name: control.dataset.stageName, art: control.dataset.stageArt, background: control.dataset.stageBg };
+  if (!wasPressed) control.setAttribute('aria-pressed', 'true');
+  swapStageArt(art, () => {
+    art.src = preview.art;
+    art.alt = `Topitín con ${preview.name}`;
+    stage.style.setProperty('--stage-bg', `url('${preview.background}')`);
+    caption.innerHTML = `<span>${preview === worn ? 'Llevas puesto' : 'Vista previa'}</span><strong>${preview.name}</strong>`;
+  });
+  if (stage.getBoundingClientRect().bottom < 80) stage.scrollIntoView({ block: 'center', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
 }
 
 export function renderHalloweenCollection(page, enabled, equippedSkin = 'classic', sales = 0, onEquip = () => {}, points = 0) {
@@ -127,10 +170,10 @@ export function renderHalloweenCollection(page, enabled, equippedSkin = 'classic
     <div class="halloween-heading"><div><span class="halloween-badge"><img src="/shop/icons/pumpkin.svg" alt=""> Exclusivo</span>
       <h2 id="halloween-title">Exclusivos de Halloween</h2><p>Dos estilos especiales de Topitín disponibles durante el modo Halloween.</p></div>
       <span class="halloween-badge halloween-badge-event"><img src="/shop/icons/timer.svg" alt=""> Evento limitado</span></div>
-    <div class="halloween-meta"><div class="halloween-timer"><img src="/shop/icons/timer.svg" alt=""><div><strong>Quedan 06 días 14 h 32 min</strong><span>Consigue más XP antes de que termine el evento.</span></div></div>
+    <div class="halloween-meta"><div class="halloween-timer"><img src="/shop/icons/timer.svg" alt=""><div><strong>${eventCountdown()}</strong><span>Consigue más XP antes de que termine el evento.</span></div></div>
       <div class="halloween-xp"><img src="/shop/icons/xp.svg" alt=""><div><strong>Desbloquea estas skins recolectando XP</strong><span>Gana XP haciendo más ventas y completando tus objetivos.</span></div></div></div>
     <div class="halloween-showcase"><ul class="shop-grid"></ul>
-      <div class="halloween-decoration" aria-hidden="true"><img class="halloween-mascot" src="/shop/halloween-topitin.png" alt="" aria-hidden="true" width="1389" height="1132" loading="lazy" decoding="async"></div>
+      <div class="halloween-decoration" aria-hidden="true"><img class="halloween-mascot" src="/shop/halloween-topitin.webp" alt="" aria-hidden="true" width="1389" height="1132" loading="lazy" decoding="async"></div>
     </div></div>`;
   appendCards(section.querySelector('.shop-grid'), halloweenOutfits, equippedSkin, sales, onEquip, points);
   page.querySelector('.shop-collection').before(section);
@@ -150,12 +193,11 @@ function appendCards(grid, collection, equippedSkin, sales, onEquip, points = 0)
     card.className = `shop-card shop-card-${outfit.id}${classic ? ' shop-card-classic' : ''}${outfit.id === 'zombie' || outfit.id === 'esqueleto' ? ' shop-card-halloween' : ''}${equipped ? ' shop-card-equipped' : ''}`;
     card.innerHTML = `
       <span class="shop-card-frame" style="--frame-image: url('${outfit.frame}')" aria-hidden="true"></span>
-      <div class="shop-artwork" style="--skin-bg: url('/skins/backgrounds/${outfit.id}.webp')"><img src="${outfit.image}" alt="${outfit.name}" width="280" height="280"
-        loading="eager" decoding="async"></div>
+      ${tryOnButton(outfitStage(outfit), outfit.name)}
       <div class="shop-card-details"><h3>${outfit.name}</h3>
         <button type="button" class="shop-card-action${canEquip ? ' shop-card-action-ready' : ''}${equipped ? ' shop-card-action-equipped' : ''}${affordable ? ' shop-card-action-available' : ''}" aria-pressed="${equipped}" ${canEquip || equipped ? '' : 'disabled'}>${shopActionContent(equipped ? 'Equipado' : canEquip ? 'Equipar' : affordable ? 'Disponible' : 'Desbloquear', displayPrice, equipped || canEquip || affordable ? 'check' : 'lock')}</button>
       </div>`;
-    if (canEquip) card.querySelector('button').addEventListener('click', () => onEquip(classic ? 'classic' : 'skeleton'));
+    if (canEquip) card.querySelector('.shop-card-action').addEventListener('click', () => onEquip(classic ? 'classic' : 'skeleton'));
     grid.append(card);
   }
 }

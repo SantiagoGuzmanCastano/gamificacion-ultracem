@@ -1,4 +1,5 @@
 import { advisorIcon } from './advisor-icons.js';
+import { revealCards } from './store-entrance.js';
 
 export const rewardCategories = [
   ['all', 'Todos'], ['fun', 'Entretenimiento'], ['shop', 'Compras'], ['money', 'Dinero'], ['time', 'Tiempo libre'],
@@ -17,13 +18,13 @@ export const rewards = [
 // Las fotos son verticales (3:4) y se muestran en un marco cuadrado; `focus` es el
 // object-position vertical que deja a Topitín completo y centrado en cada una.
 const rewardImages = {
-  cinema: { src: '/premios/bono-cine.png', focus: '40%' },
-  grocery: { src: '/premios/bono-falabella.png', focus: '55%' },
-  restaurant: { src: '/premios/bono-restaurante.png', focus: '55%' },
-  'free-afternoon': { src: '/premios/bono-tarde-libre.jpg', focus: '48%' },
-  'cash-200': { src: '/premios/bono-zara.png', focus: '52%' },
-  'haunted-cinema': { src: '/premios/bono-noche-de-terror.png', focus: '36%' },
-  'sweet-treat': { src: '/premios/bono-dulce-halloween.png', focus: '67%' },
+  cinema: { src: '/premios/bono-cine.webp', focus: '40%' },
+  grocery: { src: '/premios/bono-falabella.webp', focus: '55%' },
+  restaurant: { src: '/premios/bono-restaurante.webp', focus: '55%' },
+  'free-afternoon': { src: '/premios/bono-tarde-libre.webp', focus: '48%' },
+  'cash-200': { src: '/premios/bono-zara.webp', focus: '52%' },
+  'haunted-cinema': { src: '/premios/bono-noche-de-terror.webp', focus: '36%' },
+  'sweet-treat': { src: '/premios/bono-dulce-halloween.webp', focus: '67%' },
 };
 
 const icons = {
@@ -59,19 +60,52 @@ export function daysLeftInMonth(now = new Date()) {
   return { days: Math.floor(hours / 24), hours: hours % 24 };
 }
 
+// El evento de Halloween dura hasta el final de octubre.
+export function eventCountdown(now = new Date()) {
+  const { days, hours } = daysLeftInMonth(now);
+  if (!days) return `Quedan ${hours} h`;
+  return `Quedan ${days} ${days === 1 ? 'día' : 'días'} y ${hours} h`;
+}
+
+// Riel de metas: las paradas quedan repartidas por igual (legibles en móvil) y el
+// relleno avanza en proporción a los puntos entre una parada y la siguiente.
+export function rewardRail(points, collection = rewards.filter(reward => !reward.featured)) {
+  const sorted = [...collection].sort((a, b) => a.cost - b.cost);
+  const at = index => Math.round((index + 1) / sorted.length * 1000) / 10;
+  const next = sorted.find(reward => reward.cost > points);
+  const reached = sorted.filter(reward => reward.cost <= points).length;
+  const floor = reached ? sorted[reached - 1].cost : 0;
+  const fill = next ? (reached ? at(reached - 1) : 0) + (points - floor) / (next.cost - floor) * (at(reached) - (reached ? at(reached - 1) : 0)) : 100;
+  return {
+    fill: Math.round(fill * 10) / 10,
+    stops: sorted.map((reward, index) => ({ ...reward, at: at(index), reached: reward.cost <= points })),
+    status: next
+      ? `Te faltan ${(next.cost - points).toLocaleString('es-CO')} puntos para el ${next.name}.`
+      : 'Te alcanza para todos los bonos de la colección.',
+    reached, total: sorted.length,
+  };
+}
+
 let selectedCategory = 'all';
 
 export function renderRewards(page, profilePoints, now = new Date()) {
   const points = rewardPoints(profilePoints);
+  const rail = rewardRail(points);
   page.className = 'rewards-page';
   page.innerHTML = `
-    <header class="shop-heading">
-      <div><p class="shop-eyebrow">Un premio para cada logro</p>
+    <header class="shop-heading rewards-heading">
+      <div class="rewards-heading-copy"><p class="shop-eyebrow">Un premio para cada logro</p>
         <h1 tabindex="-1">Catálogo de premios</h1>
         <p>Tu esfuerzo se convierte en recompensas.</p>
       </div>
       <div class="shop-xp rewards-balance"><span aria-hidden="true">✦</span>
-        <div><span>Puntos acumulados</span><strong>${points.toLocaleString('es-CO')} <small>pts</small></strong></div>
+        <div><span>Puntos acumulados</span><strong><span data-count>${points.toLocaleString('es-CO')}</span> <small>pts</small></strong></div>
+      </div>
+      <div class="rewards-rail">
+        <p class="rewards-rail-status"><strong>${rail.reached} de ${rail.total} bonos a tu alcance.</strong> ${rail.status}</p>
+        <div class="rewards-rail-track" aria-hidden="true"><span class="rewards-rail-fill" style="width: ${rail.fill}%"></span>
+          ${rail.stops.map(stop => `<span class="rewards-rail-stop${stop.reached ? ' rewards-rail-stop-reached' : ''}" style="left: ${stop.at}%"><img src="${rewardImages[stop.id]?.src}" alt="" width="40" height="40" decoding="async" style="--photo-focus: ${rewardImages[stop.id]?.focus}"><b>${stop.cost.toLocaleString('es-CO')}</b></span>`).join('')}
+        </div>
       </div>
     </header>
     <section class="rewards-featured halloween-collection" aria-labelledby="rewards-featured-title">
@@ -80,12 +114,11 @@ export function renderRewards(page, profilePoints, now = new Date()) {
         <p>Dos premios especiales durante el evento de Halloween.</p>
       </div>
       <div class="rewards-chips">
-        <div><strong>Quedan 06 días 14 h 32 min</strong><span>Suma puntos antes de que termine el evento.</span></div>
-        <div><strong>Tu saldo está sincronizado</strong><span>Los puntos provienen de tu perfil y reflejan tu progreso actual.</span></div>
+        <div><strong>${eventCountdown(now)}</strong><span>Suma puntos antes de que termine el evento.</span></div>
       </div>
       <div class="rewards-showcase">
         <ul class="rewards-grid rewards-grid-featured"></ul>
-        ${now.getMonth() === 9 ? '<div class="halloween-decoration" aria-hidden="true"><img class="halloween-mascot" src="/shop/halloween-topitin.png" alt="" width="1389" height="1132" loading="lazy" decoding="async"></div>' : ''}
+        ${now.getMonth() === 9 ? '<div class="halloween-decoration" aria-hidden="true"><img class="halloween-mascot" src="/shop/halloween-topitin.webp" alt="" width="1389" height="1132" loading="lazy" decoding="async"></div>' : ''}
       </div></div>
     </section>
     <section class="shop-collection" aria-labelledby="rewards-collection-title">
@@ -101,18 +134,19 @@ export function renderRewards(page, profilePoints, now = new Date()) {
 
   appendRewardCards(page.querySelector('.rewards-grid-featured'), rewards.filter(reward => reward.featured), points);
   const filters = page.querySelector('.rewards-filters');
-  const paintCollection = () => {
+  const paintCollection = (animate = false) => {
     const visible = filterRewards(selectedCategory);
     page.querySelector('.shop-count').textContent = `${visible.length} ${visible.length === 1 ? 'premio' : 'premios'}`;
     page.querySelector('.rewards-grid-collection').replaceChildren();
     appendRewardCards(page.querySelector('.rewards-grid-collection'), visible, points);
     filters.querySelectorAll('button').forEach(control => control.setAttribute('aria-pressed', String(control.dataset.category === selectedCategory)));
+    if (animate) revealCards([...page.querySelector('.rewards-grid-collection').children]);
   };
   for (const [category, label] of rewardCategories) {
     const control = document.createElement('button');
     control.type = 'button'; control.className = 'rewards-filter'; control.dataset.category = category;
     control.innerHTML = `${rewardIcon({ all: 'all', fun: 'film', shop: 'cart', money: 'cash', time: 'sun' }[category])}<span>${label}</span>`;
-    control.addEventListener('click', () => { selectedCategory = category; paintCollection(); });
+    control.addEventListener('click', () => { const changed = selectedCategory !== category; selectedCategory = category; paintCollection(changed); });
     filters.append(control);
   }
   paintCollection();
@@ -122,19 +156,17 @@ function appendRewardCards(grid, collection, points) {
   for (const reward of collection) {
     const progress = rewardProgress(reward, points);
     const card = document.createElement('li');
-    card.className = `rewards-card${reward.featured ? ' rewards-card-featured' : ''}${progress.reachable ? ' rewards-card-reachable' : ''}`;
+    card.className = `rewards-card rewards-ticket${reward.featured ? ' rewards-card-featured' : ''}${progress.reachable ? ' rewards-card-reachable' : ''}`;
     card.style.setProperty('--reward-color', reward.color);
-    const frame = reward.featured ? 'hechicero' : 'clasico';
     const photo = rewardImages[reward.id];
     card.innerHTML = `
-      <span class="rewards-card-frame" style="--frame-image: url('/shop/frames/skins/${frame}-frame.png')" aria-hidden="true"></span>
       <div class="rewards-art">${reward.featured ? `<span class="rewards-tag rewards-tag-${reward.featured === 'Exclusivo' ? 'exclusive' : 'event'}">${reward.featured}</span>` : ''}
-        <div class="rewards-photo" aria-hidden="true">${photo ? `<img src="${photo.src}" alt="" width="3" height="4" decoding="async" style="--photo-focus: ${photo.focus}">` : ''}</div>
+        <div class="rewards-photo" aria-hidden="true">${photo ? `<img src="${photo.src}" alt="" width="3" height="4" loading="lazy" decoding="async" style="--photo-focus: ${photo.focus}">` : ''}</div>
       </div>
       <div class="rewards-card-details"><h3>${reward.name}</h3><p>${reward.description}</p>
         <p class="rewards-cost">${reward.cost.toLocaleString('es-CO')} puntos</p>
         <p class="rewards-availability">${progress.reachable ? `${advisorIcon('check')} Disponible` : `Te faltan ${progress.missing.toLocaleString('es-CO')} puntos`}</p>
-        <button type="button" class="rewards-action" aria-label="Simular canje de ${reward.name}" aria-describedby="rewards-concept-note">Simular canje</button>
+        <button type="button" class="rewards-action" aria-label="Reclamar ${reward.name}" aria-describedby="rewards-concept-note">Reclamar</button>
         ${progress.reachable ? '' : `<div class="rewards-track" role="progressbar" aria-label="Progreso hacia ${reward.name}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progress.percentage}"><span style="width: ${progress.percentage}%"></span></div>`}
       </div>`;
     card.addEventListener('click', () => showRewardPreview(reward, card.querySelector('button')));
