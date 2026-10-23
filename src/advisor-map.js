@@ -110,6 +110,8 @@ export function getDepartmentRadiusKm(feature) {
 }
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+// Radio (km) de la columna de una ciudad en cada nivel de detalle.
+export const columnRadiusKm = (departmentRadius, lod) => clamp(departmentRadius * COLUMN_LOD[lod].share, COLUMN_LOD[lod].min, COLUMN_LOD[lod].max);
 // Dos niveles de detalle: columnas gruesas para leer el país y finas al acercarse a una zona.
 export const COLUMN_LOD = {
   wide: { share: .45, min: 11, max: 28 },
@@ -118,7 +120,7 @@ export const COLUMN_LOD = {
 
 // Columnas 3D apiladas por ciudad: base dorada con lo vendido, encima lo que falta en color de calor
 // y una tapa clara que brilla. La altura total sigue las toneladas; la mínima deja ver las ciudades pequeñas.
-export function getOpportunityColumns(cities, { radiusFor = () => 40, sides = 32, maxHeight = 380000, minShare = .1 } = {}) {
+export function getOpportunityColumns(cities, { radiusFor = () => 40, sides = 32, maxHeight = 260000, minShare = .1 } = {}) {
   const maxTotal = Math.max(0, ...(cities || []).map(city => city.soldTons + city.pendingTons));
   const maxPending = Math.max(0, ...(cities || []).map(city => city.pendingTons));
   const features = [];
@@ -130,7 +132,7 @@ export function getOpportunityColumns(cities, { radiusFor = () => 40, sides = 32
     const props = { city: city.city, department: city.department, floor: Math.min(soldTop, capBase) };
     const pendingWeight = maxPending ? city.pendingTons / maxPending : 0;
     for (const [lod, sizing] of Object.entries(COLUMN_LOD)) {
-      const ring = circle(city.coordinates, clamp(radiusFor(city) * sizing.share, sizing.min, sizing.max), sides);
+      const ring = circle(city.coordinates, columnRadiusKm(radiusFor(city), lod), sides);
       const piece = properties => ({ type: 'Feature', geometry: { type: 'Polygon', coordinates: [ring] }, properties: { ...props, lod, ...properties } });
       if (city.soldTons > 0) features.push(piece({ kind: 'sold', tons: city.soldTons, weight: 1, base: 0, top: Math.min(soldTop, capBase) }));
       if (city.pendingTons > 0) features.push(piece({ kind: 'pending', tons: city.pendingTons, weight: pendingWeight, base: Math.min(soldTop, capBase), top: capBase }));
@@ -175,6 +177,20 @@ export function columnLevel(property, { sold = 1, pending = 1, department = null
   const core = ['+', ['*', ['min', value, floor], sold], ['*', ['max', ['-', value, floor], 0], pending]];
   return ['interpolate', ['linear'], ['zoom'], ...ZOOM_STOPS.flatMap(([zoom, factor, rise]) => [zoom,
     department && lift ? ['+', ['*', core, factor], ['case', ['==', ['get', 'department'], department], rise * lift, 0]] : ['*', core, factor]])];
+}
+// Factor de altura y cuánto sube un departamento en hover, para un zoom dado (las mismas paradas de las columnas).
+export function zoomStopsAt(zoom) {
+  const stops = ZOOM_STOPS;
+  if (zoom <= stops[0][0]) return { factor: stops[0][1], rise: stops[0][2] };
+  for (let index = 1; index < stops.length; index++) {
+    const [z1, f1, r1] = stops[index], [z0, f0, r0] = stops[index - 1];
+    if (zoom <= z1) {
+      const t = (zoom - z0) / (z1 - z0);
+      return { factor: f0 + (f1 - f0) * t, rise: r0 + (r1 - r0) * t };
+    }
+  }
+  const [, factor, rise] = stops.at(-1);
+  return { factor, rise };
 }
 export const hoverLift = growth => ['interpolate', ['linear'], ['zoom'], ...ZOOM_STOPS.flatMap(([zoom, , rise]) => [zoom, rise * growth])];
 
@@ -453,7 +469,7 @@ function cityLabel(group) {
 export async function renderAdvisorClientMap(container, clients = [], onStatus = () => {}, sales = [], { zones = [] } = {}) {
   destroyAdvisorClientMap();
   const current = generation;
-  const [{ Map: MapLibreMap, Popup, Marker, setWorkerUrl }, , response, { default: workerUrl }, departmentsResponse] = await Promise.all([
+  const [{ Map: MapLibreMap, Popup, Marker, MercatorCoordinate, setWorkerUrl }, , response, { default: workerUrl }, departmentsResponse] = await Promise.all([
     import('maplibre-gl'),
     import('maplibre-gl/dist/maplibre-gl.css'),
     fetch('/data/colombia-capitals.json'),
@@ -525,6 +541,31 @@ export async function renderAdvisorClientMap(container, clients = [], onStatus =
     requestAnimationFrame(loop);
   }
 
+  // Bultos de cemento 3D (three.js) encima de cada ciudad. Las columnas siguen ahí, invisibles,
+  // para el hover y el clic; si three.js no carga, se quedan visibles como antes.
+  let focusedDepartment = null;
+  async function addCementSacks() {
+    try {
+      const { createCementSackLayer } = await import('./cement-sacks.js');
+      if (!map || current !== generation) return;
+      const features = getOpportunityColumns(cityTonnage, { radiusFor }).features;
+      const stacks = cityTonnage.map(city => {
+        const own = features.filter(feature => feature.properties.city === city.city && feature.properties.department === city.department);
+        return {
+          ...city,
+          floor: own[0]?.properties.floor || 0,
+          top: Math.max(0, ...own.map(feature => feature.properties.top)),
+          radius: zoom => columnRadiusKm(radiusFor(city), zoom < 6.5 ? 'wide' : 'fine'),
+        };
+      });
+      const getView = zoom => ({ zoom, ...zoomStopsAt(zoom), ...columnState, focus: focusedDepartment });
+      map.addLayer(createCementSackLayer({ MercatorCoordinate, stacks, getView }));
+      for (const layer of COLUMN_LAYERS) map.setPaintProperty(layer, 'fill-extrusion-opacity', 0);
+    } catch (error) {
+      console.warn('No se pudieron dibujar los bultos 3D; se quedan las columnas.', error);
+    }
+  }
+
   setWorkerUrl(workerUrl);
   map = new MapLibreMap({
     container,
@@ -585,6 +626,7 @@ export async function renderAdvisorClientMap(container, clients = [], onStatus =
       paint: { 'line-color': '#6d819a', 'line-width': 1.2, 'line-dasharray': [2, 2], 'line-opacity': .7 } }, 'departments-border');
     map.addLayer({ id: 'locked-flash', type: 'line', source: 'departments', filter: ['==', ['get', 'divipola_dep'], ''],
       paint: { 'line-color': '#ff7598', 'line-width': 3, 'line-blur': 1, 'line-opacity': 0 } }, 'opportunity-heat');
+    addCementSacks();
     if (!animate) { map.jumpTo(finalView()); return; }
     animateValue(plan.columnMs, plan.columnDelayMs, easeOutBack, value => { columnState.sold = value; applyColumns(); }, startGoldEffects);
     animateValue(plan.pendingMs, plan.pendingDelayMs, easeOutCubic, value => { columnState.pending = value; applyColumns(); });
@@ -781,6 +823,8 @@ export async function renderAdvisorClientMap(container, clients = [], onStatus =
     map.setFilter('zone-heat', zoneHeatFilter(zone.department));
     map.setPaintProperty('departments-fill', 'fill-color', focusFillColor(activeCodes, zone.code));
     for (const layer of COLUMN_LAYERS) map.setPaintProperty(layer, 'fill-extrusion-color', focusColumnColor(zone.department));
+    focusedDepartment = zone.department;
+    map.triggerRepaint();
     map.setPaintProperty('column-halo', 'circle-color', focusColumnColor(zone.department));
     for (const layer of ['sold-glow', 'sold-ring']) map.setFilter(layer, ['all', SOLD_FILTER, ['==', ['get', 'department'], zone.department]]);
     map.setPaintProperty('opportunity-heat', 'heatmap-opacity', focusPlan.dimHeatOpacity);
@@ -801,6 +845,8 @@ export async function renderAdvisorClientMap(container, clients = [], onStatus =
     targetCard?.removeAttribute('hidden');
     map.setPaintProperty('departments-fill', 'fill-color', focusFillColor(activeCodes, null));
     for (const layer of COLUMN_LAYERS) map.setPaintProperty(layer, 'fill-extrusion-color', focusColumnColor(null));
+    focusedDepartment = null;
+    map.triggerRepaint();
     map.setPaintProperty('column-halo', 'circle-color', focusColumnColor(null));
     for (const layer of ['sold-glow', 'sold-ring']) map.setFilter(layer, SOLD_FILTER);
     if (map.getLayer('zone-outline')) {
