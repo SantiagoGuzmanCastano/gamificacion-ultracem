@@ -14,14 +14,16 @@ export const rewards = [
   { id: 'sweet-treat', name: 'Bono dulce de Halloween', description: '$40.000 para compartir tus dulces favoritos.', cost: 120, category: 'shop', icon: 'cart', color: '#e0731a', featured: 'Evento limitado' },
 ];
 
+// Las fotos son verticales (3:4) y se muestran en un marco cuadrado; `focus` es el
+// object-position vertical que deja a Topitín completo y centrado en cada una.
 const rewardImages = {
-  cinema: '/premios/bono-cine.png',
-  grocery: '/premios/bono-falabella.png',
-  restaurant: '/premios/bono-restaurante.png',
-  'free-afternoon': '/premios/bono-tarde-libre.jpg',
-  'cash-200': '/premios/bono-zara.png',
-  'haunted-cinema': '/premios/bono-noche-de-terror.png',
-  'sweet-treat': '/premios/bono-dulce-halloween.png',
+  cinema: { src: '/premios/bono-cine.png', focus: '40%' },
+  grocery: { src: '/premios/bono-falabella.png', focus: '55%' },
+  restaurant: { src: '/premios/bono-restaurante.png', focus: '55%' },
+  'free-afternoon': { src: '/premios/bono-tarde-libre.jpg', focus: '48%' },
+  'cash-200': { src: '/premios/bono-zara.png', focus: '52%' },
+  'haunted-cinema': { src: '/premios/bono-noche-de-terror.png', focus: '36%' },
+  'sweet-treat': { src: '/premios/bono-dulce-halloween.png', focus: '67%' },
 };
 
 const icons = {
@@ -123,10 +125,11 @@ function appendRewardCards(grid, collection, points) {
     card.className = `rewards-card${reward.featured ? ' rewards-card-featured' : ''}${progress.reachable ? ' rewards-card-reachable' : ''}`;
     card.style.setProperty('--reward-color', reward.color);
     const frame = reward.featured ? 'hechicero' : 'clasico';
+    const photo = rewardImages[reward.id];
     card.innerHTML = `
       <span class="rewards-card-frame" style="--frame-image: url('/shop/frames/skins/${frame}-frame.png')" aria-hidden="true"></span>
       <div class="rewards-art">${reward.featured ? `<span class="rewards-tag rewards-tag-${reward.featured === 'Exclusivo' ? 'exclusive' : 'event'}">${reward.featured}</span>` : ''}
-        <div class="rewards-photo" aria-hidden="true">${rewardImages[reward.id] ? `<img src="${rewardImages[reward.id]}" alt="" width="4" height="3" decoding="async" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 35%;">` : ''}</div>
+        <div class="rewards-photo" aria-hidden="true">${photo ? `<img src="${photo.src}" alt="" width="3" height="4" decoding="async" style="--photo-focus: ${photo.focus}">` : ''}</div>
       </div>
       <div class="rewards-card-details"><h3>${reward.name}</h3><p>${reward.description}</p>
         <p class="rewards-cost">${reward.cost.toLocaleString('es-CO')} puntos</p>

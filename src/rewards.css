@@ -118,21 +118,23 @@
 }
 @media (prefers-reduced-motion: no-preference) and (hover: hover) and (pointer: fine) {
   .rewards-card { transition: transform 180ms cubic-bezier(.23, 1, .32, 1), box-shadow 180ms ease; }
-  .rewards-card:hover { transform: translateY(-3px); box-shadow: 0 0 0 1px #bc8b12, 0 0 20px rgb(255 201 40 / 20%); }
+  .rewards-card:hover { transform: translateY(-3px); box-shadow: 0 0 20px rgb(255 201 40 / 20%); }
 }
 
 /* Existing nine-slice shop frames surround the reserved photo and prize content. */
-.rewards-card { position: relative; }
+/* El marco nine-slice ya dibuja el borde: sin borde propio y con su mismo radio, para no duplicarlo. */
+.rewards-card { position: relative; border: 0; border-radius: 6px; }
 .rewards-card-frame {
   position: absolute; inset: 0; z-index: 4; box-sizing: border-box;
   border: 11.5px solid transparent; border-image-source: var(--frame-image);
   border-image-slice: 48; border-image-width: 11.5px;
   border-image-repeat: stretch; pointer-events: none;
 }
-.rewards-art { position: relative; display: block; padding: 24px 20px 12px; }
+.rewards-art { position: relative; display: block; padding: 0; }
 .rewards-art > .rewards-tag { position: absolute; top: 22px; left: 24px; z-index: 1; }
-.rewards-photo { width: 100%; aspect-ratio: 4 / 3; min-height: 180px; }
-.rewards-photo img { display: block; width: 100%; height: 100%; object-fit: contain; }
+/* Fotos verticales en un marco cuadrado: cada imagen trae su encuadre en --photo-focus. */
+.rewards-photo { position: relative; width: 100%; aspect-ratio: 1; overflow: hidden; }
+.rewards-photo img { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: cover; object-position: 50% var(--photo-focus, 50%); }
 .rewards-card-details { padding: 20px 24px 26px; }
 .rewards-filters { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px; padding: 6px; }
 .rewards-filter {
@@ -166,12 +168,10 @@
 .rewards-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 .rewards-grid-featured { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 600px; }
 .rewards-grid-featured .rewards-art { background: var(--rewards-surface); border-bottom: 0; }
-.rewards-grid-featured .rewards-photo { height: 230px; min-height: 0; aspect-ratio: auto; }
 .rewards-card { cursor: pointer; }
 .rewards-card:focus-within { outline: 3px solid #0876c9; outline-offset: 3px; }
 .rewards-action { cursor: pointer; }
 .rewards-action:focus-visible { outline: 3px solid #0876c9; outline-offset: 3px; }
-.rewards-photo { min-height: 130px; }
 .rewards-availability { display: flex; align-items: center; gap: 6px; color: var(--rewards-muted); font-size: .78rem; line-height: 1.4; }
 .rewards-availability svg { width: 16px; height: 16px; flex-shrink: 0; }
 .rewards-card-reachable .rewards-availability { color: var(--rewards-ready-ink); }

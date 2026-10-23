@@ -94,7 +94,7 @@ test('reward cards show affordability without enabling a transaction and retain 
     for (const card of cards) {
       assert.match(card.innerHTML, /rewards-card-frame/);
       assert.match(card.innerHTML, /rewards-photo/);
-      assert.doesNotMatch(card.innerHTML, /<img/);
+      assert.match(card.innerHTML, /<img src="\/premios\/[^"]+" alt=""[^>]*--photo-focus: \d+%/);
     }
     assert.match(cards[0].innerHTML, /Disponible/);
     assert.doesNotMatch(cards[0].innerHTML, /disabled/);
@@ -108,4 +108,20 @@ test('reward cards show affordability without enabling a transaction and retain 
     renderRewards(page, 0, new Date(2026, 10, 1));
     assert.doesNotMatch(page.innerHTML, /halloween-topitin\.png/);
   } finally { globalThis.document = previous; }
+});
+
+test('reward photos stay inside a square frame and each one sets its own focus', () => {
+  const css = readFileSync(new URL('../src/rewards.css', import.meta.url), 'utf8');
+  assert.match(css, /\.rewards-photo\s*\{[^}]*position: relative;[^}]*aspect-ratio: 1;[^}]*overflow: hidden;/);
+  assert.match(css, /\.rewards-photo img\s*\{[^}]*object-fit: cover;[^}]*object-position: 50% var\(--photo-focus, 50%\);/);
+  const source = readFileSync(new URL('../src/rewards.js', import.meta.url), 'utf8');
+  for (const reward of rewards) {
+    assert.match(source, new RegExp(String.raw`'?${reward.id}'?: \{ src: '/premios/[^']+', focus: '\d+%' \}`), reward.id);
+  }
+});
+
+test('reward cards rely on the nine-slice frame instead of a second border', () => {
+  const css = readFileSync(new URL('../src/rewards.css', import.meta.url), 'utf8');
+  assert.match(css, /\.rewards-card \{ position: relative; border: 0; border-radius: 6px; \}/);
+  assert.doesNotMatch(css, /\.rewards-card:hover \{[^}]*0 0 0 1px/);
 });
