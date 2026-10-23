@@ -31,56 +31,6 @@ export function showLevelBanner(world, level, reducedMotion = false) {
     .to(banner, { scale: 0, opacity: 0, duration: .3, delay: 2.4, ease: 'back.in(2)' });
 }
 
-const guideSteps = [
-  { icon: 'flag', title: 'Tu planta crece con cada venta', body: 'Cada venta confirmada suma a tu progreso. Al juntar las ventas que pide un nivel, subes al siguiente.' },
-  { icon: 'map', title: 'Cada nivel es una isla', body: 'Toca una isla del mapa o un nivel de la lista para ver su detalle. Las que tienen candado aún están bloqueadas.' },
-  { icon: 'gift', title: 'Desbloquea recompensas', body: 'Cada nivel trae una recompensa. Son metas del programa: se muestran aquí y no se suman solas a tu cartera.' },
-];
-
-// Guía corta de tres pasos; usa <dialog> nativo para el foco y la tecla Escape.
-export function showProgressGuide() {
-  document.querySelector('.progress-guide')?.remove();
-  const dialog = element('dialog', 'progress-guide');
-  dialog.setAttribute('aria-labelledby', 'progress-guide-title');
-  const art = element('div', 'progress-guide-art');
-  const title = element('h2', '', '');
-  title.id = 'progress-guide-title';
-  const body = element('p', 'progress-guide-body');
-  const dots = element('div', 'progress-guide-dots');
-  dots.setAttribute('aria-hidden', 'true');
-  const step = element('p', 'progress-guide-step');
-  const actions = element('div', 'progress-guide-actions');
-  const skip = element('button', 'progress-guide-skip', 'Saltar');
-  const next = element('button', 'progress-guide-next');
-  skip.type = next.type = 'button';
-  actions.append(skip, next);
-  dialog.append(art, step, title, body, dots, actions);
-  let index = 0;
-  const show = () => {
-    const current = guideSteps[index];
-    art.replaceChildren(iconNode(current.icon, 'progress-guide-icon'));
-    step.textContent = `Paso ${index + 1} de ${guideSteps.length}`;
-    title.textContent = current.title;
-    body.textContent = current.body;
-    dots.replaceChildren(...guideSteps.map((_, dot) => element('span', dot === index ? 'is-active' : '')));
-    next.textContent = index === guideSteps.length - 1 ? '¡Entendido!' : 'Siguiente';
-    skip.hidden = index === guideSteps.length - 1;
-  };
-  skip.addEventListener('click', () => dialog.close());
-  next.addEventListener('click', () => {
-    if (index === guideSteps.length - 1) { dialog.close(); return; }
-    index++;
-    show();
-    next.focus();
-  });
-  dialog.addEventListener('close', () => dialog.remove());
-  show();
-  document.body.append(dialog);
-  dialog.showModal();
-  next.focus();
-  return dialog;
-}
-
 export function renderProgressPage(page, model, { selected = model.level, onSelect = () => {}, onClients = () => {}, onReplay = null, onGuide = null } = {}) {
   page.className = 'advisor-page progress-page';
   const heading = element('header', 'progress-heading');
@@ -89,7 +39,8 @@ export function renderProgressPage(page, model, { selected = model.level, onSele
   heading.append(copy);
   const headingActions = element('div', 'progress-heading-actions');
   if (onGuide) {
-    const guide = element('button', 'progress-replay progress-guide-open', '¿Cómo funciona?');
+    const guide = element('button', 'progress-replay progress-guide-open', 'Repetir instrucciones');
+    guide.prepend(iconNode('flag', 'progress-replay-icon'));
     guide.type = 'button';
     guide.addEventListener('click', onGuide);
     headingActions.append(guide);

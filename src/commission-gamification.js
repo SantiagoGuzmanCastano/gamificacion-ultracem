@@ -182,6 +182,14 @@ export function playCommissionEntrance(page) {
     tl.from(q('.commission-badge'), { scale: 0, rotation: -60, duration: .55, stagger: .09, ease: 'back.out(2)' }, 1.35);
     tl.from(q('.commission-milestone > :not(.commission-badge)'), { opacity: 0, y: 8, duration: .35, stagger: .02 }, 1.5);
     tl.from(q('.commission-redeemed-section'), { opacity: 0, y: 20, duration: .5 }, 1.6);
+    // Cartera vacía: la tarjeta sube, Topitín entra saltando y los pasos aparecen en orden.
+    tl.from(q('.commission-empty'), { opacity: 0, y: 30, duration: .6 }, .5);
+    tl.from(q('.commission-empty-mascot'), { opacity: 0, y: 60, rotation: -10, duration: .8, ease: 'back.out(1.8)' }, .75);
+    tl.to(q('.commission-empty-mascot'), { y: -14, duration: .28, ease: 'power2.out', yoyo: true, repeat: 1 }, 1.6);
+    tl.from(q('.commission-empty-copy > h2, .commission-empty-copy > p'), { opacity: 0, x: -16, duration: .45, stagger: .08 }, .8);
+    tl.from(q('.commission-empty-steps li'), { opacity: 0, y: 14, duration: .45, stagger: .12 }, 1);
+    tl.from(q('.commission-empty-step-icon'), { scale: 0, rotation: -120, duration: .55, stagger: .12, ease: 'back.out(2)' }, 1.05);
+    tl.from(q('.commission-empty-cta'), { opacity: 0, scale: .85, duration: .5, ease: 'back.out(2)' }, 1.45);
   }, page);
 }
 

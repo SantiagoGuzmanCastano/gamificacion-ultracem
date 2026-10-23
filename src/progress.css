@@ -90,19 +90,44 @@
 
 .progress-heading-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 .progress-guide {
-  --guide-bg: #fff; --guide-ink: #102f49; --guide-muted: #46637b; --guide-line: #ccdfec; --guide-soft: #e8f7fc; --guide-accent: #00688d;
-  width: min(calc(100vw - 32px), 380px); padding: 26px 24px 20px; border: 1px solid var(--guide-line); border-radius: 22px;
+  --guide-bg: #fff; --guide-ink: #102f49; --guide-muted: #46637b; --guide-line: #ccdfec; --guide-soft: #eef8ff; --guide-accent: #00688d; --guide-stage: linear-gradient(160deg, #e3f6fd, #fff6d6);
+  width: min(calc(100vw - 24px), 420px); max-height: calc(100dvh - 24px); overflow: hidden auto; padding: 22px 22px 18px; border: 1px solid var(--guide-line); border-radius: 24px;
   background: var(--guide-bg); color: var(--guide-ink); text-align: center; box-shadow: 0 24px 60px rgb(0 20 37 / 30%);
 }
-:root[data-theme="dark"] .progress-guide { --guide-bg: #00263b; --guide-ink: #edf6ff; --guide-muted: #b5cce1; --guide-line: #285772; --guide-soft: #04384a; --guide-accent: #67dcf0; }
+:root[data-theme="dark"] .progress-guide { --guide-bg: #00263b; --guide-ink: #edf6ff; --guide-muted: #b5cce1; --guide-line: #285772; --guide-soft: #04384a; --guide-accent: #67dcf0; --guide-stage: linear-gradient(160deg, #053a52, #2a2a12); }
 .progress-guide::backdrop { background: rgb(0 14 26 / 62%); }
-.progress-guide-art { display: grid; place-items: center; width: 72px; height: 72px; margin: 0 auto 14px; border-radius: 22px; background: var(--guide-soft); color: var(--guide-accent); }
-.progress-guide-icon { display: grid; width: 36px; height: 36px; }
-.progress-guide-icon svg { width: 100%; height: 100%; }
-.progress-guide-step { margin: 0 0 6px; color: var(--guide-accent); font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
-.progress-guide h2 { margin: 0 0 8px; color: var(--guide-ink); font-size: 1.3rem; letter-spacing: -.02em; }
-.progress-guide-body { min-height: 4.5em; margin: 0 0 16px; color: var(--guide-muted); font-size: .92rem; line-height: 1.5; }
-.progress-guide-dots { display: flex; justify-content: center; gap: 6px; margin-bottom: 18px; }
+.progress-guide-close { position: absolute; top: 12px; right: 12px; display: grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 0; border-radius: 10px; background: transparent; color: var(--guide-muted); font-size: 1.5rem; line-height: 1; cursor: pointer; }
+.progress-guide-step { margin: 0 0 4px; color: var(--guide-accent); font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.progress-guide h2 { margin: 0 0 14px; color: var(--guide-ink); font-size: 1.3rem; letter-spacing: -.02em; }
+.progress-guide-stage { display: grid; grid-template-columns: 88px minmax(0, 1fr); align-items: end; gap: 12px; padding: 12px 14px 8px; border-radius: 18px; background: var(--guide-stage); text-align: left; }
+.progress-guide-buddy { display: block; transform-origin: 50% 100%; }
+.progress-guide-mascot { display: block; width: 84px; height: auto; transform-origin: 50% 100%; }
+.progress-guide-bubble { position: relative; align-self: center; margin: 0; padding: 11px 13px; border: 1px solid var(--guide-line); border-radius: 16px 16px 16px 4px; background: var(--guide-bg); color: var(--guide-ink); font-size: .88rem; font-weight: 600; line-height: 1.45; box-shadow: 0 6px 16px rgb(0 30 50 / 10%); }
+.progress-guide-demo-slot { position: relative; margin: 14px 0; }
+.pg-demo { position: relative; display: grid; gap: 10px; justify-items: center; padding: 16px; border: 1px dashed var(--guide-line); border-radius: 16px; background: var(--guide-soft); }
+.pg-bar { width: 100%; height: 14px; overflow: hidden; border-radius: 999px; background: var(--guide-line); }
+.pg-bar-fill { display: block; width: 0; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #25d5e3, #ffd124); }
+.pg-bar-label { color: var(--guide-ink); font-size: .85rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.pg-demo-button { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 8px 16px; border: 0; border-radius: 999px; background: var(--guide-accent); color: var(--guide-bg); font-size: .85rem; font-weight: 800; cursor: pointer; }
+.pg-demo-button:disabled { opacity: .55; cursor: default; }
+.pg-demo-button-icon { display: inline-flex; width: 16px; height: 16px; }
+.pg-demo-sales.is-complete { border-style: solid; border-color: #ffd124; }
+.pg-demo-islands { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.pg-island { display: grid; justify-items: center; gap: 6px; width: 100%; padding: 10px 4px; border: 2px solid var(--guide-line); border-radius: 14px; background: var(--guide-bg); color: var(--guide-ink); font-size: .74rem; font-weight: 800; cursor: pointer; }
+.pg-island-icon { display: grid; place-items: center; width: 34px; height: 34px; padding: 7px; border-radius: 50%; background: #2a3e4d; color: #c9d7e1; }
+.pg-island-icon svg { width: 100%; height: 100%; }
+.pg-island.is-completed .pg-island-icon { background: #ffd124; color: #3b2a00; }
+.pg-island.is-current .pg-island-icon { background: #25d5e3; color: #00313b; }
+.pg-island.is-picked { border-color: var(--guide-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--guide-accent) 25%, transparent); }
+.pg-demo-chest { min-height: 140px; align-content: center; gap: 16px; }
+.pg-chest { display: grid; place-items: center; width: 74px; height: 74px; padding: 16px; border: 0; border-radius: 20px; background: #ffd124; color: #3b2a00; box-shadow: 0 8px 0 #c79a00; cursor: pointer; }
+.pg-chest:disabled { cursor: default; }
+.pg-chest-icon { display: block; width: 100%; height: 100%; }
+.pg-chest-icon svg { width: 100%; height: 100%; }
+.pg-chest-prize { opacity: 0; color: var(--guide-ink); font-size: .9rem; }
+.pg-demo-chest.is-open .pg-chest-prize { opacity: 1; }
+.pg-coin { position: absolute; top: 50%; left: 50%; width: 14px; height: 14px; margin: -7px; border: 2px solid #c79a00; border-radius: 50%; background: #ffd124; pointer-events: none; }
+.progress-guide-dots { display: flex; justify-content: center; gap: 6px; margin-bottom: 16px; }
 .progress-guide-dots span { width: 8px; height: 8px; border-radius: 999px; background: var(--guide-line); transition: width 200ms cubic-bezier(.23, 1, .32, 1), background-color 200ms ease; }
 .progress-guide-dots span.is-active { width: 22px; background: #ffd124; }
 .progress-guide-actions { display: flex; gap: 10px; }
@@ -111,5 +136,3 @@
 .progress-guide-next { border: 0; background: #ffd124; color: #00243b; }
 .progress-guide-skip[hidden] { display: none; }
 .progress-guide button:focus-visible { outline: 3px solid var(--guide-accent); outline-offset: 2px; }
-@media (prefers-reduced-motion: no-preference) { .progress-guide[open] { animation: progress-guide-in 220ms cubic-bezier(.23, 1, .32, 1); } }
-@keyframes progress-guide-in { from { opacity: 0; translate: 0 12px; scale: .97; } }

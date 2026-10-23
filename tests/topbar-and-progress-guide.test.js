@@ -14,15 +14,17 @@ test('theme follows the device and the notification bell lives in the top bar', 
 
 test('progress guide opens once per advisor and can be reopened from the heading', () => {
   assert.match(main, /const guideKey = `ultracem-progress-guide-\$\{user\.id\}`/);
-  assert.match(main, /onGuide: \(\) => showProgressGuide\(\)/);
+  assert.match(main, /onGuide: \(\) => showProgressGuide\(\{ mascot: skinHappyImage\(\) \}\)/);
+  const guide = readFileSync(new URL('../src/progress-guide.js', import.meta.url), 'utf8');
+  assert.match(guide, /dialog\.showModal\(\)/);
+  assert.match(guide, /from 'gsap'/);
   const page = readFileSync(new URL('../src/progress-page.js', import.meta.url), 'utf8');
-  assert.match(page, /dialog\.showModal\(\)/);
-  assert.ok(page.includes("'¿Cómo funciona?'"));
+  assert.ok(page.includes("'Repetir instrucciones'"));
 });
 
 test('each advisor task opens a Topitín guide and the sidebar card drops the level chip', () => {
   assert.match(main, /openTopitinGuide\(\{ task, client: activeClient/);
-  assert.match(main, /'¿Cómo lo hago\?', 'task-guide-button'/);
+  assert.match(main, /'Pregunta a Topitín', 'task-guide-button'/);
   assert.doesNotMatch(main, /profile-card-level/);
   const guide = readFileSync(new URL('../src/topitin-guide.js', import.meta.url), 'utf8');
   for (const title of ['Preparar una visita', 'Contactar al cliente', 'Revisar una cotización', 'Planear el siguiente paso']) assert.ok(guide.includes(`'${title}'`));

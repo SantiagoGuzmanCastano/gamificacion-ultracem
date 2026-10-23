@@ -213,3 +213,19 @@
 .commission-claim-burst { position: fixed; inset: 0; z-index: 10000; overflow: hidden; pointer-events: none; }
 .commission-claim-burst .money-coin { position: absolute; top: 0; left: 0; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff6c2, #ffd124 55%, #c98a00); color: #7a5200; font-size: .7rem; font-weight: 900; box-shadow: 0 3px 8px rgb(120 80 0 / 30%); will-change: transform, opacity; }
 .commission-claim-amount { position: absolute; top: 0; left: 0; padding: 6px 12px; border: 1px solid #ffe58a; border-radius: 999px; background: linear-gradient(180deg, #fff3b0, #ffd124); color: #3b2800; font-size: .9rem; font-weight: 900; white-space: nowrap; box-shadow: 0 8px 20px rgb(245 168 0 / 35%); will-change: transform, opacity; }
+
+/* Cartera vacía: Topitín con los tres pasos para ganar la primera comisión. */
+.commission-wallet-page .commission-empty { display: grid; grid-template-columns: 130px minmax(0, 1fr); align-items: center; gap: 22px; margin-top: 20px; padding: 24px 28px; border: 1px solid var(--dashboard-line); border-radius: 20px; background: linear-gradient(135deg, color-mix(in srgb, #ffd124 12%, var(--dashboard-panel)), var(--dashboard-panel) 60%); }
+.commission-empty-mascot { justify-self: center; width: 120px; height: auto; filter: drop-shadow(0 10px 14px rgb(0 30 50 / 18%)); }
+.commission-empty-copy h2 { margin: 0 0 6px; color: var(--dashboard-ink); font-size: 1.35rem; letter-spacing: -.02em; }
+.commission-empty-copy > p { margin: 0 0 14px; }
+.commission-empty-steps { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 18px; padding: 0; list-style: none; }
+.commission-empty-steps li { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px 8px 8px; border: 1px solid var(--dashboard-line); border-radius: 999px; background: var(--dashboard-panel); color: var(--dashboard-ink); font-size: .82rem; font-weight: 700; }
+.commission-empty-step-icon { display: grid; place-items: center; width: 28px; height: 28px; padding: 5px; border-radius: 50%; background: #ffd124; color: #00243b; }
+.commission-empty-step-icon svg { width: 100%; height: 100%; }
+.commission-wallet-page .commission-empty-cta { min-height: 42px; padding: 10px 20px; border-radius: 999px; }
+@media (max-width: 640px) {
+  .commission-wallet-page .commission-empty { grid-template-columns: 1fr; justify-items: center; padding: 22px 18px; text-align: center; }
+  .commission-empty-mascot { width: 96px; }
+  .commission-empty-steps { flex-direction: column; align-items: stretch; }
+}

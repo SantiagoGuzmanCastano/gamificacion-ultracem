@@ -7,6 +7,7 @@ import { createNotificationCenter } from './notification-center.js';
 import { renderShop, renderHalloweenCollection } from './shop.js';
 import { renderRewards } from './rewards.js';
 import { playStoreEntrance, resetStoreEntrance } from './store-entrance.js';
+import { playMapEntrance, resetMapEntrance, revealZoneList } from './map-entrance.js';
 import { createClient } from '@supabase/supabase-js';
 import { getMascotStateForCurrentClient, getProgress, getXp, getLevelProgress, isTaskCompletionConfirmed } from './game.js';
 import { mascotImages, mascotLabels } from './mascot.js';
@@ -28,7 +29,8 @@ import { showLoadingScreen, clearLoadingScreen } from './loading-screen.js';
 import { attachRankingAvatars } from './ranking-avatars.js';
 import { COLOMBIA_DEPARTMENTS, citiesForDepartment, normalizeClientLocation } from './client-location.js';
 import { commissionSummary, getCommissionStatus } from './commission-wallet.js';
-import { getProgressModel, renderProgressPage, showLevelBanner, showProgressGuide } from './progress-page.js';
+import { getProgressModel, renderProgressPage, showLevelBanner } from './progress-page.js';
+import { showProgressGuide } from './progress-guide.js';
 import { celebrateCommissionClaim, celebrateCommissionClaimed, commissionGoals, commissionMilestones, commissionStats, commissionTakeHome, playCommissionEntrance, resetCommissionEntrance } from './commission-gamification.js';
 
 const SUPABASE_TIMEOUT_MS = 15000;
@@ -1210,6 +1212,7 @@ function advisorMapPage(page) {
   if (!ownClients.length) section.append(el('p', 'empty-state', admin ? 'Aún no hay clientes asignados a ningún asesor.' : 'Aún no tienes clientes asignados. Todos los departamentos están bloqueados.'));
   const zonesSlot = el('div', 'advisor-zone-slot');
   page.append(welcome, section, zonesSlot);
+  playMapEntrance(page);
   // El admin además ve a quién contactar en cada departamento (prospectos de muestra).
   const prospectsRequest = admin ? fetch('/data/prospects.json').then(response => response.ok ? response.json() : null).catch(() => null) : null;
   Promise.all([import('./advisor-map.js'), loadZoneMarket().catch(() => null), prospectsRequest]).then(async ([module, market, prospectData]) => {
@@ -1223,7 +1226,11 @@ function advisorMapPage(page) {
       section.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
       mapControls?.focusZone(zone);
     };
-    if (zones.length) zonesSlot.replaceWith(createZoneList(zones, { sample: market.sample, onSelect: focusFromList }));
+    if (zones.length) {
+      const zoneList = createZoneList(zones, { sample: market.sample, onSelect: focusFromList });
+      zonesSlot.replaceWith(zoneList);
+      revealZoneList(zoneList);
+    }
     mapControls = await module.renderAdvisorClientMap(container, ownClients, (state, message) => {
       if (!container.isConnected) return;
       status.textContent = state === 'ready' ? (admin ? 'Toca un departamento o una ★ para ver el cliente potencial más importante y su contacto.' : 'Toca un departamento o una zona de la lista para enfocarla.') : message;
@@ -1283,13 +1290,13 @@ function advisorProgressPage(page) {
     onSelect: select,
     onClients: () => { advisorView = 'dashboard'; render(); window.scrollTo(0, 0); },
     onReplay: () => celebrate(model.level - 1, model.level),
-    onGuide: () => showProgressGuide(),
+    onGuide: () => showProgressGuide({ mascot: skinHappyImage() }),
   });
-  // La guía sale sola solo la primera vez; luego queda en «¿Cómo funciona?».
+  // La guía sale sola solo la primera vez; luego queda en «Repetir instrucciones».
   const guideKey = `ultracem-progress-guide-${user.id}`;
   if (!readSeenLevel(guideKey) && !document.querySelector('.progress-guide')) {
     storeSeenLevel(guideKey, 1);
-    showProgressGuide();
+    showProgressGuide({ mascot: skinHappyImage() });
   }
   if (progressWorld) {
     view.status.textContent = '';
@@ -1406,7 +1413,23 @@ function advisorCommissionsPage(page) {
   overview.append(available, redeemed);
   page.append(welcome, overview, commissionGoals(stats));
   if (!ownSales.length) {
-    page.append(el('p', 'empty-state', 'Aún no tienes ventas confirmadas para mostrar en tu cartera.'));
+    // Cartera vacía: Topitín explica cómo se gana la primera comisión y lleva a los clientes.
+    const empty = el('section', 'commission-empty');
+    const emptyMascot = el('img', 'commission-empty-mascot');
+    emptyMascot.src = skinHappyImage(); emptyMascot.alt = ''; emptyMascot.width = 110; emptyMascot.height = 140;
+    const emptyCopy = el('div', 'commission-empty-copy');
+    const emptySteps = el('ol', 'commission-empty-steps');
+    for (const [icon, text] of [['tasks', 'Completa las 4 tareas de tu cliente'], ['check', 'Confirma la venta'], ['coin', 'Reclama tu comisión aquí']]) {
+      const step = el('li');
+      const stepIcon = el('span', 'commission-empty-step-icon'); stepIcon.innerHTML = advisorIcon(icon);
+      step.append(stepIcon, el('span', '', text));
+      emptySteps.append(step);
+    }
+    const goClients = button('Ir a mis clientes', 'primary commission-empty-cta', () => { advisorView = 'dashboard'; render(); window.scrollTo(0, 0); });
+    emptyCopy.append(el('h2', '', 'Tu primera comisión está cerca'), el('p', 'muted', 'Aún no tienes ventas confirmadas. Así llega dinero a tu cartera:'), emptySteps, goClients);
+    empty.append(emptyMascot, emptyCopy);
+    page.append(empty);
+    playCommissionEntrance(page);
     return;
   }
   const availableList = el('section', 'commission-list');
@@ -1593,10 +1616,9 @@ function advisorPage(page) {
     content.append(el('h3', '', task.title), el('p', 'task-description', task.description));
     // Toda la tarjeta abre la guía de Topitín; el botón la deja al alcance del teclado.
     const openGuide = () => openTopitinGuide({ task, client: activeClient, mascot: skinHappyImage(), onAskAI: db ? () => askTaskIdea(activeClient, task) : null });
-    const guideButton = button('¿Cómo lo hago?', 'task-guide-button', openGuide);
-    const guideMascot = el('img', 'task-guide-mascot');
-    guideMascot.src = skinHappyImage(); guideMascot.alt = ''; guideMascot.width = 18; guideMascot.height = 18;
-    guideButton.prepend(guideMascot);
+    const guideButton = button('Pregunta a Topitín', 'task-guide-button', openGuide);
+    const guideArrow = el('span', 'task-guide-arrow'); guideArrow.innerHTML = advisorIcon('arrow');
+    guideButton.append(guideArrow);
     content.append(guideButton);
     item.classList.add('has-guide');
     item.addEventListener('click', event => { if (!event.target.closest('button')) openGuide(); });
@@ -1852,6 +1874,7 @@ function render() {
   if (!profile || profile.role !== 'advisor' || advisorView !== 'progress') destroyProgressWorld();
   clearProfileEntrance(!profile || profile.role !== 'advisor' || advisorView !== 'profile');
   if (!profile || profile.role !== 'advisor' || advisorView !== 'commissions') resetCommissionEntrance();
+  if (!profile || (profile.role === 'admin' ? adminView : advisorView) !== 'map') resetMapEntrance();
   if (!profile || profile.role !== 'advisor' || advisorView !== 'dashboard') resetAdvisorEntrance();
   const storeView = profile?.role !== 'admin' && ['shop', 'rewards'].includes(advisorView) ? advisorView : null;
   if (!profile || !storeView) resetStoreEntrance();

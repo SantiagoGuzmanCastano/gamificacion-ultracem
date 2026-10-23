@@ -223,12 +223,14 @@
 .advisor-shell .action-task-list h3 { font-size: .86rem; }
 .advisor-shell .action-task-list .task-description { margin-top: 4px; color: var(--dashboard-muted); font-size: .76rem; line-height: 1.45; }
 .advisor-shell .action-task-list .task.has-guide { cursor: pointer; }
-.advisor-shell .action-task-list .task-guide-button { display: inline-flex; align-items: center; gap: 6px; min-height: 28px; margin-top: 8px; padding: 4px 10px 4px 5px; border: 1px solid color-mix(in srgb, #ffd124 55%, var(--dashboard-line)); border-radius: 999px; background: color-mix(in srgb, #ffd124 14%, var(--dashboard-panel)); color: var(--dashboard-ink); font-size: .72rem; font-weight: 750; box-shadow: none; cursor: pointer; }
-.task-guide-mascot { width: 18px; height: 18px; object-fit: contain; }
+.advisor-shell .action-task-list .task-guide-button { display: inline-flex; align-items: center; gap: 2px; min-height: 0; margin-top: 6px; padding: 2px 0; border: 0; border-radius: 4px; background: none; color: var(--dashboard-blue); font-size: .74rem; font-weight: 700; box-shadow: none; cursor: pointer; }
+.task-guide-arrow { display: inline-flex; width: 14px; height: 14px; }
+.task-guide-arrow svg { width: 100%; height: 100%; }
 .advisor-shell .action-task-list .task-guide-button:focus-visible { outline: 2px solid var(--dashboard-blue); outline-offset: 2px; }
-@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
-  .advisor-shell .action-task-list .task-guide-button .task-guide-mascot { transition: translate 220ms cubic-bezier(.34, 1.56, .64, 1); }
-  .advisor-shell .action-task-list .task:hover .task-guide-mascot { translate: 0 -3px; }
+@media (hover: hover) and (pointer: fine) {
+  .advisor-shell .action-task-list .task-guide-button:hover { text-decoration: underline; text-underline-offset: 3px; }
+  .advisor-shell .action-task-list .task-guide-button .task-guide-arrow { transition: translate 180ms cubic-bezier(.23, 1, .32, 1); }
+  .advisor-shell .action-task-list .task:hover .task-guide-arrow { translate: 2px 0; }
 }
 .advisor-shell .task-actions { gap: 6px; }
 .advisor-shell .task-complete-button { display: inline-flex; align-items: center; justify-content: center; min-height: 35px; padding: 8px 12px; border: 1px solid var(--dashboard-line); border-radius: 9px; background: transparent; color: var(--dashboard-blue); font-size: .75rem; font-weight: 650; white-space: nowrap; }
