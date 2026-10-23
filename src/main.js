@@ -20,6 +20,7 @@ import { clearAdvisorEntrance, playAdvisorEntrance, resetAdvisorEntrance } from 
 import { animateSidebar, resetSidebarMotion } from './advisor-sidebar.js';
 import { bindAdvisorHover } from './advisor-hover.js';
 import { clearTopitinToast, showTopitinToast } from './topitin-toast.js';
+import { openTopitinGuide } from './topitin-guide.js';
 import { clearAdvisorEffects, celebrateTask, celebrateSale, flipMetric, morphWeeklyChart, revealRecommendation, ringNotificationBell } from './advisor-effects.js';
 import { isValidProfileImage, profileImageExtension } from './profile.js';
 import { createProfileAvatar, createProfilePhotoPicker, renderAdvisorProfile, playProfileEntrance, clearProfileEntrance } from './profile-view.js';
@@ -234,7 +235,6 @@ function advisorProfileCard() {
   const copy = el('span', 'profile-card-copy');
   const name = el('strong', 'profile-card-name', profile.full_name);
   const meta = el('span', 'profile-card-meta');
-  const levelChip = el('span', 'profile-card-level', `Nivel ${level.level}`);
   const balance = el('span', 'profile-card-points');
   const pointsIcon = el('span', 'profile-card-points-icon');
   pointsIcon.setAttribute('aria-hidden', 'true');
@@ -242,7 +242,8 @@ function advisorProfileCard() {
   const count = el('b', '', points.toLocaleString('es-CO'));
   count.dataset.sidebarCount = String(points);
   balance.append(pointsIcon, count, el('span', '', 'pts'));
-  meta.append(levelChip, balance);
+  // El nivel ya se ve en el banner del Inicio; aquí solo van los puntos.
+  meta.append(balance);
   copy.append(name, meta);
   const arrow = el('span', 'profile-card-arrow');
   arrow.setAttribute('aria-hidden', 'true');
@@ -987,6 +988,20 @@ async function clearCompletedTasks(client) {
   });
   if (result) notice('Tareas completadas de ' + client.name + ' limpiadas. Las métricas se conservaron.');
 }
+// Idea de la IA solo para una tarea, reutilizando la función recommend-client.
+async function askTaskIdea(client, task) {
+  const progress = getProgress(client.tasks);
+  const result = await db.functions.invoke('recommend-client', {
+    body: {
+      name: client.name, type: client.type,
+      completed_tasks: progress.completed, total_tasks: progress.total, pending_tasks: progress.total - progress.completed, progress: progress.rounded,
+      tasks: [{ title: task.title, description: task.description }],
+    },
+  });
+  if (result.error || result.data?.error) throw new Error(result.data?.error || result.error.message);
+  if (!result.data?.recommendation?.trim()) throw new Error('No pude pensar una idea ahora. Intenta de nuevo.');
+  return result.data.recommendation.trim();
+}
 async function requestRecommendation(client, control) {
   const assistant = control.closest('.action-assistant');
   const resultBox = assistant.querySelector('.assistant-result');
@@ -1576,6 +1591,15 @@ function advisorPage(page) {
     taskIcon.innerHTML = advisorIcon(['clients', 'phone', 'document', 'target'][taskOrder.indexOf(task.title)] || 'tasks');
     item.append(taskIcon);
     content.append(el('h3', '', task.title), el('p', 'task-description', task.description));
+    // Toda la tarjeta abre la guía de Topitín; el botón la deja al alcance del teclado.
+    const openGuide = () => openTopitinGuide({ task, client: activeClient, mascot: skinHappyImage(), onAskAI: db ? () => askTaskIdea(activeClient, task) : null });
+    const guideButton = button('¿Cómo lo hago?', 'task-guide-button', openGuide);
+    const guideMascot = el('img', 'task-guide-mascot');
+    guideMascot.src = skinHappyImage(); guideMascot.alt = ''; guideMascot.width = 18; guideMascot.height = 18;
+    guideButton.prepend(guideMascot);
+    content.append(guideButton);
+    item.classList.add('has-guide');
+    item.addEventListener('click', event => { if (!event.target.closest('button')) openGuide(); });
     if (task.completed) {
       const completed = el('span', 'task-completed', 'Completado');
       const check = el('span', 'task-completed-icon'); check.innerHTML = advisorIcon('check');

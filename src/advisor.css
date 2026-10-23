@@ -222,6 +222,14 @@
 .task:first-child .action-task-icon { background: #04cae8; }
 .advisor-shell .action-task-list h3 { font-size: .86rem; }
 .advisor-shell .action-task-list .task-description { margin-top: 4px; color: var(--dashboard-muted); font-size: .76rem; line-height: 1.45; }
+.advisor-shell .action-task-list .task.has-guide { cursor: pointer; }
+.advisor-shell .action-task-list .task-guide-button { display: inline-flex; align-items: center; gap: 6px; min-height: 28px; margin-top: 8px; padding: 4px 10px 4px 5px; border: 1px solid color-mix(in srgb, #ffd124 55%, var(--dashboard-line)); border-radius: 999px; background: color-mix(in srgb, #ffd124 14%, var(--dashboard-panel)); color: var(--dashboard-ink); font-size: .72rem; font-weight: 750; box-shadow: none; cursor: pointer; }
+.task-guide-mascot { width: 18px; height: 18px; object-fit: contain; }
+.advisor-shell .action-task-list .task-guide-button:focus-visible { outline: 2px solid var(--dashboard-blue); outline-offset: 2px; }
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .advisor-shell .action-task-list .task-guide-button .task-guide-mascot { transition: translate 220ms cubic-bezier(.34, 1.56, .64, 1); }
+  .advisor-shell .action-task-list .task:hover .task-guide-mascot { translate: 0 -3px; }
+}
 .advisor-shell .task-actions { gap: 6px; }
 .advisor-shell .task-complete-button { display: inline-flex; align-items: center; justify-content: center; min-height: 35px; padding: 8px 12px; border: 1px solid var(--dashboard-line); border-radius: 9px; background: transparent; color: var(--dashboard-blue); font-size: .75rem; font-weight: 650; white-space: nowrap; }
 .advisor-shell .task-complete-button:disabled { cursor: wait; opacity: .7; }
@@ -693,7 +701,6 @@
 .profile-card-copy { display: grid; gap: 4px; min-width: 0; }
 .profile-card-name { display: -webkit-box; overflow: hidden; font-size: .8rem; line-height: 1.25; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .profile-card-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
-.profile-card-level { padding: 2px 7px; border-radius: 999px; background: rgb(4 204 233 / 16%); color: #9feaf7; font-size: .66rem; font-weight: 750; }
 .profile-card-points { display: inline-flex; align-items: center; gap: 3px; color: #fff1a6; font-size: .7rem; font-weight: 700; }
 .profile-card-points b { color: #ffd124; font-size: .9rem; font-variant-numeric: tabular-nums; }
 .profile-card-points-icon { display: inline-flex; width: 13px; height: 13px; color: #ffd124; }

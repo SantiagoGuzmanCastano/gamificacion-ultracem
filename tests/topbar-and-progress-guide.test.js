@@ -19,3 +19,11 @@ test('progress guide opens once per advisor and can be reopened from the heading
   assert.match(page, /dialog\.showModal\(\)/);
   assert.ok(page.includes("'¿Cómo funciona?'"));
 });
+
+test('each advisor task opens a Topitín guide and the sidebar card drops the level chip', () => {
+  assert.match(main, /openTopitinGuide\(\{ task, client: activeClient/);
+  assert.match(main, /'¿Cómo lo hago\?', 'task-guide-button'/);
+  assert.doesNotMatch(main, /profile-card-level/);
+  const guide = readFileSync(new URL('../src/topitin-guide.js', import.meta.url), 'utf8');
+  for (const title of ['Preparar una visita', 'Contactar al cliente', 'Revisar una cotización', 'Planear el siguiente paso']) assert.ok(guide.includes(`'${title}'`));
+});
