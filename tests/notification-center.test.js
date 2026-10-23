@@ -147,7 +147,7 @@ test('actual admin action opens assignment form with requesting advisor selected
   const query = { select() { return this; }, eq() { return this; }, single: async () => ({ data: { advisor_id: 'advisor-2' } }) };
   const context = vm.createContext({ profile: { role: 'admin' }, advisors: [{ user_id: 'advisor-2' }], adminView: 'shop', db: { from: () => query }, render() {}, document: { querySelector: selector => selector === '#notification-assigned-advisor' ? select : form } });
   await vm.runInContext(`${source}\nopenNotification({ kind: 'client_request', related_request_id: 'request-1' })`, context);
-  assert.equal(context.adminView, 'dashboard');
+  assert.equal(context.adminView, 'manage');
   assert.equal(select.value, 'advisor-2');
   assert.equal(name.focused, true);
 });

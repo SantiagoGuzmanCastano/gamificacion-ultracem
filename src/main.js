@@ -13,6 +13,8 @@ import { mascotImages, mascotLabels } from './mascot.js';
 import { getMonthlyTons, getSalesStreak, getWeeklySales, getRankingSlots, getPortfolioProgress, getMonthlyGoal, getClientSaleState, getClientHistoryStatus, isCurrentClient, getTodaySales, getRankingGap } from './advisor-metrics.js';
 import { advisorIcon } from './advisor-icons.js';
 import { createZoneList, getZoneOpportunities, loadZoneMarket } from './zone-opportunity.js';
+import { goalTons } from './admin/admin-model.js';
+import './admin/admin.css';
 import { clearMascotFeedback, showMascotFeedback, showMascotLine } from './mascot-feedback.js';
 import { clearAdvisorEntrance, playAdvisorEntrance, resetAdvisorEntrance } from './advisor-entrance.js';
 import { animateSidebar, resetSidebarMotion } from './advisor-sidebar.js';
@@ -43,7 +45,7 @@ function supabaseFetch(input, init = {}) {
 const db = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
   ? createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY, { global: { fetch: supabaseFetch } }) : null;
 const root = document.querySelector('#app');
-let user = null, profile = null, advisors = [], clients = [], sales = [], ranking = [], notifications = [], selectedId = null, aiRecommendation = '', saleNotice = '';
+let user = null, profile = null, advisors = [], clients = [], sales = [], ranking = [], notifications = [], goals = [], selectedId = null, aiRecommendation = '', saleNotice = '';
 let theme = localStorage.getItem('ultracem-theme') || 'light';
 let advisorView = 'dashboard', adminView = 'dashboard';
 let advisorMapModule;
@@ -99,7 +101,7 @@ async function signOut() {
   stopHalloweenSync();
   window.clearInterval(profilePhotoUrlTimer);
   profilePhotoUrlTimer = null;
-  user = profile = null; advisors = clients = sales = ranking = notifications = []; aiRecommendation = ''; saleNotice = ''; advisorView = 'dashboard'; adminView = 'dashboard';
+  user = profile = null; advisors = clients = sales = ranking = notifications = goals = []; aiRecommendation = ''; saleNotice = ''; advisorView = 'dashboard'; adminView = 'dashboard';
   render();
 }
 function scheduleProfilePhotoUrlRefresh() {
@@ -246,6 +248,18 @@ function advisorProfileCard() {
   card.append(open, goal);
   return card;
 }
+// Tarjeta inferior del admin: mismo lugar y estilo que la del asesor, sin nivel ni puntos.
+function adminProfileCard() {
+  const card = el('section', 'advisor-profile-card admin-profile-card');
+  const row = el('div', 'profile-card-button');
+  const avatar = el('span', 'profile-card-avatar');
+  avatar.append(profileAvatar());
+  const copy = el('span', 'profile-card-copy');
+  copy.append(el('strong', 'profile-card-name', profile.full_name), el('span', 'profile-card-meta', 'Administrador'));
+  row.append(avatar, copy);
+  card.append(row);
+  return card;
+}
 function notice(text, error = false) {
   const node = document.querySelector('#notice');
   window.clearTimeout(noticeTimer);
@@ -362,7 +376,7 @@ async function openNotification(notification) {
     const result = await db.from('mvp_client_requests').select('advisor_id').eq('id', notification.related_request_id).single();
     if (result.error) throw result.error;
     if (!advisors.some(item => item.user_id === result.data.advisor_id)) throw new Error('El asesor ya no está disponible.');
-    adminView = 'dashboard';
+    adminView = 'manage';
     render();
     document.querySelector('#notification-assigned-advisor').value = result.data.advisor_id;
     const form = document.querySelector('#admin-client-form');
@@ -399,11 +413,13 @@ function shell() {
   clearAdvisorEffects();
   clearAdvisorEntrance();
   clearMascotFeedback();
-  root.className = !profile ? 'auth-shell' : profile.role !== 'admin' ? 'advisor-shell' : 'admin-shell';
+  // El admin usa el mismo armazón que el asesor (sidebar con logo, barra superior limpia).
+  root.className = !profile ? 'auth-shell' : profile.role !== 'admin' ? 'advisor-shell' : 'advisor-shell admin-shell';
   root.innerHTML = !profile
     ? '<main class="auth-main"><p id="notice" class="notice" role="status" hidden></p><div id="page"></div></main>'
     : '<header class="topbar"><div class="brand"><img src="/ultracem-logo.png" alt="Ultracem"><span>Gamificación</span><span class="demo-badge">MVP</span></div><div class="top-actions" id="actions"></div></header><div class="app-layout"><aside class="app-sidebar" aria-label="Navegación"><div class="sidebar-caption">GAMIFICACIÓN</div><div class="sidebar-nav"></div><div class="sidebar-bottom"><span class="sidebar-pulse"></span><span>Ruta comercial</span><small>Panel operativo</small></div></aside><main><p id="notice" class="notice" role="status" hidden></p><div id="page"></div><footer>Acciones comerciales de demostración. Completar una tarea no acredita una venta.</footer></main></div>';
-  if (profile && profile.role !== 'admin') {
+  if (profile) {
+    const admin = profile.role === 'admin';
     const sidebar = root.querySelector('.app-sidebar');
     const brand = el('div', 'sidebar-brand');
     brand.innerHTML = '<img class="sidebar-logo" src="/ultracem-logo.png" alt="Ultracem">';
@@ -411,25 +427,30 @@ function shell() {
     caption.textContent = 'GAMIFICACIÓN';
     caption.after(el('span', 'sidebar-mvp', 'MVP'));
     sidebar.prepend(brand);
-    sidebar.append(el('p', 'sidebar-motto', 'CONSTRUYENDO UN MUNDO MÁS FUERTE'), advisorProfileCard());
+    sidebar.append(el('p', 'sidebar-motto', 'CONSTRUYENDO UN MUNDO MÁS FUERTE'), admin ? adminProfileCard() : advisorProfileCard());
     const navigate = (view, event) => {
       profileKeyboardNavigation = event.detail === 0;
-      advisorView = view;
+      if (admin) adminView = view; else advisorView = view;
       render();
-      if (view === 'shop' || view === 'rewards') refreshHalloween();
-      if (view === 'progress') void refreshProgress();
+      if (!admin && (view === 'shop' || view === 'rewards')) refreshHalloween();
+      if (!admin && view === 'progress') void refreshProgress();
       window.scrollTo(0, 0);
       const heading = document.querySelector('#page h1');
       if (heading) { heading.tabIndex = -1; heading.focus({ preventScroll: true }); }
     };
+    const portal = admin ? 'Portal de administración' : 'Portal del asesor';
     const nav = sidebar.querySelector('.sidebar-nav');
-    nav.setAttribute('aria-label', 'Portal del asesor');
-    sidebar.setAttribute('aria-label', 'Navegación del asesor');
+    nav.setAttribute('aria-label', portal);
+    sidebar.setAttribute('aria-label', admin ? 'Navegación del administrador' : 'Navegación del asesor');
     nav.replaceChildren();
     const mobileNav = el('nav', 'advisor-nav');
-    mobileNav.setAttribute('aria-label', 'Portal del asesor');
-    const mobileLabels = { dashboard: 'Inicio', history: 'Clientes', commissions: 'Comisiones', map: 'Mapa', shop: 'Cosméticos', rewards: 'Premios', progress: 'Progreso', profile: 'Perfil' };
-    for (const [view, label, icon] of [['dashboard', 'Inicio', 'home'], ['commissions', 'Cartera de comisiones', 'sales'], ['map', 'Mapa clientela', 'map'], ['shop', 'Tienda cosméticos', 'shop'], ['rewards', 'Premios', 'gift'], ['progress', 'Progreso', 'flag'], ['profile', 'Perfil', 'profile']]) {
+    mobileNav.setAttribute('aria-label', portal);
+    const mobileLabels = { dashboard: 'Inicio', history: 'Clientes', commissions: 'Comisiones', map: 'Mapa', shop: 'Cosméticos', rewards: 'Premios', progress: 'Progreso', profile: 'Perfil', team: 'Asesores', zones: 'Zonas', manage: 'Gestión' };
+    const items = admin
+      ? [['dashboard', 'Resumen', 'home'], ['team', 'Asesores', 'clients'], ['zones', 'Zonas', 'target'], ['map', 'Mapa de ventas', 'map'], ['manage', 'Gestión', 'tasks']]
+      : [['dashboard', 'Inicio', 'home'], ['commissions', 'Cartera de comisiones', 'sales'], ['map', 'Mapa clientela', 'map'], ['shop', 'Tienda cosméticos', 'shop'], ['rewards', 'Premios', 'gift'], ['progress', 'Progreso', 'flag'], ['profile', 'Perfil', 'profile']];
+    if (admin) mobileLabels.dashboard = 'Resumen';
+    for (const [view, label, icon] of items) {
       // En escritorio el perfil vive en la tarjeta inferior; en móvil sigue en la barra.
       for (const [container, className] of view === 'profile' ? [[mobileNav, '']] : [[nav, 'sidebar-item'], [mobileNav, '']]) {
         const control = button(container === mobileNav ? mobileLabels[view] : label, className, event => navigate(view, event));
@@ -437,7 +458,7 @@ function shell() {
         const navIcon = el('span', 'advisor-nav-icon');
         navIcon.innerHTML = advisorIcon(icon);
         control.prepend(navIcon);
-        if (advisorView === view) {
+        if ((admin ? adminView : advisorView) === view) {
           control.classList.add('active');
           control.setAttribute('aria-current', 'page');
         }
@@ -446,22 +467,11 @@ function shell() {
     }
     document.querySelector('main').prepend(mobileNav);
     animateSidebar(sidebar);
-  } else if (profile?.role === 'admin') {
-    const sidebar = root.querySelector('.app-sidebar');
-    const nav = sidebar.querySelector('.sidebar-nav');
-    const navigate = view => { adminView = view; render(); window.scrollTo(0, 0); };
-    nav.setAttribute('aria-label', 'Portal de administración');
-    for (const [view, label, icon] of [['dashboard', 'Tablero de admin', '01'], ['shop', 'Tienda cosméticos', '02']]) {
-      const control = button(label, 'sidebar-item', () => navigate(view));
-      control.prepend(el('b', '', icon));
-      if (adminView === view) { control.classList.add('active'); control.setAttribute('aria-current', 'page'); }
-      nav.append(control);
-    }
   }
   if (profile) {
     const actions = document.querySelector('#actions');
-    if (profile.role === 'admin') actions.append(el('span', 'session-name', `${profile.full_name} · Administrador`));
-    else {
+    // El nombre del admin va en la tarjeta de la sidebar, como el del asesor.
+    if (profile.role !== 'admin') {
       const mobilePoints = el('span', 'advisor-mobile-points');
       const mobilePointsIcon = el('span', 'advisor-mobile-points-icon');
       mobilePointsIcon.setAttribute('aria-hidden', 'true');
@@ -574,7 +584,7 @@ async function loadData() {
   scheduleProfilePhotoUrlRefresh();
 }
 function fullResources() {
-  return ['advisors', 'clients', 'sales', 'notifications', 'ranking'];
+  return ['advisors', 'clients', 'sales', 'notifications', 'ranking', 'goals'];
 }
 // One loader per resource so an action can reload only what it changed.
 const resourceLoaders = {
@@ -613,6 +623,11 @@ const resourceLoaders = {
     if (result.error && !/relation .*mvp_notifications.* does not exist|could not find the table/i.test(result.error.message || '')) throw result.error;
     return (result.data ?? []).filter(item => !dismissedNotificationIds.has(item.id));
   },
+  // PRD A5: el admin ve todas las metas y el asesor solo la suya (RLS). Sin la tabla, se usan los valores por defecto.
+  async goals() {
+    const result = await db.from('mvp_advisor_goals').select('advisor_key,market_tons,target_share,target_clients');
+    return result.error ? [] : result.data ?? [];
+  },
   async ranking() {
     const result = await db.rpc('get_mvp_advisor_ranking');
     if (result.error) throw result.error;
@@ -626,6 +641,7 @@ function applyResource(name, value) {
     clients = value;
     if (!clients.some(client => client.id === selectedId)) selectedId = clients[0]?.id ?? null;
   } else if (name === 'sales') sales = value;
+  else if (name === 'goals') goals = value;
   else if (name === 'notifications') notifications = withLocalNotifications(value);
   // Partial reloads keep the photos already signed instead of re-signing every avatar.
   else if (name === 'ranking') ranking = value.map(row => ({ ...row, avatar_url: ranking.find(item => item.advisor_id === row.advisor_id)?.avatar_url || '' }));
@@ -883,31 +899,6 @@ function rankingSection(advisor = false) {
   section.append(list);
   return section;
 }
-function adminMetricsSection() {
-  const confirmedSales = sales.filter(sale => sale.confirmed);
-  const totalAmount = confirmedSales.reduce((total, sale) => total + Number(sale.amount || 0), 0);
-  const totalTons = confirmedSales.reduce((total, sale) => total + Number(sale.tons_sold || 0), 0);
-  const section = el('section', 'metrics-dashboard');
-  section.append(el('h2', 'section-title', 'Métricas generales'), el('p', 'muted', 'Resultados simulados a partir de misiones completadas.'));
-  section.append(metrics([['Ventas confirmadas', confirmedSales.length, 'cierres registrados'], ['Toneladas vendidas', totalTons.toLocaleString('es-CO'), 'volumen comercial'], ['Valor acumulado', `$${totalAmount.toLocaleString('es-CO')}`, 'valor de prueba']]));
-  const list = el('ul', 'metrics-breakdown');
-  for (const advisor of advisors) {
-    const advisorSales = confirmedSales.filter(sale => sale.advisor_id === advisor.user_id);
-    const amount = advisorSales.reduce((total, sale) => total + Number(sale.amount || 0), 0);
-    const tons = advisorSales.reduce((total, sale) => total + Number(sale.tons_sold || 0), 0);
-    const item = el('li', 'metrics-breakdown-row');
-    const details = el('div', 'metrics-advisor-details');
-    details.append(el('strong', '', advisor.full_name), el('span', 'muted', `${advisorSales.length} ventas · ${tons.toLocaleString('es-CO')} toneladas · $${amount.toLocaleString('es-CO')}`));
-    for (const sale of advisorSales) {
-      const client = clients.find(item => item.id === sale.client_id);
-      details.append(el('span', 'metrics-sale-client', `${client?.name || 'Cliente eliminado'} · ${Number(sale.tons_sold || 0).toLocaleString('es-CO')} toneladas · $${Number(sale.amount).toLocaleString('es-CO')}`));
-    }
-    item.append(details);
-    list.append(item);
-  }
-  if (advisors.length) section.append(list);
-  return section;
-}
 function intro(title, description, className) {
   const head = el('div', `page-intro ${className}`), copy = el('div');
   copy.append(el('h1', '', title), el('p', '', description)); head.append(copy);
@@ -1008,45 +999,100 @@ async function requestRecommendation(client, control) {
     }
   }
 }
+// Resumen, Asesores y Zonas (PRD A1–A5) se cargan aparte para no pesar en la vista del asesor.
 function adminPage(page) {
-  const tasks = clients.flatMap(client => client.tasks);
   page.className = 'admin-page';
-  page.append(intro('Panorama comercial', 'Clientes y tareas pendientes por asesor.', 'admin-intro'));
-  const totalSales = ranking.reduce((total, row) => total + Number(row.confirmed_sales || 0), 0);
-  const totalTons = ranking.reduce((total, row) => total + Number(row.confirmed_tons || 0), 0);
-  page.append(metrics([['Asesores', advisors.length, 'cuentas registradas'], ['Clientes comerciales', clients.length, 'negocios asignados'], ['Tareas pendientes', tasks.filter(task => !task.completed).length, 'acciones por completar'], ['Ventas confirmadas', totalSales, 'resultado comercial'], ['Toneladas vendidas', totalTons.toLocaleString('es-CO'), 'volumen comercial']]));
-  page.append(rankingSection());
-  page.append(adminMetricsSection());
-  const layout = el('div', 'admin-columns'), overview = el('section', 'admin-overview');
-  overview.append(el('h2', 'section-title', 'Pendientes por asesor'));
+  page.append(el('p', 'admin-loading', 'Cargando…'));
+  import('./admin/admin-page.js').then(module => {
+    if (!page.isConnected || profile?.role !== 'admin') return;
+    module.renderAdminView(page, adminView, {
+      db, advisors, clients, sales, goals, notice,
+      navigate: view => { adminView = view; render(); window.scrollTo(0, 0); },
+      onGoalSaved: goal => { goals = [...goals.filter(item => item.advisor_key !== goal.advisor_key), goal]; },
+    });
+  }).catch(cause => page.replaceChildren(el('p', 'empty-state', `No se pudo cargar el tablero: ${cause.message}`)));
+}
+// Gestión: asignar clientes, ver pendientes por asesor y, aparte, las acciones que borran datos.
+function adminManagementPage(page) {
+  const tasks = clients.flatMap(client => client.tasks);
+  page.className = 'admin-page admin-prd admin-manage';
+  const head = el('header', 'admin-head'), headCopy = el('div');
+  headCopy.append(el('h1', '', 'Gestión'), el('p', '', 'Asigna clientes nuevos, revisa qué le falta a cada asesor y administra sus cuentas.'));
+  head.append(headCopy); page.append(head);
+  const stats = el('dl', 'admin-card admin-figures admin-figures-live');
+  for (const [label, value] of [['Asesores', advisors.length], ['Clientes', clients.length], ['Tareas pendientes', tasks.filter(task => !task.completed).length], ['Ventas confirmadas', sales.filter(sale => sale.confirmed).length]]) {
+    const item = el('div'); item.append(el('dt', '', label), el('dd', '', value.toLocaleString('es-CO'))); stats.append(item);
+  }
+  page.append(stats);
+  const layout = el('div', 'manage-layout'), overview = el('section', 'manage-advisors');
+  const overviewHead = el('div', 'manage-advisors-head');
+  overviewHead.append(el('h2', '', 'Pendientes por asesor'));
+  const search = input('search', 'Buscar asesor o cliente');
+  search.setAttribute('aria-label', 'Buscar asesor o cliente');
+  if (advisors.length > 1) overviewHead.append(search);
+  overview.append(overviewHead);
   if (!advisors.length) overview.append(el('p', 'empty-state', 'Todavía no hay asesores. Pídeles que creen una cuenta.'));
+  const cards = [];
   for (const advisor of advisors) {
     const assigned = clients.filter(client => client.advisor_id === advisor.user_id);
     const pending = assigned.flatMap(client => client.tasks).filter(task => !task.completed).length;
-    const section = el('article', 'advisor-row'), head = el('div', 'advisor-row-head'), copy = el('div');
-    copy.append(el('h3', '', advisor.full_name), el('p', 'advisor-email', advisor.email || 'Correo no disponible'), el('p', 'muted', `${assigned.length} clientes asignados`));
-    const actions = el('div', 'advisor-row-actions');
-    actions.append(el('strong', 'pending-count', `${pending} pendientes`));
-    if (assigned.length) actions.append(button('Borrar tareas', 'danger-button', () => resetAdvisorTasks(advisor, assigned.length)));
-    if (assigned.length) actions.append(button('Borrar clientes', 'danger-button', () => deleteAdvisorClients(advisor, assigned.length)));
-    actions.append(button('Reiniciar puntos', 'danger-button', () => resetAdvisorProgress(advisor)));
-    actions.append(button('Borrar asesor', 'danger-button', () => deleteAdvisor(advisor)));
-    head.append(copy, actions); section.append(head);
-    if (!assigned.length) section.append(el('p', 'empty-inline', 'Aún no tiene clientes.'));
-    const list = el('ul', 'pending-list');
+    const card = el('details', 'admin-card manage-advisor');
+    card.open = pending > 0;
+    const summary = el('summary'), who = el('div', 'manage-who');
+    who.append(el('span', 'manage-initial', advisor.full_name.trim().charAt(0).toUpperCase()));
+    const whoCopy = el('div');
+    whoCopy.append(el('strong', '', advisor.full_name), el('span', '', advisor.email || 'Correo no disponible'));
+    who.append(whoCopy);
+    const chips = el('div', 'manage-chips');
+    chips.append(el('span', 'manage-chip', `${assigned.length} ${assigned.length === 1 ? 'cliente' : 'clientes'}`), el('span', `manage-chip ${pending ? 'manage-chip-pending' : 'manage-chip-done'}`, pending ? `${pending} pendientes` : 'Al día'));
+    summary.append(who, chips); card.append(summary);
+    const body = el('div', 'manage-advisor-body');
+    if (!assigned.length) body.append(el('p', 'admin-muted', 'Aún no tiene clientes. Asígnale uno con el formulario.'));
+    const list = el('ul', 'manage-clients');
     for (const client of assigned) {
-      const item = el('li');
-      const location = client.city && client.department ? ` · ${client.city}, ${client.department}` : '';
-      item.append(el('strong', '', client.name), el('span', 'muted', `${location} · ${client.tasks.filter(task => !task.completed).length} pendientes`));
-      const taskList = el('ul', 'pending-titles');
-      client.tasks.filter(task => !task.completed).forEach(task => taskList.append(el('li', '', task.title)));
-      item.append(taskList); list.append(item);
+      const open = client.tasks.filter(task => !task.completed);
+      const item = el('li'), copy = el('div');
+      copy.append(el('strong', '', client.name), el('span', '', [client.type, client.city && client.department ? `${client.city}, ${client.department}` : ''].filter(Boolean).join(' · ')));
+      const progress = el('span', `manage-chip ${open.length ? 'manage-chip-pending' : 'manage-chip-done'}`, open.length ? `${client.tasks.length - open.length}/${client.tasks.length} tareas` : 'Completado');
+      item.append(copy, progress);
+      if (open.length) {
+        const taskList = el('ul', 'manage-tasks');
+        open.forEach(task => taskList.append(el('li', '', task.title)));
+        item.append(taskList);
+      }
+      list.append(item);
     }
-    section.append(list); overview.append(section);
+    if (assigned.length) body.append(list);
+    // Lo que borra datos queda plegado y explicado, lejos de la lectura diaria.
+    const danger = el('details', 'manage-danger');
+    danger.append(el('summary', '', 'Acciones de la cuenta'));
+    const dangerList = el('div', 'manage-danger-list');
+    const action = (icon, title, help, label, handler) => {
+      const row = el('div', 'manage-danger-row'), mark = el('span', 'manage-danger-icon'), copy = el('div');
+      mark.setAttribute('aria-hidden', 'true'); mark.innerHTML = advisorIcon(icon);
+      copy.append(el('strong', '', title), el('span', '', help));
+      const control = button(label, 'manage-danger-button', handler);
+      control.setAttribute('aria-label', `${title} de ${advisor.full_name}`);
+      row.append(mark, copy, control); dangerList.append(row);
+    };
+    if (assigned.length) action('tasks', 'Borrar tareas', 'Quita todas sus tareas, también las completadas.', 'Borrar', () => resetAdvisorTasks(advisor, assigned.length));
+    if (assigned.length) action('clients', 'Borrar clientes', 'Elimina sus clientes y las tareas de cada uno.', 'Borrar', () => deleteAdvisorClients(advisor, assigned.length));
+    action('sparkles', 'Reiniciar puntos', 'Vuelve a cero sus puntos, nivel y ventas acumuladas.', 'Reiniciar', () => resetAdvisorProgress(advisor));
+    action('trash', 'Borrar asesor', 'Elimina la cuenta con sus clientes y su lugar en el ranking.', 'Eliminar', () => deleteAdvisor(advisor));
+    danger.append(dangerList); body.append(danger);
+    card.append(body); overview.append(card);
+    cards.push([card, `${advisor.full_name} ${advisor.email || ''} ${assigned.map(client => client.name).join(' ')}`.toLowerCase()]);
   }
+  const empty = el('p', 'admin-muted', 'Ningún asesor o cliente coincide con la búsqueda.'); empty.hidden = true; overview.append(empty);
+  search.addEventListener('input', () => {
+    const query = search.value.trim().toLowerCase();
+    let shown = 0;
+    for (const [card, text] of cards) { card.hidden = Boolean(query) && !text.includes(query); if (!card.hidden) shown += 1; if (query && !card.hidden) card.open = true; }
+    empty.hidden = shown > 0;
+  });
   const manage = el('aside', 'admin-management'), form = el('form', 'editor-form');
   form.id = 'admin-client-form';
-  form.append(el('h2', '', 'Nuevo cliente comercial'));
+  form.append(el('h2', '', 'Asignar cliente nuevo'), el('p', 'admin-muted', 'Se crea con sus cuatro tareas y Topitín avisa al asesor.'));
   const name = input('text', 'Ej. Ferretería Norte'); name.minLength = 2; name.maxLength = 100;
   const city = el('select'); city.required = true; city.disabled = true;
   const cityPlaceholder = el('option', '', 'Selecciona primero un departamento');
@@ -1090,25 +1136,28 @@ function adminPage(page) {
     await refresh('Cliente creado con cuatro tareas.');
     notice('Cliente guardado. 🐧 Topitín ya avisó al asesor y dejó su nueva misión lista en el sistema.');
   });
-  manage.append(halloweenControl(), form); layout.append(overview, manage); page.append(layout);
+  manage.append(form, halloweenControl()); layout.append(manage, overview); page.append(layout);
 }
+// El admin usa el mismo mapa con los clientes y ventas de todos los asesores, sin zonas bloqueadas.
 function advisorMapPage(page) {
+  const admin = profile?.role === 'admin';
   page.className = 'advisor-page';
-  const ownClients = clients.filter(client => client.advisor_id === user?.id);
+  const ownClients = admin ? clients : clients.filter(client => client.advisor_id === user?.id);
+  const ownSales = admin ? sales : sales.filter(sale => sale.advisor_id === user?.id);
   // Cabecera como en Inicio y Cartera: título, una línea de ayuda, resumen en pastillas y la fecha a la derecha.
   const welcome = el('header', 'advisor-welcome map-welcome');
   const welcomeCopy = el('div', 'map-welcome-copy');
-  const soldIds = new Set(sales.filter(sale => sale.confirmed && sale.advisor_id === user?.id).map(sale => sale.client_id));
-  const soldTons = sales.filter(sale => sale.confirmed && sale.advisor_id === user?.id).reduce((total, sale) => total + Number(sale.tons_sold || 0), 0);
+  const soldIds = new Set(ownSales.filter(sale => sale.confirmed).map(sale => sale.client_id));
+  const soldTons = ownSales.filter(sale => sale.confirmed).reduce((total, sale) => total + Number(sale.tons_sold || 0), 0);
   const pendingTons = ownClients.filter(client => !soldIds.has(client.id)).reduce((total, client) => total + Number(client.tons_requested || 0), 0);
   const zonesCount = new Set(ownClients.map(client => client.department).filter(Boolean)).size;
   const chips = el('div', 'map-welcome-chips');
   for (const [className, text] of [
-    ['map-chip-zones', `${zonesCount} ${zonesCount === 1 ? 'zona explorada' : 'zonas exploradas'}`],
+    ['map-chip-zones', admin ? `${zonesCount} ${zonesCount === 1 ? 'zona con clientes' : 'zonas con clientes'}` : `${zonesCount} ${zonesCount === 1 ? 'zona explorada' : 'zonas exploradas'}`],
     ['map-chip-sold', `${soldTons.toLocaleString('es-CO')} t vendidas`],
     ['map-chip-pending', `${pendingTons.toLocaleString('es-CO')} t por vender`],
   ]) chips.append(el('span', `map-chip ${className}`, text));
-  welcomeCopy.append(el('h1', '', 'Mapa clientela'), el('p', '', 'Dónde ya vendiste y dónde quedan toneladas por ganar.'), chips);
+  welcomeCopy.append(el('h1', '', admin ? 'Mapa de ventas' : 'Mapa clientela'), el('p', '', admin ? 'Ventas de todos los asesores por zona: lo vendido y lo que queda por cerrar.' : 'Dónde ya vendiste y dónde quedan toneladas por ganar.'), chips);
   welcome.append(welcomeCopy, advisorCalendar());
   const section = el('section', 'advisor-map-panel');
   const status = el('p', 'advisor-map-status', 'Cargando mapa…');
@@ -1117,14 +1166,16 @@ function advisorMapPage(page) {
   container.setAttribute('aria-label', 'Mapa de departamentos de Colombia y ciudades con clientes');
   // Las leyendas, la brújula y la zona objetivo van encima del mapa (advisor-map.js).
   section.append(status, container);
-  if (!ownClients.length) section.append(el('p', 'empty-state', 'Aún no tienes clientes asignados. Todos los departamentos están bloqueados.'));
+  if (!ownClients.length) section.append(el('p', 'empty-state', admin ? 'Aún no hay clientes asignados a ningún asesor.' : 'Aún no tienes clientes asignados. Todos los departamentos están bloqueados.'));
   const zonesSlot = el('div', 'advisor-zone-slot');
   page.append(welcome, section, zonesSlot);
-  Promise.all([import('./advisor-map.js'), loadZoneMarket().catch(() => null)]).then(async ([module, market]) => {
+  // El admin además ve a quién contactar en cada departamento (prospectos de muestra).
+  const prospectsRequest = admin ? fetch('/data/prospects.json').then(response => response.ok ? response.json() : null).catch(() => null) : null;
+  Promise.all([import('./advisor-map.js'), loadZoneMarket().catch(() => null), prospectsRequest]).then(async ([module, market, prospectData]) => {
     if (!container.isConnected) return;
     advisorMapModule = module;
     // PRD · oportunidad por zona: el asesor ve solo las zonas donde tiene clientes.
-    const zones = market ? getZoneOpportunities(market, ownClients, sales, { onlyWithClients: true }) : [];
+    const zones = market ? getZoneOpportunities(market, ownClients, ownSales, { onlyWithClients: true }) : [];
     // Al elegir una zona de la lista, el mapa sube a la vista y la enfoca.
     let mapControls = null;
     const focusFromList = zone => {
@@ -1134,9 +1185,9 @@ function advisorMapPage(page) {
     if (zones.length) zonesSlot.replaceWith(createZoneList(zones, { sample: market.sample, onSelect: focusFromList }));
     mapControls = await module.renderAdvisorClientMap(container, ownClients, (state, message) => {
       if (!container.isConnected) return;
-      status.textContent = state === 'ready' ? 'Toca un departamento o una zona de la lista para enfocarla.' : message;
+      status.textContent = state === 'ready' ? (admin ? 'Toca un departamento o una ★ para ver el cliente potencial más importante y su contacto.' : 'Toca un departamento o una zona de la lista para enfocarla.') : message;
       status.classList.toggle('advisor-map-error', state === 'error');
-    }, sales, { zones });
+    }, ownSales, { zones, unlocked: admin, advisorName: admin ? id => advisors.find(item => item.user_id === id)?.full_name : null, prospects: prospectData?.prospects ?? [] });
   }).catch(error => {
     if (!container.isConnected) return;
     status.textContent = `No se pudo cargar el mapa: ${error.message}`;
@@ -1385,7 +1436,8 @@ function advisorPage(page) {
   const activeProgress = getProgress(activeClient?.tasks ?? []);
   const mascotMood = getMascotStateForCurrentClient(activeClient);
   const levelProgress = getLevelProgress(profile?.level, profile?.progression_sales);
-  const monthlyGoal = 100;
+  const ownGoal = goals.find(goal => goal.advisor_key === user?.id);
+  const monthlyGoal = ownGoal ? goalTons(ownGoal) : 100;
   const monthlyTons = getMonthlyTons(sales, user?.id);
   const weeklySales = getWeeklySales(sales, user?.id);
   const streak = getSalesStreak(sales, user?.id);
@@ -1744,13 +1796,14 @@ function render() {
   clearProfileEntrance(!profile || profile.role !== 'advisor' || advisorView !== 'profile');
   if (!profile || profile.role !== 'advisor' || advisorView !== 'commissions') resetCommissionEntrance();
   if (!profile || profile.role !== 'advisor' || advisorView !== 'dashboard') resetAdvisorEntrance();
-  const storeView = profile?.role === 'admin' ? (adminView === 'shop' ? 'shop' : null) : ['shop', 'rewards'].includes(advisorView) ? advisorView : null;
+  const storeView = profile?.role !== 'admin' && ['shop', 'rewards'].includes(advisorView) ? advisorView : null;
   if (!profile || !storeView) resetStoreEntrance();
   shell();
   const page = document.querySelector('#page');
   if (!db) page.replaceChildren(el('p', 'empty-state', 'Falta configurar Supabase en .env.local.'));
   else if (!profile) authPage();
-  else if (profile.role === 'admin' && adminView === 'shop') { renderShop(page, sales.filter(sale => sale.confirmed).length, halloweenReady && halloweenEnabled, profile.equipped_skin, equipSkin, profile.points); playStoreEntrance(page, 'shop'); }
+  else if (profile.role === 'admin' && adminView === 'manage') adminManagementPage(page);
+  else if (profile.role === 'admin' && adminView === 'map') advisorMapPage(page);
   else if (profile.role === 'admin') adminPage(page);
   else if (advisorView === 'shop') { renderShop(page, sales.filter(sale => sale.advisor_id === user?.id && sale.confirmed).length, halloweenReady && halloweenEnabled, profile.equipped_skin, equipSkin, profile.points); playStoreEntrance(page, 'shop'); }
   else if (advisorView === 'rewards') { renderRewards(page, profile.points, new Date(), halloweenReady && halloweenEnabled); playStoreEntrance(page, 'rewards'); }

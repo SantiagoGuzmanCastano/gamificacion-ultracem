@@ -173,3 +173,15 @@ Este documento registra las decisiones que cambiaron el alcance o la implementac
 **Decisión elegida:** la clave queda fuera del frontend y la función devuelve una recomendación de máximo 25 palabras. La integración se puede activar configurando secretos sin cambiar la interfaz.
 
 **Conclusión:** el MVP tiene una demostración de IA acotada y segura, sin construir todavía un sistema de recomendaciones avanzado.
+
+## Decisión 18: vista del administrador según el PRD (A1–A5)
+
+**Propuesta de la persona usuaria:** alinear el panel del administrador con el PRD (oportunidad nacional, avance por asesor, brecha por zona y municipio, definir metas), con una UI responsiva y "lo justo y necesario".
+
+**Propuesta de Claude:** el documento `docs/plans/2026-10-23-admin-prd.md` sugería Tabulator y ECharts; se descartaron para no sumar dependencias. Tablas HTML que en celular pasan a tarjetas, barras y medidor en CSS, y metas editadas con inputs en la fila.
+
+**Decisión elegida:** el admin usa el mismo armazón y sidebar que el asesor, sin tienda de cosméticos, con Resumen (A4), Asesores (A1 + A5), Zonas (A2 + A3) y Gestión (lo que ya existía). Asesores, clientes, ventas y ciudades salen de Supabase; solo el mercado por departamento sale de `zone-market.json` (el mismo del mapa del asesor, objetivo 10 %), porque la base no lo tiene. Las metas se guardan en `mvp_advisor_goals` con la función solo-admin `set_mvp_advisor_goal`; el asesor ve su meta (`mercado × participación`, 100 t por defecto). Lo que la base no registra (clientes recuperados) se muestra "s/d".
+
+El admin también tiene **Mapa de ventas**: el mismo mapa del asesor con los clientes y ventas de todos, todo el país desbloqueado y una estrella por departamento con el cliente potencial más importante y su contacto (`prospects.json`, empresas y teléfonos ficticios de muestra).
+
+**Conclusión:** los tres pasos de la demo del admin funcionan con los datos reales de la app, y la vista del asesor solo cambia en la meta mensual.
