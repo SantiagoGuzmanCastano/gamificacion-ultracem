@@ -18,7 +18,16 @@ const paths = {
   phone: '<path d="m6 3 4 5-3 3c2 3 3 4 6 6l3-3 5 4c-1 7-8 4-13-1S0 5 6 3Z"/>',
   document: '<path d="M5 2h10l4 4v16H5zM14 2v5h5M9 11h6M9 15h6M9 19h4"/>',
   gift: '<path d="M3 8h18v4H3zM5 12v9h14v-9M12 8v13M12 8S10 3 7.5 4 9 8 12 8Zm0 0s2-5 4.5-4S15 8 12 8Z"/>',
-  arrow: '<path d="m9 5 7 7-7 7"/>',
+  calendar: '<path d="M4 5h16v16H4zM4 10h16M8 3v4M16 3v4"/>',
+  lock: '<path d="M6 11h12v10H6zM8 11V7a4 4 0 0 1 8 0v4M12 15v2"/>',
+  coins: '<ellipse cx="10" cy="6" rx="6" ry="3"/><path d="M4 6v5c0 1.7 2.7 3 6 3s6-1.3 6-3V6M4 11v5c0 1.7 2.7 3 6 3M16 12c2.8.2 5 1.2 5 2.5v4c0 1.7-2.7 3-6 3"/>',
+  building: '<path d="M5 21V4h9v17M14 9h5v12M3 21h18M8 8h2M8 12h2M8 16h2"/>',
+  wallet: '<path d="M3 7h16a2 2 0 0 1 2 2v10H5a2 2 0 0 1-2-2zM3 7l2-3h11v3M16 14h2"/>',
+  bolt:'<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>',
+  star: '<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/>',
+  arrow:'<path d="m9 5 7 7-7 7"/>',
+  coin: '<circle cx="12" cy="12" r="9"/><path d="M15 9.2c-.6-.8-1.6-1.2-3-1.2-1.6 0-2.7.8-2.7 2 0 3 5.9 1.2 5.9 4.2 0 1.2-1.2 2-2.9 2-1.4 0-2.5-.5-3.2-1.4M12 6v2M12 16v2"/>',
+  flag: '<path d="M5 21V4M5 4h13l-3 4.5 3 4.5H5"/>',
 };
 
 export function advisorIcon(name) {
