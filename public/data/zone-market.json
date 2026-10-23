@@ -1,0 +1,205 @@
+{
+ "sample": true,
+ "source": "Muestra: reparto ficticio por departamento para la demo. Los totales cuadran con el PRD (mercado 4.653.177 t, Ultracem 364.322 t = 7,83 %). Reemplazar por el archivo real.",
+ "targetShare": 0.1,
+ "zones": [
+  {
+   "departmentCode": "05",
+   "department": "Antioquia",
+   "marketTons": 586359,
+   "ultracemTons": 50431
+  },
+  {
+   "departmentCode": "08",
+   "department": "Atlántico",
+   "marketTons": 251297,
+   "ultracemTons": 31905
+  },
+  {
+   "departmentCode": "11",
+   "department": "Bogotá D.C.",
+   "marketTons": 753890,
+   "ultracemTons": 47087
+  },
+  {
+   "departmentCode": "13",
+   "department": "Bolívar",
+   "marketTons": 209414,
+   "ultracemTons": 14580
+  },
+  {
+   "departmentCode": "15",
+   "department": "Boyacá",
+   "marketTons": 125648,
+   "ultracemTons": 12093
+  },
+  {
+   "departmentCode": "17",
+   "department": "Caldas",
+   "marketTons": 104707,
+   "ultracemTons": 12007
+  },
+  {
+   "departmentCode": "18",
+   "department": "Caquetá",
+   "marketTons": 41883,
+   "ultracemTons": 1973
+  },
+  {
+   "departmentCode": "19",
+   "department": "Cauca",
+   "marketTons": 104707,
+   "ultracemTons": 5146
+  },
+  {
+   "departmentCode": "20",
+   "department": "Cesar",
+   "marketTons": 104707,
+   "ultracemTons": 8791
+  },
+  {
+   "departmentCode": "23",
+   "department": "Córdoba",
+   "marketTons": 125648,
+   "ultracemTons": 6690
+  },
+  {
+   "departmentCode": "25",
+   "department": "Cundinamarca",
+   "marketTons": 335062,
+   "ultracemTons": 31219
+  },
+  {
+   "departmentCode": "27",
+   "department": "Chocó",
+   "marketTons": 33506,
+   "ultracemTons": 961
+  },
+  {
+   "departmentCode": "41",
+   "department": "Huila",
+   "marketTons": 104707,
+   "ultracemTons": 8255
+  },
+  {
+   "departmentCode": "44",
+   "department": "La Guajira",
+   "marketTons": 62824,
+   "ultracemTons": 2509
+  },
+  {
+   "departmentCode": "47",
+   "department": "Magdalena",
+   "marketTons": 125648,
+   "ultracemTons": 9134
+  },
+  {
+   "departmentCode": "50",
+   "department": "Meta",
+   "marketTons": 125648,
+   "ultracemTons": 8234
+  },
+  {
+   "departmentCode": "52",
+   "department": "Nariño",
+   "marketTons": 125648,
+   "ultracemTons": 7076
+  },
+  {
+   "departmentCode": "54",
+   "department": "Norte de Santander",
+   "marketTons": 146590,
+   "ultracemTons": 8855
+  },
+  {
+   "departmentCode": "63",
+   "department": "Quindío",
+   "marketTons": 62824,
+   "ultracemTons": 6626
+  },
+  {
+   "departmentCode": "66",
+   "department": "Risaralda",
+   "marketTons": 104707,
+   "ultracemTons": 10292
+  },
+  {
+   "departmentCode": "68",
+   "department": "Santander",
+   "marketTons": 209414,
+   "ultracemTons": 22728
+  },
+  {
+   "departmentCode": "70",
+   "department": "Sucre",
+   "marketTons": 83766,
+   "ultracemTons": 5918
+  },
+  {
+   "departmentCode": "73",
+   "department": "Tolima",
+   "marketTons": 125648,
+   "ultracemTons": 11450
+  },
+  {
+   "departmentCode": "76",
+   "department": "Valle del Cauca",
+   "marketTons": 418828,
+   "ultracemTons": 30876
+  },
+  {
+   "departmentCode": "81",
+   "department": "Arauca",
+   "marketTons": 33506,
+   "ultracemTons": 1750
+  },
+  {
+   "departmentCode": "85",
+   "department": "Casanare",
+   "marketTons": 50259,
+   "ultracemTons": 4065
+  },
+  {
+   "departmentCode": "86",
+   "department": "Putumayo",
+   "marketTons": 29318,
+   "ultracemTons": 991
+  },
+  {
+   "departmentCode": "88",
+   "department": "San Andrés y Providencia",
+   "marketTons": 12565,
+   "ultracemTons": 1737
+  },
+  {
+   "departmentCode": "91",
+   "department": "Amazonas",
+   "marketTons": 12565,
+   "ultracemTons": 244
+  },
+  {
+   "departmentCode": "94",
+   "department": "Guainía",
+   "marketTons": 8377,
+   "ultracemTons": 103
+  },
+  {
+   "departmentCode": "95",
+   "department": "Guaviare",
+   "marketTons": 12565,
+   "ultracemTons": 270
+  },
+  {
+   "departmentCode": "97",
+   "department": "Vaupés",
+   "marketTons": 8377,
+   "ultracemTons": 120
+  },
+  {
+   "departmentCode": "99",
+   "department": "Vichada",
+   "marketTons": 12565,
+   "ultracemTons": 206
+  }
+ ]
+}
