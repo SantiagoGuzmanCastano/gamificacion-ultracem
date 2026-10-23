@@ -127,7 +127,7 @@ export function getOpportunityColumns(cities, { radiusFor = () => 40, sides = 32
     const unit = Math.max(total / maxTotal, minShare) * maxHeight / total;
     const soldTop = city.soldTons * unit, top = total * unit;
     const capBase = top * .955;
-    const props = { city: city.city, department: city.department };
+    const props = { city: city.city, department: city.department, floor: Math.min(soldTop, capBase) };
     const pendingWeight = maxPending ? city.pendingTons / maxPending : 0;
     for (const [lod, sizing] of Object.entries(COLUMN_LOD)) {
       const ring = circle(city.coordinates, clamp(radiusFor(city) * sizing.share, sizing.min, sizing.max), sides);
@@ -148,7 +148,7 @@ export function getColumnPoints(cities) {
     features: (cities || []).map(city => ({
       type: 'Feature',
       geometry: { type: 'Point', coordinates: city.coordinates },
-      properties: { city: city.city, department: city.department, kind: city.pendingTons > 0 ? 'pending' : 'sold', weight: maxPending ? city.pendingTons / maxPending : 0 },
+      properties: { city: city.city, department: city.department, kind: city.pendingTons > 0 ? 'pending' : 'sold', sold: city.soldTons, weight: maxPending ? city.pendingTons / maxPending : 0 },
     })),
   };
 }
@@ -164,11 +164,23 @@ export const COLUMN_COLOR = ['match', ['get', 'kind'],
 export const HEAT_FLOOR_OPACITY = .55;
 export const HALO_OPACITY = .5;
 export const COLUMN_LAYERS = ['opportunity-columns', 'opportunity-columns-fine'];
-// Al acercarse, las columnas bajan para no tapar la zona (la altura es en metros).
-const byZoom = (property, growth) => ['interpolate', ['linear'], ['zoom'],
-  4, ['*', ['get', property], growth], 6.5, ['*', ['get', property], growth * .45], 8, ['*', ['get', property], growth * .2], 10, ['*', ['get', property], growth * .08]];
-export const columnHeight = growth => byZoom('top', growth);
-export const columnBase = growth => byZoom('base', growth);
+// Al acercarse, las columnas bajan para no tapar la zona (la altura es en metros). Cada parada:
+// [zoom, factor de altura de las columnas, cuánto sube el departamento en hover].
+const ZOOM_STOPS = [[4, 1, 45000], [6.5, .45, 20000], [8, .2, 11000], [10, .08, 3000]];
+
+// Altura de la base o la punta de cada tramo: lo vendido crece con `sold`, lo que está encima con
+// `pending`, y si su departamento está en hover, toda la columna sube con él (`lift`).
+export function columnLevel(property, { sold = 1, pending = 1, department = null, lift = 0 } = {}) {
+  const value = ['get', property], floor = ['get', 'floor'];
+  const core = ['+', ['*', ['min', value, floor], sold], ['*', ['max', ['-', value, floor], 0], pending]];
+  return ['interpolate', ['linear'], ['zoom'], ...ZOOM_STOPS.flatMap(([zoom, factor, rise]) => [zoom,
+    department && lift ? ['+', ['*', core, factor], ['case', ['==', ['get', 'department'], department], rise * lift, 0]] : ['*', core, factor]])];
+}
+export const hoverLift = growth => ['interpolate', ['linear'], ['zoom'], ...ZOOM_STOPS.flatMap(([zoom, , rise]) => [zoom, rise * growth])];
+
+// Brillo dorado de lo vendido: un resplandor que respira y ondas que salen de la base.
+export const SOLD_FILTER = ['>', ['get', 'sold'], 0];
+export const soldRingRadius = radius => ['interpolate', ['exponential', 1.6], ['zoom'], 4, radius, 6, radius * 2.4, 8, radius * 5, 10, radius * 10];
 
 // Vista 3D (referencia aprobada): Colombia como losa sobre el relieve de sus vecinos, con brillo de costa,
 // calor azul→rojo, leyendas de vidrio, brújula y una entrada de ~1,6 s (una vez por sesión).
@@ -240,14 +252,29 @@ export function buildAdvisorMapStyle({ activeCodes = [], heat, columns = null, c
       'circle-opacity': animate ? 0 : HALO_OPACITY,
       'circle-pitch-alignment': 'map',
     } },
+    { id: 'sold-glow', type: 'circle', source: 'column-points', filter: SOLD_FILTER, paint: {
+      'circle-color': SOLD_COLOR,
+      'circle-radius': ['interpolate', ['exponential', 1.6], ['zoom'], 4, 13, 6, 30, 8, 60, 10, 115],
+      'circle-blur': 1,
+      'circle-opacity': animate ? 0 : .4,
+      'circle-pitch-alignment': 'map',
+    } },
+    { id: 'sold-ring', type: 'circle', source: 'column-points', filter: SOLD_FILTER, paint: {
+      'circle-color': 'rgba(0, 0, 0, 0)',
+      'circle-radius': soldRingRadius(6),
+      'circle-stroke-color': '#ffe27a',
+      'circle-stroke-width': 2.5,
+      'circle-stroke-opacity': 0,
+      'circle-pitch-alignment': 'map',
+    } },
     ...COLUMN_LAYERS.map(id => {
       const fine = id.endsWith('fine');
       return { id, type: 'fill-extrusion', source: 'columns', filter: ['==', ['get', 'lod'], fine ? 'fine' : 'wide'],
         ...(fine ? { minzoom: 6.5 } : { maxzoom: 6.5 }),
         paint: {
           'fill-extrusion-color': COLUMN_COLOR,
-          'fill-extrusion-height': columnHeight(animate ? 0 : 1),
-          'fill-extrusion-base': columnBase(animate ? 0 : 1),
+          'fill-extrusion-height': columnLevel('top', animate ? { sold: 0, pending: 0 } : {}),
+          'fill-extrusion-base': columnLevel('base', animate ? { sold: 0, pending: 0 } : {}),
           'fill-extrusion-opacity': .95,
           'fill-extrusion-vertical-gradient': true,
         } };
@@ -257,9 +284,9 @@ export function buildAdvisorMapStyle({ activeCodes = [], heat, columns = null, c
 }
 
 export function getEntrancePlan(reducedMotion) {
-  if (reducedMotion) return { from: { ...MAP_VIEW }, flyMs: 0, heatDelayMs: 0, heatMs: 0, columnDelayMs: 0, columnMs: 0, pinDelayMs: 0, pinStaggerMs: 0, swayDelayMs: 0 };
+  if (reducedMotion) return { from: { ...MAP_VIEW }, flyMs: 0, heatDelayMs: 0, heatMs: 0, columnDelayMs: 0, columnMs: 0, pendingDelayMs: 0, pendingMs: 0, pinDelayMs: 0, pinStaggerMs: 0, swayDelayMs: 0 };
   // Las columnas crecen cuando el vuelo ya casi aterriza; el giro en reposo arranca después.
-  return { from: { zoom: MAP_VIEW.zoom - 1.1, pitch: 0, bearing: 0 }, flyMs: 1200, heatDelayMs: 900, heatMs: 600, columnDelayMs: 1000, columnMs: 750, pinDelayMs: 1000, pinStaggerMs: 90, swayDelayMs: 2500 };
+  return { from: { zoom: MAP_VIEW.zoom - 1.1, pitch: 0, bearing: 0 }, flyMs: 1200, heatDelayMs: 900, heatMs: 600, columnDelayMs: 1000, columnMs: 750, pendingDelayMs: 1550, pendingMs: 600, pinDelayMs: 1000, pinStaggerMs: 90, swayDelayMs: 2500 };
 }
 
 // Enfoque de zona: la zona elegida se aclara, el resto se atenúa y su calor aparece aparte.
@@ -267,17 +294,6 @@ export function focusFillColor(activeCodes, focusedCode) {
   const active = ['in', ['get', 'divipola_dep'], ['literal', activeCodes]];
   if (!focusedCode) return ['case', active, '#21507c', '#0d1724'];
   return ['case', ['==', ['get', 'divipola_dep'], focusedCode], '#2b5d8f', active, '#13263a', '#0e1a29'];
-}
-
-// Zonas sin explorar (sin clientes): candado en su capital y un mensaje de videojuego al tocarlas.
-export function getLockedPoints(capitals, activeCodes) {
-  const active = new Set(activeCodes);
-  const seen = new Set();
-  return {
-    type: 'FeatureCollection',
-    features: capitals.filter(capital => !active.has(capital.departmentCode) && !seen.has(capital.departmentCode) && seen.add(capital.departmentCode))
-      .map(capital => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [capital.longitude, capital.latitude] }, properties: { code: capital.departmentCode, department: capital.department } })),
-  };
 }
 
 // Cada cliente trae 4 tareas y cada tarea suma XP (game.js): eso es lo que se gana al desbloquear.
@@ -291,7 +307,6 @@ export function lockedZoneMessage(department) {
 
 // Hover de departamento: cuánto sube (en metros, menos al acercarse) y de qué color según su estado.
 export const HOVER_COLORS = { active: '#3478b8', locked: '#3a4a60' };
-export const hoverLift = growth => ['interpolate', ['linear'], ['zoom'], 4, 45000 * growth, 7, 16000 * growth, 10, 3000 * growth];
 
 // Contenido del tooltip: nombre, estado en texto y si está bloqueado (para el candado).
 export function getDepartmentHoverTip(name, clientCount) {
@@ -315,11 +330,11 @@ function fogTexture(size = 64) {
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = size;
   const context = canvas.getContext('2d');
-  context.fillStyle = 'rgba(7, 13, 22, .78)';
+  context.fillStyle = 'rgba(5, 10, 18, .9)';
   context.fillRect(0, 0, size, size);
-  context.strokeStyle = 'rgba(120, 150, 185, .13)';
-  context.lineWidth = 2;
-  for (let offset = -size; offset < size; offset += 10) {
+  context.strokeStyle = 'rgba(140, 165, 200, .24)';
+  context.lineWidth = 2.5;
+  for (let offset = -size; offset < size; offset += 8) {
     context.beginPath();
     context.moveTo(offset, size);
     context.lineTo(offset + size, 0);
@@ -327,36 +342,12 @@ function fogTexture(size = 64) {
   }
   let seed = 7;
   const random = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-  for (let index = 0; index < 26; index++) {
-    context.fillStyle = `rgba(170, 195, 225, ${.05 + random() * .12})`;
+  for (let index = 0; index < 40; index++) {
+    context.fillStyle = `rgba(170, 195, 225, ${.08 + random() * .16})`;
     context.beginPath();
     context.arc(random() * size, random() * size, .6 + random() * 1.6, 0, Math.PI * 2);
     context.fill();
   }
-  return context.getImageData(0, 0, size, size);
-}
-
-function lockIcon(size = 64) {
-  const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = size;
-  const context = canvas.getContext('2d');
-  const middle = size / 2;
-  context.fillStyle = 'rgba(4, 16, 30, .88)';
-  context.strokeStyle = '#6f8aa6';
-  context.lineWidth = 3;
-  context.beginPath();
-  context.arc(middle, middle, middle - 3, 0, Math.PI * 2);
-  context.fill();
-  context.stroke();
-  context.strokeStyle = '#c9dcef';
-  context.lineWidth = 4;
-  context.beginPath();
-  context.arc(middle, middle - 4, 8, Math.PI, 0);
-  context.stroke();
-  context.fillStyle = '#c9dcef';
-  context.fillRect(middle - 12, middle - 4, 24, 18);
-  context.fillStyle = '#04101e';
-  context.fillRect(middle - 2, middle + 1, 4, 8);
   return context.getImageData(0, 0, size, size);
 }
 
@@ -393,6 +384,10 @@ export function getFeatureBounds(feature) {
   }
   return [[minX, minY], [maxX, maxY]];
 }
+
+export const easeOutCubic = t => 1 - (1 - t) ** 3;
+// Sube un poco de más y se asienta: el "pop" de lo vendido.
+export const easeOutBack = t => 1 + 2.70158 * (t - 1) ** 3 + 1.70158 * (t - 1) ** 2;
 
 // Anima una propiedad de pintura con requestAnimationFrame; con 0 ms la pone directo.
 // `build` arma el valor final (por ejemplo, una expresión) a partir del número animado.
@@ -485,6 +480,50 @@ export async function renderAdvisorClientMap(container, clients = [], onStatus =
   const radiusFor = city => departmentRadius.get(codeByDepartment.get(city.department)) || 40;
   const cityTonnage = getCityTonnage(clients, sales, capitals);
   const confirmedSales = new Map(sales.filter(sale => sale.confirmed).map(sale => [sale.client_id, sale]));
+  // Estado de las columnas: cuánto creció lo vendido y lo pendiente, y qué departamento está elevado.
+  const columnState = { sold: animate ? 0 : 1, pending: animate ? 0 : 1, department: null, lift: 0 };
+  const applyColumns = () => {
+    for (const layer of COLUMN_LAYERS) {
+      if (!map?.getLayer(layer)) continue;
+      map.setPaintProperty(layer, 'fill-extrusion-height', columnLevel('top', columnState));
+      map.setPaintProperty(layer, 'fill-extrusion-base', columnLevel('base', columnState));
+    }
+  };
+  // Anima un número de 0 a 1 por cuadro; se detiene si el mapa se cerró o se volvió a abrir.
+  const animateValue = (ms, delay, ease, onFrame, onDone) => {
+    if (!ms) { onFrame(1); onDone?.(); return; }
+    const start = performance.now() + delay;
+    const step = now => {
+      if (!map || current !== generation) return;
+      const progress = Math.min(1, Math.max(0, (now - start) / ms));
+      onFrame(ease(progress));
+      if (progress < 1) requestAnimationFrame(step); else onDone?.();
+    };
+    requestAnimationFrame(step);
+  };
+  // Lo vendido: una onda dorada al terminar de crecer y luego un brillo que respira con ondas suaves.
+  function startGoldEffects() {
+    if (reduced || !map?.getLayer('sold-ring')) return;
+    const started = performance.now();
+    let last = 0;
+    const loop = now => {
+      if (!map || current !== generation || !map.getLayer('sold-ring')) return;
+      if (now - last > 33) {
+        last = now;
+        const elapsed = now - started;
+        const breath = .5 + .5 * Math.sin(elapsed / 2600 * Math.PI * 2);
+        map.setPaintProperty('sold-glow', 'circle-opacity', .28 + .3 * breath);
+        // La primera onda es rápida y grande; después, una cada 3,6 s.
+        const period = elapsed < 900 ? 900 : 3600;
+        const phase = elapsed < 900 ? elapsed / 900 : ((elapsed - 900) % period) / period;
+        const wave = easeOutCubic(Math.min(1, phase / .7));
+        map.setPaintProperty('sold-ring', 'circle-radius', soldRingRadius(5 + (elapsed < 900 ? 30 : 20) * wave));
+        map.setPaintProperty('sold-ring', 'circle-stroke-opacity', phase < .7 ? .9 * (1 - wave) : 0);
+      }
+      requestAnimationFrame(loop);
+    };
+    requestAnimationFrame(loop);
+  }
 
   setWorkerUrl(workerUrl);
   map = new MapLibreMap({
@@ -537,26 +576,22 @@ export async function renderAdvisorClientMap(container, clients = [], onStatus =
     try {
       map.setSky({ 'sky-color': '#0a2440', 'horizon-color': '#1b4f7a', 'fog-color': '#03101e', 'sky-horizon-blend': .6, 'horizon-fog-blend': .7, 'fog-ground-blend': .35, 'atmosphere-blend': 0 });
     } catch { /* sin cielo */ }
-    // Zonas sin explorar: niebla rayada encima del departamento y un candado en su capital.
+    // Zonas sin explorar: niebla rayada densa y borde punteado, como terreno sin descubrir.
+    const locked = ['!', ['in', ['get', 'divipola_dep'], ['literal', activeCodes]]];
     map.addImage('fog-texture', fogTexture(), { pixelRatio: 2 });
-    map.addImage('lock-icon', lockIcon(), { pixelRatio: 2 });
-    map.addLayer({ id: 'locked-fog', type: 'fill', source: 'departments', filter: ['!', ['in', ['get', 'divipola_dep'], ['literal', activeCodes]]],
-      paint: { 'fill-pattern': 'fog-texture', 'fill-opacity': .9 } }, 'departments-border');
+    map.addLayer({ id: 'locked-fog', type: 'fill', source: 'departments', filter: locked,
+      paint: { 'fill-pattern': 'fog-texture', 'fill-opacity': 1 } }, 'departments-border');
+    map.addLayer({ id: 'locked-border', type: 'line', source: 'departments', filter: locked,
+      paint: { 'line-color': '#6d819a', 'line-width': 1.2, 'line-dasharray': [2, 2], 'line-opacity': .7 } }, 'departments-border');
     map.addLayer({ id: 'locked-flash', type: 'line', source: 'departments', filter: ['==', ['get', 'divipola_dep'], ''],
       paint: { 'line-color': '#ff7598', 'line-width': 3, 'line-blur': 1, 'line-opacity': 0 } }, 'opportunity-heat');
-    map.addSource('locked-points', { type: 'geojson', data: getLockedPoints(capitals, activeCodes) });
-    map.addLayer({ id: 'locked-icons', type: 'symbol', source: 'locked-points', layout: {
-      'icon-image': 'lock-icon', 'icon-size': ['interpolate', ['linear'], ['zoom'], 4, .55, 7, .85], 'icon-allow-overlap': true,
-    }, paint: { 'icon-opacity': .85 } });
     if (!animate) { map.jumpTo(finalView()); return; }
+    animateValue(plan.columnMs, plan.columnDelayMs, easeOutBack, value => { columnState.sold = value; applyColumns(); }, startGoldEffects);
+    animateValue(plan.pendingMs, plan.pendingDelayMs, easeOutCubic, value => { columnState.pending = value; applyColumns(); });
     const view = finalView();
     map.jumpTo({ center: view.center, ...plan.from });
     map.flyTo({ ...view, duration: plan.flyMs, essential: true });
     tweenPaint('opportunity-heat', 'heatmap-opacity', 0, HEAT_FLOOR_OPACITY, plan.heatMs, plan.heatDelayMs);
-    for (const layer of COLUMN_LAYERS) {
-      tweenPaint(layer, 'fill-extrusion-height', 0, 1, plan.columnMs, plan.columnDelayMs, columnHeight);
-      tweenPaint(layer, 'fill-extrusion-base', 0, 1, plan.columnMs, plan.columnDelayMs, columnBase);
-    }
     tweenPaint('column-halo', 'circle-opacity', 0, HALO_OPACITY, plan.columnMs, plan.columnDelayMs);
     swayTimer = setTimeout(startSway, plan.swayDelayMs);
     pins.forEach((pin, index) => pin.animate(
@@ -572,14 +607,24 @@ export async function renderAdvisorClientMap(container, clients = [], onStatus =
 
   hoverPopup = new Popup({ closeButton: false, closeOnClick: false, className: 'map-hover-popup', offset: 14 });
   // Departamento elevado: cambia al mover el puntero y sube con una animación corta.
-  let hoveredCode = null;
+  let hoveredCode = null, hoverToken = 0;
   function liftDepartment(code, locked) {
     if (code === hoveredCode || !map.getLayer('department-hover')) return;
     hoveredCode = code;
+    const token = ++hoverToken;
     map.setFilter('department-hover', ['==', ['get', 'divipola_dep'], code || '']);
+    columnState.department = code ? states.get(code)?.name || null : null;
+    columnState.lift = 0;
+    applyColumns();
     if (!code) return;
     map.setPaintProperty('department-hover', 'fill-extrusion-color', locked ? HOVER_COLORS.locked : HOVER_COLORS.active);
-    tweenPaint('department-hover', 'fill-extrusion-height', 0, 1, reduced ? 0 : 220, 0, hoverLift);
+    // El departamento y sus columnas suben juntos, para que lo vendido no quede escondido.
+    animateValue(reduced ? 0 : 220, 0, easeOutCubic, value => {
+      if (token !== hoverToken) return;
+      columnState.lift = value;
+      map.setPaintProperty('department-hover', 'fill-extrusion-height', hoverLift(value));
+      applyColumns();
+    });
   }
   // Las columnas quedan encima de los departamentos: si el puntero está sobre una, manda la columna.
   const onColumn = point => map.queryRenderedFeatures(point, { layers: COLUMN_LAYERS.filter(layer => map.getLayer(layer)) })[0];
@@ -737,6 +782,7 @@ export async function renderAdvisorClientMap(container, clients = [], onStatus =
     map.setPaintProperty('departments-fill', 'fill-color', focusFillColor(activeCodes, zone.code));
     for (const layer of COLUMN_LAYERS) map.setPaintProperty(layer, 'fill-extrusion-color', focusColumnColor(zone.department));
     map.setPaintProperty('column-halo', 'circle-color', focusColumnColor(zone.department));
+    for (const layer of ['sold-glow', 'sold-ring']) map.setFilter(layer, ['all', SOLD_FILTER, ['==', ['get', 'department'], zone.department]]);
     map.setPaintProperty('opportunity-heat', 'heatmap-opacity', focusPlan.dimHeatOpacity);
     map.setPaintProperty('zone-heat', 'heatmap-opacity', 0);
     tweenPaint('zone-heat', 'heatmap-opacity', 0, .95, focusPlan.heatMs, focusPlan.flyMs * .5);
@@ -756,6 +802,7 @@ export async function renderAdvisorClientMap(container, clients = [], onStatus =
     map.setPaintProperty('departments-fill', 'fill-color', focusFillColor(activeCodes, null));
     for (const layer of COLUMN_LAYERS) map.setPaintProperty(layer, 'fill-extrusion-color', focusColumnColor(null));
     map.setPaintProperty('column-halo', 'circle-color', focusColumnColor(null));
+    for (const layer of ['sold-glow', 'sold-ring']) map.setFilter(layer, SOLD_FILTER);
     if (map.getLayer('zone-outline')) {
       map.setFilter('zone-outline', ['==', ['get', 'divipola_dep'], '']);
       map.setPaintProperty('zone-heat', 'heatmap-opacity', 0);

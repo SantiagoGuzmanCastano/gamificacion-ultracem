@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  COLUMN_COLOR, COLUMN_LAYERS, GEO_LABELS, getDepartmentHoverTip, hoverLift, getColumnPoints, getDepartmentRadiusKm, getLockedPoints, lockedZoneMessage, MAP_VIEW, buildAdvisorMapStyle, focusColumnColor, focusFillColor, getCityProgress, getEntrancePlan,
+  COLUMN_COLOR, COLUMN_LAYERS, GEO_LABELS, getDepartmentHoverTip, hoverLift, getColumnPoints, getDepartmentRadiusKm, lockedZoneMessage, columnLevel, easeOutBack, SOLD_FILTER, MAP_VIEW, buildAdvisorMapStyle, focusColumnColor, focusFillColor, getCityProgress, getEntrancePlan,
   getCityTonnage, getFeatureBounds, getFocusPlan, getOpportunityColumns, getOpportunityHeat, getTodayTarget, getZoneOpportunities, zoneHeatFilter,
 } from '../src/advisor-map.js';
 
@@ -89,14 +89,15 @@ test('map style stacks relief and neighbors under the Colombia slab and the heat
   const style = buildAdvisorMapStyle({ activeCodes: ['08', '05'], heat, relief: true, animate: true });
   assert.deepEqual(style.layers.map(layer => layer.id), [
     'background', 'land', 'relief', 'coast-glow', 'country-glow',
-    'slab-shadow', 'slab-side', 'departments-fill', 'departments-border', 'department-hover', 'opportunity-heat', 'column-halo', ...COLUMN_LAYERS,
+    'slab-shadow', 'slab-side', 'departments-fill', 'departments-border', 'department-hover', 'opportunity-heat', 'column-halo', 'sold-glow', 'sold-ring', ...COLUMN_LAYERS,
   ]);
   // Columnas gruesas para leer el país y finas al acercarse; arrancan en altura 0 para crecer en la entrada.
   const [wide, fine] = COLUMN_LAYERS.map(id => style.layers.find(layer => layer.id === id));
   assert.equal(wide.type, 'fill-extrusion');
   assert.equal(wide.maxzoom, fine.minzoom);
   assert.deepEqual(wide.filter, ['==', ['get', 'lod'], 'wide']);
-  assert.deepEqual(wide.paint['fill-extrusion-height'][4], ['*', ['get', 'top'], 0]);
+  assert.deepEqual(wide.paint['fill-extrusion-height'], columnLevel('top', { sold: 0, pending: 0 }));
+  assert.deepEqual(['sold-glow', 'sold-ring'].map(id => style.layers.find(layer => layer.id === id).filter), [SOLD_FILTER, SOLD_FILTER]);
   assert.equal(style.layers.find(layer => layer.id === 'column-halo').paint['circle-opacity'], 0);
   assert.equal(style.sources.dem.encoding, 'terrarium');
   assert.equal(style.sources.neighbors.data, '/data/neighbors.geojson');
@@ -113,7 +114,8 @@ test('without relief the map requests nothing from the internet and shows the he
   assert.ok(offline.layers.find(layer => layer.id === 'opportunity-heat').paint['heatmap-opacity'] > .4);
   const height = offline.layers.find(layer => layer.id === 'opportunity-columns').paint['fill-extrusion-height'];
   // De lejos la altura completa; de cerca, más baja para no tapar la zona.
-  assert.deepEqual(height.slice(0, 5), ['interpolate', ['linear'], ['zoom'], 4, ['*', ['get', 'top'], 1]]);
+  assert.deepEqual(height, columnLevel('top'));
+  assert.equal(height[4][2], 1);
   assert.ok(height.at(-1)[2] < .2);
 });
 
@@ -176,10 +178,7 @@ test('halo points carry the color of their column', () => {
   assert.equal(kind('Medellín'), 'pending');
 });
 
-test('locked zones get one lock each and a game-like unlock message', () => {
-  const locked = getLockedPoints(capitals, ['08', '05']).features;
-  assert.ok(locked.every(point => !['08', '05'].includes(point.properties.code)));
-  assert.equal(new Set(locked.map(point => point.properties.code)).size, locked.length);
+test('locked zones explain how to unlock them, game style', () => {
   const message = lockedZoneMessage('Chocó');
   assert.equal(message.title, 'Chocó · Zona sin explorar');
   assert.match(message.body, /Aún no has explorado esta zona/);
@@ -201,8 +200,10 @@ test('camera ends tilted and the entrance respects reduced motion', () => {
   assert.equal(plan.flyMs, 1200);
   assert.ok(plan.heatDelayMs + plan.heatMs <= 1600);
   const still = getEntrancePlan(true);
-  assert.ok(plan.columnDelayMs + plan.columnMs <= 1800);
-  assert.deepEqual([still.flyMs, still.heatMs, still.heatDelayMs, still.columnMs, still.pinStaggerMs], [0, 0, 0, 0, 0]);
+  // Lo vendido crece primero; lo pendiente, cuando lo dorado ya casi se asentó.
+  assert.ok(plan.pendingDelayMs > plan.columnDelayMs);
+  assert.ok(plan.pendingDelayMs + plan.pendingMs <= 2200);
+  assert.deepEqual([still.flyMs, still.heatMs, still.heatDelayMs, still.columnMs, still.pendingMs, still.pinStaggerMs], [0, 0, 0, 0, 0, 0]);
   assert.deepEqual(getFocusPlan(false), { flyMs: 900, heatMs: 600, dimHeatOpacity: .25 });
   assert.deepEqual(getFocusPlan(true), { flyMs: 0, heatMs: 0, dimHeatOpacity: .25 });
 });
@@ -224,4 +225,24 @@ test('hovered department lifts a little and the tooltip says its state in words'
   assert.ok(lift[4] > lift.at(-1));
   assert.deepEqual(getDepartmentHoverTip('Vichada', 0), { title: 'Vichada', detail: 'Sin explorar · toca para ver cómo desbloquearla', locked: true });
   assert.deepEqual(getDepartmentHoverTip('Antioquia', 1), { title: 'Antioquia', detail: '1 cliente · toca para enfocar', locked: false });
+});
+
+test('gold and pending parts grow separately and the hovered department lifts its columns', () => {
+  // A zoom 4 (factor 1) con lo vendido crecido y lo pendiente en 0, la punta queda en el piso dorado.
+  const atFour = expression => expression[4];
+  const half = columnLevel('top', { sold: 1, pending: 0 });
+  assert.deepEqual(atFour(half), ['*', ['+', ['*', ['min', ['get', 'top'], ['get', 'floor']], 1], ['*', ['max', ['-', ['get', 'top'], ['get', 'floor']], 0], 0]], 1]);
+  // En hover, las columnas del departamento suben lo mismo que él.
+  const lifted = atFour(columnLevel('base', { department: 'Atlántico', lift: 1 }));
+  assert.equal(lifted[0], '+');
+  assert.deepEqual(lifted[2], ['case', ['==', ['get', 'department'], 'Atlántico'], hoverLift(1)[4], 0]);
+  assert.equal(columnLevel('base', { department: 'Atlántico', lift: 0 })[4][0], '*');
+  const pieces = getOpportunityColumns(getCityTonnage(clients, sales, capitals)).features.filter(feature => feature.properties.city === 'Barranquilla');
+  assert.ok(pieces.every(feature => feature.properties.floor === pieces.find(piece => piece.properties.kind === 'sold').properties.top));
+});
+
+test('the gold pop overshoots a little and settles at full height', () => {
+  assert.ok(Math.abs(easeOutBack(0)) < 1e-9);
+  assert.ok(Math.abs(easeOutBack(1) - 1) < 1e-9);
+  assert.ok(Math.max(...Array.from({ length: 20 }, (_, index) => easeOutBack(index / 20))) > 1);
 });
