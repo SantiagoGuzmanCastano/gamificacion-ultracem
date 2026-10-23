@@ -173,3 +173,13 @@ Este documento registra las decisiones que cambiaron el alcance o la implementac
 **Decisión elegida:** la clave queda fuera del frontend y la función devuelve una recomendación de máximo 25 palabras. La integración se puede activar configurando secretos sin cambiar la interfaz.
 
 **Conclusión:** el MVP tiene una demostración de IA acotada y segura, sin construir todavía un sistema de recomendaciones avanzado.
+
+## Decisión 18: catálogo de premios sin cambios en la base de datos
+
+**Propuesta de la persona usuaria:** agregar un catálogo de premios a partir de un mockup, siguiendo la esencia del proyecto y sin modificar la base de datos.
+
+**Propuesta de Claude:** crear una vista **Premios** solo en el frontend, con los puntos calculados a partir de las ventas confirmadas ya existentes.
+
+**Decisión elegida:** cada venta confirmada equivale a 50 puntos. El catálogo muestra los premios del mes, filtros por categoría, el costo y el progreso hacia cada premio. Los canjes aparecen como **Canje próximamente** porque todavía no hay dónde guardarlos. Se omitieron los controles del mockup que solo servían para la demostración (simular venta y reiniciar).
+
+**Conclusión:** el asesor ya ve cuánto le falta para cada premio usando datos reales. Para que los canjes y los códigos funcionen se necesita una migración posterior.
