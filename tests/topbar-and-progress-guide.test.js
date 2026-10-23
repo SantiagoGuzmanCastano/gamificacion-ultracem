@@ -39,3 +39,10 @@ test('the map heat legend can be collapsed', () => {
   const css = readFileSync(new URL('../src/advisor.css', import.meta.url), 'utf8');
   assert.match(css, /\.map-heat-legend\.is-collapsed \.map-heat-body \{ display: none; \}/);
 });
+
+test('the target-zone card on the map can be collapsed', () => {
+  const zone = readFileSync(new URL('../src/zone-opportunity.js', import.meta.url), 'utf8');
+  assert.match(zone, /'map-target-toggle'/);
+  const css = readFileSync(new URL('../src/advisor.css', import.meta.url), 'utf8');
+  assert.match(css, /\.map-target-card\.is-collapsed \.map-target-reason, \.map-target-card\.is-collapsed \.map-target-go \{ display: none; \}/);
+});

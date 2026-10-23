@@ -493,6 +493,18 @@
 .map-target-go:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
 /* Zona enfocada: tarjeta con sus cifras en el lugar de la zona objetivo, y "Ver todo" para volver. */
 .map-target-card[hidden] { display: none; }
+.map-target-toggle { position: absolute; top: 8px; right: 8px; display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 8px; background: transparent; box-shadow: none; cursor: pointer; }
+.map-target-toggle:hover { scale: 1; background: rgb(255 255 255 / 8%); }
+.map-target-toggle:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
+.map-target-copy { padding-right: 22px; }
+.map-target-card.is-collapsed { width: auto; align-items: center; padding: 8px 12px; }
+.map-target-card.is-collapsed .map-target-icon { grid-row: auto; width: 24px; height: 24px; }
+.map-target-card.is-collapsed .map-target-copy { display: flex; align-items: baseline; gap: 8px; }
+.map-target-card.is-collapsed .map-target-zone { margin: 0; font-size: .92rem; }
+.map-target-card.is-collapsed .map-target-reason, .map-target-card.is-collapsed .map-target-go { display: none; }
+.map-target-card.is-collapsed .map-target-toggle { top: 50%; translate: 0 -50%; }
+.map-target-toggle .map-heat-chevron { margin-top: -3px; rotate: 45deg; }
+.map-target-card.is-collapsed .map-target-toggle .map-heat-chevron { margin-top: 3px; rotate: -135deg; }
 .map-zone-card { right: 14px; bottom: 14px; display: grid; gap: 4px; width: min(320px, calc(100% - 28px)); padding: 14px 16px; border-color: #ffd76a; box-shadow: 0 0 24px rgb(255 215 106 / 16%); }
 .map-zone-card h3 { font-size: 1.15rem; font-weight: 750; }
 .map-zone-card p { margin: 0; color: #c9dcef; font-size: .86rem; font-variant-numeric: tabular-nums; }
