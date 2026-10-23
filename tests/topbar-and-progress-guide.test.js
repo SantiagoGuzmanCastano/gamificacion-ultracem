@@ -54,3 +54,11 @@ test('ranking shows a crown and medals for the podium and no level goal in the s
   const entrance = readFileSync(new URL('../src/advisor-entrance.js', import.meta.url), 'utf8');
   assert.ok(entrance.includes('.advisor-ranking .rank-medal svg'));
 });
+
+test('only the next level label shows the missing sales, and Progreso has a GSAP entrance', () => {
+  const page = readFileSync(new URL('../src/progress-page.js', import.meta.url), 'utf8');
+  assert.match(page, /level\.level === model\.next\.level && model\.remaining > 0/);
+  assert.match(page, /'progress-label-hint'/);
+  assert.match(page, /export function playProgressEntrance\(page\)/);
+  assert.match(main, /playProgressEntrance\(page\);/);
+});

@@ -29,7 +29,7 @@ import { showLoadingScreen, clearLoadingScreen } from './loading-screen.js';
 import { attachRankingAvatars } from './ranking-avatars.js';
 import { COLOMBIA_DEPARTMENTS, citiesForDepartment, normalizeClientLocation } from './client-location.js';
 import { commissionSummary, getCommissionStatus } from './commission-wallet.js';
-import { getProgressModel, renderProgressPage, showLevelBanner } from './progress-page.js';
+import { getProgressModel, playProgressEntrance, renderProgressPage, resetProgressEntrance, showLevelBanner } from './progress-page.js';
 import { showProgressGuide } from './progress-guide.js';
 import { celebrateCommissionClaim, celebrateCommissionClaimed, commissionGoals, commissionMilestones, commissionStats, commissionTakeHome, playCommissionEntrance, resetCommissionEntrance } from './commission-gamification.js';
 
@@ -1276,6 +1276,7 @@ function advisorProgressPage(page) {
     onReplay: () => celebrate(model.level - 1, model.level),
     onGuide: () => showProgressGuide({ mascot: skinHappyImage() }),
   });
+  playProgressEntrance(page);
   // La guía sale sola solo la primera vez; luego queda en «Repetir instrucciones».
   const guideKey = `ultracem-progress-guide-${user.id}`;
   if (!readSeenLevel(guideKey) && !document.querySelector('.progress-guide')) {
@@ -1840,7 +1841,7 @@ async function refresh(text, resources = ['advisors', 'clients', 'sales', 'ranki
 }
 function render() {
   advisorMapModule?.destroyAdvisorClientMap();
-  if (!profile || profile.role !== 'advisor' || advisorView !== 'progress') destroyProgressWorld();
+  if (!profile || profile.role !== 'advisor' || advisorView !== 'progress') { destroyProgressWorld(); resetProgressEntrance(); }
   clearProfileEntrance(!profile || profile.role !== 'advisor' || advisorView !== 'profile');
   if (!profile || profile.role !== 'advisor' || advisorView !== 'commissions') resetCommissionEntrance();
   if (!profile || (profile.role === 'admin' ? adminView : advisorView) !== 'map') resetMapEntrance();
