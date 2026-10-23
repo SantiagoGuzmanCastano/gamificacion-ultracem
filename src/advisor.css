@@ -497,3 +497,11 @@
 }
 @keyframes mascot-breathe { 50% { translate: 0 -4px; } }
 @keyframes mascot-nudge-in { from { opacity: 0; transform: translateY(8px) scale(.94); } }
+
+/* Recordatorio amable (V5): ámbar con ícono y texto, sin alarma ni comparaciones. */
+.hero-reminder { display: flex; align-items: center; gap: 10px; max-width: 420px; margin: 0 0 16px; padding: 10px 14px; border: 1px solid #e3c16f; border-radius: 12px; background: rgb(200 169 81 / 16%); color: #ffe7a8; font-size: .9rem; font-weight: 650; line-height: 1.45; }
+.hero-reminder-icon { display: inline-flex; flex: 0 0 auto; width: 20px; height: 20px; color: #e3c16f; }
+.hero-reminder-icon svg { width: 100%; height: 100%; }
+@media (prefers-reduced-motion: no-preference) { .hero-reminder { animation: mascot-nudge-in 260ms cubic-bezier(.23, 1, .32, 1) both; } }
+/* Venta confirmada: destello dorado corto en lugar de lluvia de confeti (§14). */
+.advisor-sale-flash { position: fixed; inset: 0; z-index: 60; pointer-events: none; background: radial-gradient(circle at 50% 45%, rgb(255 209 36 / 45%), rgb(255 209 36 / 0) 60%); opacity: 0; }

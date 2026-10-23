@@ -9,6 +9,8 @@ import { getMonthlyTons, getSalesStreak, getWeeklySales, getRankingSlots, getPor
 import { advisorIcon } from './advisor-icons.js';
 import { clearMascotFeedback, showMascotFeedback } from './mascot-feedback.js';
 import { createAdvisorCard } from './admin-advisors.js';
+import { REMINDER_MESSAGE, isReminderDue } from './reminder.js';
+import { formatPercent } from './format.js';
 import { createStreakStat, getStreakNudge, markStreakNudgeShown, shouldShowStreakNudge, showStreakNudge } from './streak-nudge.js';
 import { clearAdvisorEntrance, playAdvisorEntrance, resetAdvisorEntrance } from './advisor-entrance.js';
 import { clearAdvisorEffects, celebrateTask, celebrateSale, revealRecommendation } from './advisor-effects.js';
@@ -844,7 +846,16 @@ function advisorPage(page) {
   salesStat.append(salesIcon, el('span', '', 'Ventas confirmadas'), el('strong', '', String(ownConfirmedSales.length)));
   heroStats.append(streakStat, salesStat);
   const goToTasks = () => document.querySelector('#advisor-actions')?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
-  heroCopy.append(heroStats, button('Ver mis tareas hoy', 'hero-cta', goToTasks));
+  heroCopy.append(heroStats);
+  // Recordatorio amable (V5): después de la hora de corte, sin tareas completadas hoy.
+  if (isReminderDue(currentClients.flatMap(client => client.tasks))) {
+    const reminder = el('p', 'hero-reminder');
+    reminder.setAttribute('role', 'status');
+    const clock = el('span', 'hero-reminder-icon'); clock.innerHTML = advisorIcon('clock');
+    reminder.append(clock, el('span', '', REMINDER_MESSAGE));
+    heroCopy.append(reminder);
+  }
+  heroCopy.append(button('Ver mis tareas hoy', 'hero-cta', goToTasks));
   const mascot = el('div', 'mascot advisor-hero-mascot');
   const mascotImage = el('img', 'mascot-image');
   mascotImage.src = mascotImagesForSkin[mascotMood];
@@ -995,9 +1006,9 @@ function advisorPage(page) {
   const tonnageValue = el('div', 'tonnage-value');
   tonnageValue.append(el('strong', '', monthlyTons.toLocaleString('es-CO')), el('span', '', `de ${monthlyGoal} t`));
   const tonnageTrack = el('div', 'tonnage-track');
-  tonnageTrack.setAttribute('role', 'progressbar'); tonnageTrack.setAttribute('aria-label', 'Meta mensual de toneladas'); tonnageTrack.setAttribute('aria-valuemin', '0'); tonnageTrack.setAttribute('aria-valuemax', String(monthlyGoal)); tonnageTrack.setAttribute('aria-valuenow', String(Math.min(monthlyTons, monthlyGoal))); tonnageTrack.setAttribute('aria-valuetext', `${monthlyTons} de ${monthlyGoal} toneladas, ${monthlyProgress.percentage}% de la meta`);
+  tonnageTrack.setAttribute('role', 'progressbar'); tonnageTrack.setAttribute('aria-label', 'Meta mensual de toneladas'); tonnageTrack.setAttribute('aria-valuemin', '0'); tonnageTrack.setAttribute('aria-valuemax', String(monthlyGoal)); tonnageTrack.setAttribute('aria-valuenow', String(Math.min(monthlyTons, monthlyGoal))); tonnageTrack.setAttribute('aria-valuetext', `${monthlyTons} de ${monthlyGoal} toneladas, ${formatPercent(monthlyProgress.percentage)} de la meta`);
   const tonnageFill = el('span'); tonnageFill.style.width = `${progressPercent}%`; tonnageTrack.append(tonnageFill);
-  goalDetails.append(tonnageValue, tonnageTrack, el('p', 'muted', `${monthlyProgress.percentage}% de tu meta mensual`));
+  goalDetails.append(tonnageValue, tonnageTrack, el('p', 'muted', `${formatPercent(monthlyProgress.percentage)} de tu meta mensual`));
   goalBody.append(goalRing, goalDetails); goalCard.append(goalBody);
 
   const portfolioCard = el('section', 'portfolio-card');
@@ -1031,9 +1042,12 @@ function advisorPage(page) {
 function advisorProgressRing(percentage, label, className) {
   const ring = el('div', className);
   ring.setAttribute('role', 'img');
-  ring.setAttribute('aria-label', `${percentage}% · ${label}`);
+  ring.setAttribute('aria-label', `${formatPercent(percentage)} · ${label}`);
   ring.innerHTML = `<svg viewBox="0 0 100 100" aria-hidden="true"><circle class="ring-track" cx="50" cy="50" r="42"/><circle class="ring-fill" cx="50" cy="50" r="42" pathLength="100" stroke-dasharray="${Math.min(100, percentage)} 100"/></svg>`;
-  const copy = el('div', 'ring-copy'); copy.append(el('strong', '', `${percentage}%`), el('span', '', label)); ring.append(copy);
+  // El porcentaje sube de 0 al valor con la entrada del tablero (data-count-target).
+  const value = el('strong', '', formatPercent(percentage));
+  value.dataset.countTarget = String(percentage); value.dataset.countSuffix = ' %';
+  const copy = el('div', 'ring-copy'); copy.append(value, el('span', '', label)); ring.append(copy);
   return ring;
 }
 async function confirmSale(client) {

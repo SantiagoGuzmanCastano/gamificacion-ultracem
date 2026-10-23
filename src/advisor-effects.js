@@ -13,19 +13,25 @@ export function clearAdvisorEffects() {
   recommendationAnimation = null;
 }
 
-function confetti(rain, origin) {
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+function startLayer(className) {
   confettiTimeline?.kill();
   confettiLayer?.remove();
   const layer = document.createElement('div');
-  layer.className = `advisor-confetti ${rain ? 'confetti-sale' : 'confetti-task'}`;
+  layer.className = className;
   layer.setAttribute('aria-hidden', 'true');
   document.body.append(layer);
   confettiLayer = layer;
-  const colors = ['#05c8e8', '#26e5ba', '#ffd124', '#bf8af5', '#ff7598'];
   const sequence = gsap.timeline({ onComplete: () => { layer.remove(); if (confettiLayer === layer) { confettiLayer = null; confettiTimeline = null; } } });
   confettiTimeline = sequence;
-  const count = rain ? 96 : 36;
+  return { layer, sequence };
+}
+
+// §14: sin confeti saturado. Una tarea suelta una ráfaga corta desde el botón.
+function confetti(origin) {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const { layer, sequence } = startLayer('advisor-confetti confetti-task');
+  const colors = ['#05c8e8', '#26e5ba', '#ffd124', '#bf8af5', '#ff7598'];
+  const count = 12;
   for (let index = 0; index < count; index++) {
     const piece = document.createElement('span');
     piece.className = 'advisor-confetti-piece';
@@ -34,33 +40,30 @@ function confetti(rain, origin) {
     piece.style.width = `${index % 5 === 0 ? 4 : 6 + Math.random() * 3}px`;
     piece.style.height = `${index % 3 === 0 ? 7 : 10 + Math.random() * 5}px`;
     layer.append(piece);
-    const x = rain ? (index + Math.random()) / count * window.innerWidth : origin.x;
-    const y = rain ? -20 : origin.y;
-    const start = rain ? index % 3 * .2 + Math.random() * .45 : Math.random() * .04;
-    const duration = rain ? 2.4 + Math.random() : 1.15 + Math.random() * .35;
+    const { x, y } = origin;
+    const start = Math.random() * .04;
+    const duration = 1.15 + Math.random() * .35;
     gsap.set(piece, { x, y, rotation: Math.random() * 180, rotationX: Math.random() * 90, scale: .7 + Math.random() * .5 });
-    sequence.to(piece, { rotation: 240 + Math.random() * 540, rotationX: 360 + Math.random() * 540,
-      rotationY: 180 + Math.random() * 360, duration, ease: 'none' }, start);
-    if (rain) {
-      sequence.to(piece, { x: x + (Math.random() - .5) * 150, duration, ease: 'sine.inOut' }, start)
-        .to(piece, { y: window.innerHeight + 30, duration, ease: 'power1.in' }, start);
-    } else {
-      const spread = (index / (count - 1) - .5) * 250 + (Math.random() - .5) * 20;
-      const riseDuration = .3 + Math.random() * .12;
-      sequence.to(piece, { x: x + spread, duration, ease: 'power1.out' }, start)
-        .to(piece, { y: y - 45 - Math.random() * 85, duration: riseDuration, ease: 'power2.out' }, start)
-        .to(piece, { y: y + 65 + Math.random() * 85, duration: duration - riseDuration, ease: 'power1.in' }, start + riseDuration);
-    }
-    sequence.to(piece, { opacity: 0, duration: .28, ease: 'power1.out' }, start + duration - .28);
+    const spread = (index / (count - 1) - .5) * 200 + (Math.random() - .5) * 20;
+    const riseDuration = .3 + Math.random() * .12;
+    sequence.to(piece, { rotation: 240 + Math.random() * 540, rotationX: 360 + Math.random() * 540, rotationY: 180 + Math.random() * 360, duration, ease: 'none' }, start)
+      .to(piece, { x: x + spread, duration, ease: 'power1.out' }, start)
+      .to(piece, { y: y - 45 - Math.random() * 70, duration: riseDuration, ease: 'power2.out' }, start)
+      .to(piece, { y: y + 65 + Math.random() * 70, duration: duration - riseDuration, ease: 'power1.in' }, start + riseDuration)
+      .to(piece, { opacity: 0, duration: .28, ease: 'power1.out' }, start + duration - .28);
   }
 }
 
 export function celebrateTask(origin) {
-  confetti(false, origin);
+  confetti(origin);
 }
 
+// Venta confirmada: destello dorado de 1,1 s en lugar de la lluvia de 96 piezas.
 export function celebrateSale() {
-  confetti(true);
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const { layer, sequence } = startLayer('advisor-sale-flash');
+  sequence.fromTo(layer, { opacity: 0 }, { opacity: 1, duration: .25, ease: 'power2.out' })
+    .to(layer, { opacity: 0, duration: .85, ease: 'power2.in' });
 }
 
 export function revealRecommendation(result) {
