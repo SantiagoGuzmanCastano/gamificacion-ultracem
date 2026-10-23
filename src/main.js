@@ -925,14 +925,24 @@ async function resetAdvisorTasks(advisor, clientCount) {
 }
 async function deleteAdvisorClients(advisor, clientCount) {
   if (!clientCount) return;
-  const confirmed = window.confirm('¿Borrar los ' + clientCount + ' clientes de ' + advisor.full_name + '? También se eliminarán sus tareas y esta acción no se puede deshacer.');
+  const confirmed = window.confirm('¿Borrar los ' + clientCount + ' clientes de ' + advisor.full_name + '? También se eliminarán sus tareas y ventas, y sus puntos y nivel volverán a cero. Esta acción no se puede deshacer.');
   if (!confirmed) return;
   const result = await db.rpc('delete_mvp_advisor_clients', { target_advisor: advisor.user_id });
   if (result.error) {
     notice(result.error.message, true);
     return;
   }
-  await refresh('Clientes de ' + advisor.full_name + ' eliminados.');
+  await refresh('Clientes de ' + advisor.full_name + ' eliminados y puntos reiniciados.');
+}
+async function resetAdvisorProgress(advisor) {
+  const confirmed = window.confirm('¿Reiniciar los puntos de ' + advisor.full_name + '? Su nivel volverá a 1 y sus ventas acumuladas a 0. Los clientes y las comisiones se conservan. Esta acción no se puede deshacer.');
+  if (!confirmed) return;
+  const result = await db.rpc('reset_mvp_advisor_progress', { target_advisor: advisor.user_id });
+  if (result.error) {
+    notice(result.error.message, true);
+    return;
+  }
+  await refresh('Puntos de ' + advisor.full_name + ' reiniciados.');
 }
 async function deleteAdvisor(advisor) {
   const confirmed = window.confirm('¿Borrar la cuenta de ' + advisor.full_name + '? Se eliminarán también sus clientes, tareas y puntos del ranking. Esta acción no se puede deshacer.');
@@ -1018,6 +1028,7 @@ function adminPage(page) {
     actions.append(el('strong', 'pending-count', `${pending} pendientes`));
     if (assigned.length) actions.append(button('Borrar tareas', 'danger-button', () => resetAdvisorTasks(advisor, assigned.length)));
     if (assigned.length) actions.append(button('Borrar clientes', 'danger-button', () => deleteAdvisorClients(advisor, assigned.length)));
+    actions.append(button('Reiniciar puntos', 'danger-button', () => resetAdvisorProgress(advisor)));
     actions.append(button('Borrar asesor', 'danger-button', () => deleteAdvisor(advisor)));
     head.append(copy, actions); section.append(head);
     if (!assigned.length) section.append(el('p', 'empty-inline', 'Aún no tiene clientes.'));
