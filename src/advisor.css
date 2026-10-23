@@ -1,4 +1,5 @@
 .advisor-shell {
+  --advisor-tabbar-height: 66px;
   --dashboard-bg: #edf4fa; --dashboard-panel: #fff; --dashboard-inset: #f4f9fd;
   --dashboard-ink: #102f49; --dashboard-muted: #46637b; --dashboard-line: #ccdfec;
   --dashboard-blue: #00688d; --dashboard-green: #00765c; --dashboard-ring: #d5e5ef;
@@ -378,11 +379,25 @@
   .advisor-mobile-points strong { color: #ffd124; font-size: .92rem; font-variant-numeric: tabular-nums; }
   .advisor-shell .session-name { display: none; }
   .advisor-shell main { padding: 0 16px; }
-  .advisor-shell .advisor-nav { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 12px 0 4px; }
-  .advisor-nav button { min-width: 0; min-height: 60px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; border: 1px solid var(--dashboard-line); border-radius: 12px; padding: 8px 2px; background: var(--dashboard-panel); color: var(--dashboard-ink); font-size: .7rem; line-height: 1.25; }
-  .advisor-nav button.active { background: #ffd124; color: #00243b; border-color: #ffd124; }
-  .advisor-nav button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  /* Barra inferior fija tipo app: siempre visible en todas las secciones. */
+  .advisor-shell main { padding-bottom: calc(var(--advisor-tabbar-height) + 16px + env(safe-area-inset-bottom)); }
+  .advisor-shell .advisor-nav { position: fixed; z-index: 30; right: 0; bottom: 0; left: 0; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; min-height: var(--advisor-tabbar-height); padding: 6px max(6px, env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-left)); border-top: 1px solid #12465e; background: rgb(0 30 49 / 94%); backdrop-filter: blur(12px); box-shadow: 0 -10px 28px rgb(0 18 32 / 28%); }
+  .advisor-shell .advisor-nav button { min-width: 0; min-height: 52px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; border: 0; border-radius: 12px; padding: 4px 0; background: none; box-shadow: none; color: #a9c6dc; font-size: .6rem; font-weight: 700; line-height: 1.1; letter-spacing: -.01em; white-space: nowrap; }
+  .advisor-shell .advisor-nav button:hover { scale: 1; box-shadow: none; }
+  .advisor-shell .advisor-nav .advisor-nav-icon { display: grid; place-items: center; width: 40px; height: 28px; padding: 4px; border-radius: 999px; transition: background-color 200ms ease, color 200ms ease; }
+  .advisor-shell .advisor-nav .advisor-nav-icon svg { width: 20px; height: 20px; }
+  .advisor-shell .advisor-nav button.active { color: #ffd124; }
+  .advisor-shell .advisor-nav button.active .advisor-nav-icon { background: #ffd124; color: #00243b; }
+  .advisor-shell .advisor-nav button:focus-visible { outline: 2px solid #79e5f4; outline-offset: -2px; }
+  .advisor-shell .notice { bottom: calc(var(--advisor-tabbar-height) + 14px + env(safe-area-inset-bottom)); }
+  .advisor-shell .notification-center { bottom: calc(var(--advisor-tabbar-height) + 12px + env(safe-area-inset-bottom)); }
+  .topitin-toast { bottom: calc(var(--advisor-tabbar-height, 66px) + 76px + env(safe-area-inset-bottom)); }
   .advisor-shell .advisor-welcome { margin-top: 4px; }
+}
+@media (max-width: 360px) {
+  .advisor-shell .advisor-nav { gap: 0; padding-inline: 2px; }
+  .advisor-shell .advisor-nav button { font-size: .53rem; letter-spacing: -.03em; }
+  .advisor-shell .advisor-nav .advisor-nav-icon { width: 34px; }
 }
 :root[data-theme="dark"] .profile-dialog { border-color: #12465e; background: #00263b; }
 :root[data-theme="dark"] .profile-dialog h2 { color: #edf6ff; }
