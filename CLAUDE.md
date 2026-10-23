@@ -2,7 +2,7 @@
 
 Contexto para asistentes de IA (Claude Code, Codex, etc.) y para el equipo.
 
-- **Secciones 1–10:** el código que existe hoy. Se escribieron sobre `eb22f58` (PR #10). El 2026-10-22 `interfaz` se fusionó con `main` en `d0d07f1` (PR #17): el tablero del asesor, la navegación, el perfil, la tienda y las animaciones del tablero son los de `main`. Las §4, §6 y §8 están actualizadas; **§5 y §7 todavía no reflejan** las migraciones de toneladas, fotos de perfil y skins de `main` (`20261022020000` en adelante).
+- **Secciones 1–10:** el código que existe hoy. Se escribieron sobre `eb22f58` (PR #10). El 2026-10-22 `interfaz` se fusionó con `main` en `d0d07f1` (PR #17) y otra vez en `1d479ad` (PR #20, mapa e historial de clientes): el tablero del asesor, la navegación, el perfil, la tienda, la pantalla de carga y el mapa son los de `main`, con las mejoras de `interfaz` de las Decisiones 18–23. Las §4, §6, §8, §9 y §18 están actualizadas; **§5 y §7 todavía no reflejan** las migraciones de toneladas, fotos de perfil y skins de `main` (`20261022020000` en adelante).
 - **Secciones 11–17:** el producto objetivo según el documento *Contexto de desarrollo · Copiloto comercial gamificado Ultracem v1.0* (21 oct 2026).
 
 Las dos versiones **no coinciden** (ver §15). Antes de construir algo, decide con el responsable hacia cuál se avanza.
@@ -94,19 +94,27 @@ Variables opcionales: `OPENROUTER_MODEL` (por defecto `google/gemini-2.5-flash`)
 
 ```
 index.html                 # monta #app y carga src/main.js
-src/main.js                # TODA la UI y el estado (~990 líneas): auth, paneles, tienda, mapa, perfil, Halloween
+src/main.js                # TODA la UI y el estado (~1.090 líneas): auth, paneles, tienda, mapa, perfil, Halloween
 src/game.js                # lógica pura: progreso, XP, estado de mascota, ánimo (con tests)
 src/mascot.js              # rutas/etiquetas de imágenes del pingüino base
 src/shop.js                # catálogo de skins + render de la tienda (innerHTML)
 src/style.css              # estilos generales, tema claro/oscuro (data-theme)
 src/shop.css               # estilos de la tienda
 src/advisor.css            # tablero oscuro del asesor (de main)
-src/advisor-*.js           # métricas (toneladas, ventas semanales, cartera), íconos, entrada y confeti con GSAP (de main)
-src/mascot-feedback.js     # mensajes de la mascota en el tablero (de main)
+src/advisor-*.js           # métricas (toneladas, ventas semanales, cartera, racha desde ayer), íconos, entrada, ráfaga de tarea y destello de venta con GSAP
+src/advisor-map.js         # mapa de clientela con MapLibre (de main) + mapa de calor de oportunidad (getOpportunityHeat)
+src/admin-advisors.js      # tarjeta por asesor del admin: semáforo del PRD sobre 100 t/mes y menú "Gestionar"
+src/streak-nudge.js        # llama de la racha (hot/cold) y franja de Topitín en mala racha (0 días), una vez por sesión
+src/reminder.js            # recordatorio amable (V5): después de las 14:00 sin tareas completadas hoy
+src/format.js              # formatPercent: "50 %", "7,83 %" (§14)
+src/mascot-feedback.js     # mensajes de la mascota en el tablero (de main) + frases al tocar a Topitín
 src/profile.js             # validación de la foto de perfil (de main)
-src/loader.js / loader.css # loader con el logo oficial (public/ultracem-logo.png) mientras cargan los datos
-src/welcome.js / .css      # intro v2: vuelo a través del logo, "¡Hola, {nombre}!", Topitín; se cierra sola a los 1,5 s o con clic/Esc (una vez al día)
-src/welcome-motion.js      # timeline GSAP de la bienvenida (vuelo falso 3D); se importa de forma dinámica
+src/profile-view.js        # perfil (de main) + "Tu progreso", skin equipada y logros con datos reales
+src/loading-screen.js      # pantalla de carga con cemento (de main); es la que se usa
+src/demo-client.js         # modo demo: cliente falso de Supabase con datos de muestra en memoria
+src/loader.js, welcome*.js # loader e intro de interfaz: SIN USO desde la Decisión 18 (se conservan con sus specs)
+public/shop/chests/        # cofres arcade en SVG (bronce, plata, oro, moneda)
+public/data/               # GeoJSON de departamentos y capitales (de main)
 public/mascot/             # pingüino base: feliz / serio / sad
 public/skins/              # skins de la tienda (+ skeleton/happy|sad|serious.png)
 SKINS/                     # originales de las skins (duplicados de public/skins, ~22 MB)
@@ -114,7 +122,7 @@ supabase/migrations/       # esquema y funciones, en orden por timestamp
 supabase/functions/recommend-client/index.ts  # Edge Function de IA
 supabase/tests/halloween_mode.sql             # pruebas SQL de permisos del modo Halloween
 tests/*.test.js            # node --test (lógica pura, catálogo, métricas del tablero)
-tests/*.spec.js            # Vitest + jsdom: welcome.spec.js y loader.spec.js (npm run test:spec)
+tests/*.spec.js            # Vitest + jsdom: demo, cofres, racha, perfil, admin, mapa de calor, recordatorio, welcome y loader (npm run test:spec)
 animaciones.md             # especificación de animaciones; vigente solo §13 (intro) tras la fusión con main
 docs/superpowers/          # spec y plan del XP/ranking
 odd/tasks/                 # bitácoras de las features tienda, Halloween y perfil
@@ -157,20 +165,22 @@ El rol del primer admin se asigna a mano en el SQL Editor: `update public.mvp_pr
 
 ## 6. Flujo de la app (`src/main.js`)
 
-1. `boot()` → muestra el **loader** con el logo → `db.auth.getUser()`. Sin sesión se muestra `authPage()` (login o registro).
+1. `boot()` → `showLoadingScreen()` (pantalla de carga de `main`) → `db.auth.getUser()`. Sin sesión se muestra `authPage()` (login o registro). Con `VITE_DEMO=true`, `db` es `createDemoClient()`.
 2. `loadData()` → perfil, asesores (solo admin), clientes con tareas, ventas y ranking.
 3. `render()` → `shell()` reconstruye todo el layout y luego:
-   - admin → `adminPage()`: métricas, ranking, ventas por asesor, pendientes por asesor, botones de borrado, formulario de nuevo cliente y control del **modo Halloween**.
-   - asesor + `advisorView === 'shop'` → `renderShop()` (src/shop.js).
-   - asesor → `advisorPage()`: métricas, ranking, selector de cliente, progreso con mascota, **Confirmar venta**, **Limpiar tareas completadas**, Trompín y lista de tareas.
+   - admin → `adminPage()`: métricas, ranking, ventas por asesor, **tarjetas de asesor** (semáforo, meta, "Ver clientes", "Gestionar"), formulario de nuevo cliente y control del **modo Halloween**.
+   - asesor + `advisorView === 'shop'` → `renderShop()` (skins, Halloween y cofres).
+   - asesor + `'map'` → mapa de clientela con mapa de calor; `'history'` → historial; `'profile'` → perfil con progreso.
+   - asesor → `advisorPage()`: hero con anillo, racha (llama), recordatorio amable y Topitín que se puede tocar; franja de mala racha; métricas, ranking, selector de cliente, **Confirmar venta**, **Limpiar tareas** (solo con la venta confirmada), Trompín y lista de tareas.
 4. Cada acción → RPC → `refresh(msg)` = `loadData()` + `render()` + aviso.
 5. Modo Halloween: `refreshHalloween()` se ejecuta al iniciar, al enfocar la ventana y cada 10 s (admin, o asesor en la tienda); se detiene con `stopHalloweenSync()` al cerrar sesión o en `pagehide`.
 6. Animaciones (GSAP):
-   - **Tablero (de `main`):** `playAdvisorEntrance()` (una vez por sesión) y confeti de tarea y venta en `advisor-effects.js`.
-   - **Bienvenida (de `interfaz`):** si toca hoy (`welcomeDueToday()`), `showWelcome()` la abre sobre el tablero al quitarse el loader. Mientras `welcomeOpen` es `true`, `render()` no lanza la entrada del tablero ni el aviso de foto de perfil; al cerrarla se llama a `resetAdvisorEntrance()` y luego a `render()`.
+   - **Tablero:** `playAdvisorEntrance()` (una vez por sesión; las métricas y los porcentajes de los anillos suben de 0 al valor). Tarea = ráfaga de 12 piezas; venta = destello dorado de 1,1 s (`advisor-effects.js`).
+   - **CSS:** la llama de la racha titila, Topitín "respira" y las burbujas entran con 260 ms.
+   - **Sin bienvenida** desde la Decisión 18.
    - Todo respeta `prefers-reduced-motion`.
 
-Navegación del asesor (de `main`): Inicio, Tienda, Mapa clientela y Perfil.
+Navegación del asesor (de `main`): Inicio, Historial clientes, Mapa clientela, Tienda y Perfil.
 
 ## 7. Tienda de skins (`src/shop.js`)
 
@@ -179,7 +189,7 @@ Navegación del asesor (de `main`): Inicio, Tienda, Mapa clientela y Perfil.
 - Al equipar el esqueleto, la mascota del tablero usa `public/skins/skeleton/*`.
 - Los tests comparan el **SHA-256** de los PNG: no recomprimas ni modifiques esas imágenes, o fallarán los tests.
 
-## 8. Ramas y PRs (estado al 2026-10-21)
+## 8. Ramas y PRs (estado al 2026-10-22)
 
 Todas las ramas remotas ya están fusionadas en `main` (0 commits por delante).
 
@@ -194,8 +204,9 @@ Todas las ramas remotas ya están fusionadas en `main` (0 commits por delante).
 | `feat/task-completion-confetti` | #7 | confeti, corazones y mensajes de ánimo |
 | `feat/tienda-cosmeticos` | #8 | catálogo de la tienda |
 | `codex/halloween-tienda` | #9, #10 | modo Halloween global, ventas confirmadas, skin esqueleto |
-| `interfaz` | #11 (abierto) | fusionada con `main` (`d0d07f1`): loader + bienvenida con vuelo 3D, `CLAUDE.md`, `animaciones.md` y tests con Vitest. El bento y las animaciones propias del tablero se descartaron a favor de los de `main`. **Sin merge**: requiere autorización |
-| ramas de `main` posteriores | #12–#17 | tienda con marcos y fondos, admin con pestañas, logo PNG, toneladas, tablero oscuro rediseñado, perfil con foto y borrado de cuenta |
+| `interfaz` | #11 (abierto, sin conflictos) | fusionada con `main` (`1d479ad`). Modo demo, cofres, racha viva, Topitín que habla, mapa de calor, perfil con progreso, tarjetas de asesor, recordatorio amable y celebraciones sobrias (Decisiones 18–23). El título del PR todavía dice "tablero bento": cambiarlo en GitHub. **Sin merge**: requiere autorización |
+| ramas de `main` posteriores | #12–#20 | tienda con marcos y fondos, admin con pestañas, logo PNG, toneladas, tablero oscuro, perfil con foto y borrado de cuenta, pantalla de carga, avatares del ranking, mapa (MapLibre) e historial de clientes |
+| `wip/mapa-leaflet` | — (solo local) | mapa con Leaflet de `interfaz`, reemplazado por el de `main`; se guarda como referencia |
 
 Nota de acceso: el remoto `origin` usa SSH y la llave local es rechazada. Push y fetch funcionan por HTTPS con Git Credential Manager. Solo se hacen con autorización.
 
@@ -209,7 +220,7 @@ Convenciones (`DECISIONES.md`, Decisión 9):
 
 1. **`main.js` monolítico con estado global.** `render()` reconstruye todo el DOM, incluido `shell()`. Al re-renderizar se pierden el foco, el scroll y las animaciones. La barra lateral del asesor se modifica después de crearla (parche dentro de `shell()`).
 2. **Acoplamiento JS↔CSS.** Las animaciones buscan `.mascot`, `#halloween-toggle`, `.shop-page`, etc. Si renombras una clase o un id, fallan sin mostrar errores.
-3. **Limpiar antes de confirmar.** "Limpiar tareas completadas" aparece aunque la venta no esté confirmada. Si el asesor limpia primero, ya no puede confirmar la venta de ese cliente.
+3. ~~**Limpiar antes de confirmar.**~~ Resuelto en la Decisión 22: "Limpiar tareas" solo aparece con la venta confirmada (`canClearCompletedTasks`). La RPC sigue permitiéndolo si se llama directo.
 4. **El XP depende de que las tareas existan.** Limpiar o borrar tareas resta XP. El ranking ya prioriza ventas, pero el XP sigue siendo el segundo criterio.
 5. **`delete_mvp_advisor`** no comprueba que el objetivo sea un asesor: llamando la RPC directamente, un admin podría borrar a otro admin o a sí mismo.
 6. **Edge Function**: CORS `*`, sin límite de tamaño de la entrada, y el JSON del cliente va directo al prompt. El prompt pide 35 palabras y `DECISIONES.md` dice 25. En el front, los errores no-2xx se ven genéricos porque el mensaje real queda en `error.context`.
@@ -447,7 +458,7 @@ Ninguna se resuelve sin preguntar (§0).
 | Tienda | Skins con precios en "ventas" y modo Halloween | Premios simbólicos canjeados con UltraPuntos |
 | Admin | Panorama, borrado de tareas/clientes/asesores y Halloween | Panel nacional KPI, Asesores, Departamentos/municipios y Metas con recálculo |
 | Diseño | Navy/amarillo, Poppins (guía `Copiloto Ultracem.html`) | Paleta desaturada, Montserrat + Inter |
-| Animación | Entrada del tablero y confeti de `main` (36 piezas por tarea, 96 en lluvia por venta); intro con vuelo 3D (excepción aprobada) | Animación sobria, destello <1,5 s, **sin confeti saturado** |
+| Animación | Entrada del tablero de `main`; ráfaga de 12 piezas por tarea y destello dorado de 1,1 s por venta (Decisión 23); sin intro | Animación sobria, destello <1,5 s, **sin confeti saturado** |
 | Navegación | SPA sin rutas; lateral (asesor) | Barra inferior de 5 destinos (vendedor) y rutas |
 | Niveles en guías | `Copiloto Ultracem.html`: Cimiento → Torre, 10 XP por tarea | Novato → Maestro Ultra, UltraPuntos |
 
@@ -480,7 +491,7 @@ Ninguna se resuelve sin preguntar (§0).
   - Aprobación de Cemi.
   - **¿Topitín y Trompín se reemplazan o conviven?**
   - ¿El admin usará escritorio o celular?
-- **Confeti de `main`:** ¿se ajusta a §14 ("sin confeti saturado")? La lluvia por venta usa 96 piezas.
+- ~~**Confeti de `main`**~~: resuelto en la Decisión 23 (ráfaga de 12 piezas y destello dorado).
 
 ## 17. Plan sugerido (Propuesta; cada fase se aprueba antes)
 
@@ -520,10 +531,11 @@ Ninguna se resuelve sin preguntar (§0).
 
 **Ramas y remotos**
 - Rama de trabajo: **`interfaz`** (local). Sigue a **`fork/interfaz`**.
-- `fork` = `https://github.com/jesus123-git/gamificacion-ultracem.git` (fork de Jesus14, para su Vercel). Último push: `03d4334` (modo demo).
-- `origin` = repo de SantiagoGuzmanCastano (SSH falla; usar HTTPS con Git Credential Manager: `GCM_INTERACTIVE=never git push https://github.com/SantiagoGuzmanCastano/gamificacion-ultracem.git interfaz`). Su `interfaz` y el **PR #11** siguen en `87d0aae` (antes de fusionar con `main`), con conflictos. **Preguntar siempre a qué remoto subir.**
-- Historial de `interfaz`: animaciones GSAP → bienvenida → loader + vuelo 3D → bento (descartado) → `e557e11` fusión con `main` `d0d07f1` (gana el tablero de `main`) → `03d4334` modo demo.
-- `.env.example` tiene una línea en blanco sin commit: **nunca incluirla** en commits.
+- `fork` = `https://github.com/jesus123-git/gamificacion-ultracem.git` (fork de Jesus14, para su Vercel). Último push: `3626cb4` (intro v2); **atrasado** respecto a `interfaz`.
+- `origin` = repo de SantiagoGuzmanCastano (SSH falla; usar HTTPS con Git Credential Manager: `GCM_INTERACTIVE=never git push https://github.com/SantiagoGuzmanCastano/gamificacion-ultracem.git interfaz`). Su `interfaz` y el **PR #11** están en `e352b38`, sin conflictos con `main` (`1d479ad`). **Preguntar siempre a qué remoto subir.**
+- Historial de `interfaz` (2026-10-22): `85d4156` cofres → `a25f0b6` fusión con `main` `1d479ad` → `828d8a8` racha viva, Topitín y mapa de calor → `478529a` perfil, tarjetas de asesor, racha desde ayer y limpiar seguro → `e352b38` toneladas de muestra → recordatorio amable, celebraciones sobrias y docs (sin push).
+- El título del PR #11 no se pudo cambiar: el panel del navegador no tiene sesión en GitHub. El texto aprobado está en el traspaso del 2026-10-22.
+- `.env.example` tiene una línea en blanco solo en `stash@{0}`: **nunca incluirla** en commits.
 
 **Vercel (cuenta jesus-project-jm, proyecto `gamificacion-ultracem`, conectado al fork)**
 - Production sigue `main` → `gamificacion-ultracem-nine.vercel.app`, **sin** modo demo. `interfaz` sale como **Preview**.
@@ -531,7 +543,8 @@ Ninguna se resuelve sin preguntar (§0).
 - La app real necesita `VITE_SUPABASE_URL` + `VITE_SUPABASE_PUBLISHABLE_KEY`. El responsable **no tiene acceso a Supabase**; la clave la tiene Santiago. Su `.env.local` local todavía tiene `your_publishable_key`.
 
 **Pruebas y demo local**
-- `npm test` = `node --test` (25) + Vitest `*.spec.js` (40: welcome, loader, demo-client). `npm run build` debe pasar.
+- `npm test` = `node --test` (63) + Vitest `*.spec.js` (82). `npm run build` debe pasar (avisa de un chunk >500 kB por MapLibre; es solo un aviso).
+- `.claude/launch.json` (sin commit) tiene la config `demo` para abrir el modo demo en el puerto 5179 desde el panel del navegador.
 - Demo local sin Supabase: `set VITE_DEMO=true&& npm run dev` (Windows cmd). Con `?rol=admin` entra el administrador.
 - **No dejar servidores de Vite corriendo** al terminar: bloquean `node_modules` y `npm ci` falla con EPERM.
 
@@ -542,6 +555,8 @@ Ninguna se resuelve sin preguntar (§0).
 - Preguntar antes de cualquier cambio (§0); push, PR y deploy solo con orden explícita.
 
 **Pendiente**
-- Intro v2 (`animaciones.md` §14): implementada en Green (Vitest 31/31, node 25/25, build OK), **sin commit**, sin probar en el navegador ni subir al fork. Si Vitest falla con "Failed to start worker", correr `npx vitest run .spec. --pool=forks --no-file-parallelism`.
-- Actualizar §5 y §7 con las migraciones de `main` (toneladas, fotos, skeleton con 2 ventas).
-- Decidir si se suben `e557e11` y `03d4334` al repo de Santiago para resolver los conflictos del PR #11.
+- Push del último lote (recordatorio, celebraciones y docs) y cambiar el título del PR #11 en GitHub.
+- Subir `interfaz` al fork y redeploy del Preview de Vercel con `VITE_DEMO=true` para la demo.
+- Actualizar §5 y §7 con las migraciones de `main` (toneladas, fotos, ubicación de clientes, skeleton con 2 ventas).
+- Si Vitest falla con "Failed to start worker", correr `npx vitest run .spec. --pool=forks --no-file-parallelism`.
+- Ideas no hechas: textos de 11–12 px en el tablero (el §17 pide ≥14 px), "Avance de tu cartera" repite el anillo del hero, y la hora de corte del recordatorio sigue siendo Propuesta.
