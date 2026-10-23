@@ -5,9 +5,10 @@ import { renderShop, renderHalloweenCollection } from './shop.js';
 import { createClient } from '@supabase/supabase-js';
 import { getMascotStateForCurrentClient, getProgress, getXp, isTaskCompletionConfirmed } from './game.js';
 import { mascotImages, mascotLabels } from './mascot.js';
-import { getMonthlyTons, getSalesStreak, getWeeklySales, getRankingSlots, getPortfolioProgress, getMonthlyGoal, getClientSaleState, getClientHistoryStatus, isCurrentClient } from './advisor-metrics.js';
+import { getMonthlyTons, getSalesStreak, getWeeklySales, getRankingSlots, getPortfolioProgress, getMonthlyGoal, getClientSaleState, getClientHistoryStatus, isCurrentClient, canClearCompletedTasks } from './advisor-metrics.js';
 import { advisorIcon } from './advisor-icons.js';
 import { clearMascotFeedback, showMascotFeedback } from './mascot-feedback.js';
+import { createAdvisorCard } from './admin-advisors.js';
 import { createStreakStat, getStreakNudge, markStreakNudgeShown, shouldShowStreakNudge, showStreakNudge } from './streak-nudge.js';
 import { clearAdvisorEntrance, playAdvisorEntrance, resetAdvisorEntrance } from './advisor-entrance.js';
 import { clearAdvisorEffects, celebrateTask, celebrateSale, revealRecommendation } from './advisor-effects.js';
@@ -661,36 +662,27 @@ function adminPage(page) {
   const tasks = clients.flatMap(client => client.tasks);
   page.className = 'admin-page';
   page.append(intro('Panorama comercial', 'Clientes y tareas pendientes por asesor.', 'admin-intro'));
-  const totalSales = ranking.reduce((total, row) => total + Number(row.confirmed_sales || 0), 0);
-  const totalTons = ranking.reduce((total, row) => total + Number(row.confirmed_tons || 0), 0);
-  page.append(metrics([['Asesores', advisors.length, 'cuentas registradas'], ['Clientes comerciales', clients.length, 'negocios asignados'], ['Tareas pendientes', tasks.filter(task => !task.completed).length, 'acciones por completar'], ['Ventas confirmadas', totalSales, 'resultado comercial'], ['Toneladas vendidas', totalTons.toLocaleString('es-CO'), 'volumen comercial']]));
+  // Ventas y toneladas ya salen en "Métricas generales"; aquí no se repiten.
+  page.append(metrics([['Asesores', advisors.length, 'cuentas registradas'], ['Clientes comerciales', clients.length, 'negocios asignados'], ['Tareas pendientes', tasks.filter(task => !task.completed).length, 'acciones por completar']]));
   page.append(rankingSection());
   page.append(adminMetricsSection());
   const layout = el('div', 'admin-columns'), overview = el('section', 'admin-overview');
-  overview.append(el('h2', 'section-title', 'Pendientes por asesor'));
+  overview.append(el('h2', 'section-title', 'Asesores'), el('p', 'muted', 'Avance hacia la meta mensual de 100 t: ≥100 % cumple, 80–99 % en riesgo, <80 % crítico.'));
   if (!advisors.length) overview.append(el('p', 'empty-state', 'Todavía no hay asesores. Pídeles que creen una cuenta.'));
   for (const advisor of advisors) {
     const assigned = clients.filter(client => client.advisor_id === advisor.user_id);
-    const pending = assigned.flatMap(client => client.tasks).filter(task => !task.completed).length;
-    const section = el('article', 'advisor-row'), head = el('div', 'advisor-row-head'), copy = el('div');
-    copy.append(el('h3', '', advisor.full_name), el('p', 'advisor-email', advisor.email || 'Correo no disponible'), el('p', 'muted', `${assigned.length} clientes asignados`));
-    const actions = el('div', 'advisor-row-actions');
-    actions.append(el('strong', 'pending-count', `${pending} pendientes`));
-    if (assigned.length) actions.append(button('Borrar tareas', 'danger-button', () => resetAdvisorTasks(advisor, assigned.length)));
-    if (assigned.length) actions.append(button('Borrar clientes', 'danger-button', () => deleteAdvisorClients(advisor, assigned.length)));
-    actions.append(button('Borrar asesor', 'danger-button', () => deleteAdvisor(advisor)));
-    head.append(copy, actions); section.append(head);
-    if (!assigned.length) section.append(el('p', 'empty-inline', 'Aún no tiene clientes.'));
-    const list = el('ul', 'pending-list');
-    for (const client of assigned) {
-      const item = el('li');
-      const location = client.city && client.department ? ` · ${client.city}, ${client.department}` : '';
-      item.append(el('strong', '', client.name), el('span', 'muted', `${location} · ${client.tasks.filter(task => !task.completed).length} pendientes`));
-      const taskList = el('ul', 'pending-titles');
-      client.tasks.filter(task => !task.completed).forEach(task => taskList.append(el('li', '', task.title)));
-      item.append(taskList); list.append(item);
-    }
-    section.append(list); overview.append(section);
+    const row = ranking.find(item => item.advisor_id === advisor.user_id);
+    overview.append(createAdvisorCard(advisor, {
+      tons: getMonthlyTons(sales, advisor.user_id),
+      sales: Number(row?.confirmed_sales || 0),
+      goal: 100,
+      clients: assigned,
+      avatarUrl: row?.avatar_url || '',
+    }, {
+      resetTasks: () => resetAdvisorTasks(advisor, assigned.length),
+      deleteClients: () => deleteAdvisorClients(advisor, assigned.length),
+      deleteAdvisor: () => deleteAdvisor(advisor),
+    }));
   }
   const manage = el('aside', 'admin-management'), form = el('form', 'editor-form');
   form.append(el('h2', '', 'Nuevo cliente comercial'));
@@ -767,7 +759,16 @@ function advisorMapPage(page) {
   });
 }
 function advisorProfilePage(page) {
-  renderAdvisorProfile(page, profile, { upload: uploadProfilePhoto, remove: removeProfilePhoto, signOut, deleteAccount }, profilePhotoSaving);
+  const own = ranking.find(row => row.advisor_id === user?.id);
+  const progress = {
+    sales: Number(own?.confirmed_sales || 0),
+    tons: Number(own?.confirmed_tons || 0),
+    streak: getSalesStreak(sales, user?.id),
+    position: own?.position ?? null,
+    skinImage: profile.equipped_skin === 'skeleton' ? '/skins/skeleton/happy.png' : mascotImages.happy,
+  };
+  const openShop = () => { advisorView = 'shop'; render(); refreshHalloween(); window.scrollTo(0, 0); };
+  renderAdvisorProfile(page, profile, { upload: uploadProfilePhoto, remove: removeProfilePhoto, signOut, deleteAccount, openShop }, profilePhotoSaving, progress);
   playProfileEntrance(page, profileKeyboardNavigation);
 }
 function advisorHistoryPage(page) {
@@ -965,7 +966,7 @@ function advisorPage(page) {
     const confirmed = sales.some(sale => sale.client_id === activeClient.id && sale.confirmed);
     const saleActions = el('div', 'sale-actions');
     if (!confirmed) saleActions.append(button('Confirmar venta', 'primary confirm-sale-button', () => confirmSale(activeClient)));
-    saleActions.append(button('Limpiar tareas', 'secondary clear-tasks-button', () => clearCompletedTasks(activeClient)));
+    if (canClearCompletedTasks(activeClient, sales)) saleActions.append(button('Limpiar tareas', 'secondary clear-tasks-button', () => clearCompletedTasks(activeClient)));
     detail.append(saleActions);
   }
   const assistant = el('div', 'action-assistant');

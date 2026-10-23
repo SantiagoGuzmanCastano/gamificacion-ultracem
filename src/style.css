@@ -250,3 +250,33 @@ footer { border-top: 1px solid var(--line); padding: 22px 0 30px; margin-top: 56
 .cement-scene { display: block; width: 100%; height: auto; margin-top: 28px; }
 .loading-status { margin-top: 12px; font-size: .95rem; font-weight: 600; letter-spacing: -.01em; }
 .loading-caption { margin-top: 9px; color: #b5cce1; font-size: .78rem; line-height: 1.6; }
+
+/* Admin: tarjeta por asesor con semáforo del PRD (siempre ícono + texto) y borrados dentro de "Gestionar". */
+.advisor-card { display: grid; gap: 14px; margin-top: 14px; padding: 18px 20px; border: 1px solid var(--line); border-radius: 12px; }
+.advisor-card-head { display: grid; grid-template-columns: 42px minmax(0, 1fr) auto; gap: 12px; align-items: center; }
+.advisor-card-head .profile-avatar { width: 42px; height: 42px; border-radius: 50%; object-fit: cover; display: grid; place-items: center; background: #ffc928; color: #063b67; font-weight: 750; }
+.advisor-card-copy h3 { font-size: 1rem; }
+.advisor-card-copy .advisor-email { margin-top: 2px; }
+.advisor-status { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border: 1px solid currentColor; border-radius: 999px; font-size: .78rem; font-weight: 700; white-space: nowrap; }
+.advisor-status-icon { display: inline-flex; width: 15px; height: 15px; }
+.advisor-status-icon svg { width: 100%; height: 100%; }
+.advisor-status[data-state="ok"] { color: #3f7d60; }
+.advisor-status[data-state="risk"] { color: #8a6d1d; }
+.advisor-status[data-state="critical"] { color: #a8443e; }
+:root[data-theme="dark"] .advisor-status[data-state="ok"] { color: #8fd1b0; }
+:root[data-theme="dark"] .advisor-status[data-state="risk"] { color: #e3c16f; }
+:root[data-theme="dark"] .advisor-status[data-state="critical"] { color: #f0a29c; }
+.advisor-card-progress { display: grid; gap: 8px; }
+.advisor-card-bar { height: 8px; overflow: hidden; border-radius: 999px; background: color-mix(in srgb, var(--line) 70%, transparent); }
+.advisor-card-bar span { display: block; height: 100%; border-radius: inherit; background: #475569; }
+.advisor-card[data-state="ok"] .advisor-card-bar span { background: #5e9c7e; }
+.advisor-card[data-state="risk"] .advisor-card-bar span { background: #c8a951; }
+.advisor-card[data-state="critical"] .advisor-card-bar span { background: #c9605a; }
+.advisor-card-stats { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; color: var(--muted); font-size: .82rem; font-variant-numeric: tabular-nums; }
+.advisor-clients summary, .advisor-manage summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; font-size: .85rem; font-weight: 650; }
+.advisor-clients .pending-list { margin-top: 4px; }
+.advisor-manage { justify-self: start; }
+.advisor-manage summary { color: var(--muted); }
+.advisor-manage-actions { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 4px; }
+.advisor-manage-actions .danger-button { min-height: 40px; }
+@media (max-width: 520px) { .advisor-card-head { grid-template-columns: 42px minmax(0, 1fr); } .advisor-status { grid-column: 1 / -1; justify-self: start; } }

@@ -12,6 +12,12 @@ export function getClientSaleState(client, sales) {
   return client.tasks.length === 4 && client.tasks.every(task => task.completed) ? 'ready' : 'pending';
 }
 
+// Limpiar antes de confirmar dejaría al asesor sin poder confirmar la venta.
+export function canClearCompletedTasks(client, sales) {
+  return getClientSaleState(client, sales) === 'confirmed'
+    && client.tasks.length === 4 && client.tasks.every(task => task.completed);
+}
+
 export function getClientHistoryStatus(client, sales) {
   const completed = client.tasks.filter(task => task.completed).length;
   const percentage = client.tasks.length ? Math.round(completed / client.tasks.length * 100) : 0;
@@ -91,6 +97,8 @@ export function getSalesStreak(sales, advisorId, now = new Date()) {
   const daysWithSales = new Set(confirmedSales(sales, advisorId).map(sale => localDayKey(sale.confirmed_at)));
   const cursor = startOfLocalDay(now);
   let streak = 0;
+  // Hoy todavía puede venderse: si aún no hay venta, la racha se cuenta desde ayer.
+  if (!daysWithSales.has(localDayKey(cursor))) cursor.setDate(cursor.getDate() - 1);
 
   while (daysWithSales.has(localDayKey(cursor))) {
     streak += 1;
