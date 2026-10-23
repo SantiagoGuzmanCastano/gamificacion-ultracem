@@ -50,7 +50,7 @@
 /* Meta y desafío */
 .commission-wallet-page .commission-goals { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 14px; margin-bottom: 10px; }
 .commission-wallet-page .commission-goal-card, .commission-wallet-page .commission-challenge-card { position: relative; overflow: hidden; border: 1px solid var(--dashboard-line); border-radius: 20px; background: var(--dashboard-panel); box-shadow: var(--card-shadow); }
-.commission-wallet-page .commission-goal-card { display: grid; grid-template-columns: 124px minmax(0, 1fr); align-items: center; gap: 20px; padding: 22px 100px 22px 22px; background: radial-gradient(80% 120% at 0% 0%, color-mix(in srgb, var(--gold) 14%, transparent), transparent 60%), var(--dashboard-panel); }
+.commission-wallet-page .commission-goal-card { display: grid; grid-template-columns: 124px minmax(0, 1fr); align-items: center; gap: 20px; padding: 22px; background: radial-gradient(80% 120% at 0% 0%, color-mix(in srgb, var(--gold) 14%, transparent), transparent 60%), var(--dashboard-panel); }
 .commission-goal-ring { position: relative; display: grid; place-items: center; width: 124px; aspect-ratio: 1; }
 .commission-goal-ring svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); overflow: visible; }
 .commission-goal-ring circle { fill: none; }
@@ -63,7 +63,6 @@
 .commission-goal-target { display: block; margin: 4px 0 12px; font-size: 1.55rem; font-weight: 850; letter-spacing: -.035em; font-variant-numeric: tabular-nums; }
 .commission-goal-figures { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px 10px; margin: 10px 0 0; color: var(--dashboard-muted); font-size: .76rem; }
 .commission-goal-left { padding: 3px 9px; border-radius: 999px; background: var(--gold-soft); color: var(--gold-text); font-weight: 800; }
-.commission-goal-mascot { position: absolute; right: 10px; top: 0; bottom: 0; margin-block: auto; width: 84px; height: auto; pointer-events: none; filter: drop-shadow(0 6px 8px #00192b44); }
 .commission-bar { height: 12px; border-radius: 999px; background: var(--dashboard-ring); box-shadow: inset 0 1px 2px #00192b33; overflow: hidden; }
 .commission-bar-fill { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--gold-deep), var(--gold)); transform-origin: left center; }
 .commission-bar-fill.blue { background: linear-gradient(90deg, var(--dashboard-blue), #2fd9f0); }
@@ -168,7 +167,6 @@
   .commission-goal-ring { width: 92px; }
   .commission-goal-ring strong { font-size: 1.3rem; }
   .commission-goal-target { font-size: 1.3rem; margin-bottom: 8px; }
-  .commission-goal-mascot { display: none; }
   .commission-milestone-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .commission-milestones { padding: 16px; }
   .commission-milestones-head { align-items: flex-start; flex-direction: column; gap: 4px; }
@@ -213,3 +211,19 @@
 .commission-claim-burst { position: fixed; inset: 0; z-index: 10000; overflow: hidden; pointer-events: none; }
 .commission-claim-burst .money-coin { position: absolute; top: 0; left: 0; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff6c2, #ffd124 55%, #c98a00); color: #7a5200; font-size: .7rem; font-weight: 900; box-shadow: 0 3px 8px rgb(120 80 0 / 30%); will-change: transform, opacity; }
 .commission-claim-amount { position: absolute; top: 0; left: 0; padding: 6px 12px; border: 1px solid #ffe58a; border-radius: 999px; background: linear-gradient(180deg, #fff3b0, #ffd124); color: #3b2800; font-size: .9rem; font-weight: 900; white-space: nowrap; box-shadow: 0 8px 20px rgb(245 168 0 / 35%); will-change: transform, opacity; }
+
+/* Cartera vacía: Topitín con los tres pasos para ganar la primera comisión. */
+.commission-wallet-page .commission-empty { display: grid; grid-template-columns: 130px minmax(0, 1fr); align-items: center; gap: 22px; margin-top: 20px; padding: 24px 28px; border: 1px solid var(--dashboard-line); border-radius: 20px; background: linear-gradient(135deg, color-mix(in srgb, #ffd124 12%, var(--dashboard-panel)), var(--dashboard-panel) 60%); }
+.commission-empty-mascot { justify-self: center; width: 120px; height: auto; filter: drop-shadow(0 10px 14px rgb(0 30 50 / 18%)); }
+.commission-empty-copy h2 { margin: 0 0 6px; color: var(--dashboard-ink); font-size: 1.35rem; letter-spacing: -.02em; }
+.commission-empty-copy > p { margin: 0 0 14px; }
+.commission-empty-steps { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 18px; padding: 0; list-style: none; }
+.commission-empty-steps li { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px 8px 8px; border: 1px solid var(--dashboard-line); border-radius: 999px; background: var(--dashboard-panel); color: var(--dashboard-ink); font-size: .82rem; font-weight: 700; }
+.commission-empty-step-icon { display: grid; place-items: center; width: 28px; height: 28px; padding: 5px; border-radius: 50%; background: #ffd124; color: #00243b; }
+.commission-empty-step-icon svg { width: 100%; height: 100%; }
+.commission-wallet-page .commission-empty-cta { min-height: 42px; padding: 10px 20px; border-radius: 999px; }
+@media (max-width: 640px) {
+  .commission-wallet-page .commission-empty { grid-template-columns: 1fr; justify-items: center; padding: 22px 18px; text-align: center; }
+  .commission-empty-mascot { width: 96px; }
+  .commission-empty-steps { flex-direction: column; align-items: stretch; }
+}

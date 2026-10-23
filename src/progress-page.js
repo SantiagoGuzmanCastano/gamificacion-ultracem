@@ -31,19 +31,28 @@ export function showLevelBanner(world, level, reducedMotion = false) {
     .to(banner, { scale: 0, opacity: 0, duration: .3, delay: 2.4, ease: 'back.in(2)' });
 }
 
-export function renderProgressPage(page, model, { selected = model.level, onSelect = () => {}, onClients = () => {}, onReplay = null } = {}) {
+export function renderProgressPage(page, model, { selected = model.level, onSelect = () => {}, onClients = () => {}, onReplay = null, onGuide = null } = {}) {
   page.className = 'advisor-page progress-page';
   const heading = element('header', 'progress-heading');
   const copy = element('div');
   copy.append(element('h1', '', 'Tu progreso'), element('p', '', 'Cada venta confirmada hace crecer tu planta. Desbloquea nuevas islas y recompensas.'));
   heading.append(copy);
+  const headingActions = element('div', 'progress-heading-actions');
+  if (onGuide) {
+    const guide = element('button', 'progress-replay progress-guide-open', 'Repetir instrucciones');
+    guide.prepend(iconNode('flag', 'progress-replay-icon'));
+    guide.type = 'button';
+    guide.addEventListener('click', onGuide);
+    headingActions.append(guide);
+  }
   if (onReplay && model.level > 1) {
     const replay = element('button', 'progress-replay', 'Repetir celebración');
     replay.type = 'button';
     replay.prepend(iconNode('sparkles', 'progress-replay-icon'));
     replay.addEventListener('click', onReplay);
-    heading.append(replay);
+    headingActions.append(replay);
   }
+  if (headingActions.childElementCount) heading.append(headingActions);
 
   const layout = element('div', 'progress-layout');
   const world = element('section', 'progress-world');
@@ -63,6 +72,12 @@ export function renderProgressPage(page, model, { selected = model.level, onSele
     const text = element('span', '', String(level.level));
     text.prepend(element('span', 'progress-label-word', 'Nivel '));
     label.append(iconNode(level.state === 'locked' ? 'lock' : level.state === 'completed' ? 'check' : 'flag', 'progress-label-icon'), text);
+    // Solo el siguiente nivel muestra, en chiquito, cuántas ventas faltan.
+    if (model.next && level.level === model.next.level && model.remaining > 0) {
+      const missing = model.remaining === 1 ? 'Falta 1 venta' : `Faltan ${model.remaining} ventas`;
+      label.append(element('small', 'progress-label-hint', missing));
+      label.setAttribute('aria-label', `${label.getAttribute('aria-label')}. ${missing}`);
+    }
     label.addEventListener('click', () => onSelect(level.level));
     labels.append(label);
     labelButtons.set(level.level, label);
@@ -153,4 +168,33 @@ export function renderProgressPage(page, model, { selected = model.level, onSele
   };
   select(selected);
   return { stage, labels: labelButtons, status, select };
+}
+
+// Entrada de Progreso con GSAP: una vez por visita (los refrescos de datos no la repiten).
+let progressEntered = false;
+let progressEntrance = null;
+
+export function resetProgressEntrance() {
+  progressEntrance?.revert();
+  progressEntrance = null;
+  progressEntered = false;
+}
+
+export function playProgressEntrance(page) {
+  if (progressEntered) return;
+  progressEntered = true;
+  if (globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? true) return;
+  const q = selector => page.querySelectorAll(selector);
+  progressEntrance = gsap.context(() => {
+    const tl = gsap.timeline({ defaults: { ease: 'power3.out' }, onComplete: () => gsap.set(q('.progress-heading *, .progress-world, .progress-side *'), { clearProps: 'transform,opacity' }) });
+    tl.from(q('.progress-heading h1, .progress-heading p'), { opacity: 0, y: -14, duration: .45, stagger: .08 }, 0);
+    tl.from(q('.progress-heading-actions > *'), { opacity: 0, y: -8, scale: .9, duration: .4, stagger: .06, ease: 'back.out(2)' }, .15);
+    tl.from(q('.progress-world'), { opacity: 0, y: 24, scale: .985, duration: .7 }, .1);
+    tl.from(q('.progress-side > .progress-card'), { opacity: 0, x: 24, duration: .55, stagger: .1 }, .25);
+    tl.from(q('.progress-emblem'), { scale: 0, rotation: -120, duration: .7, ease: 'back.out(1.8)' }, .5);
+    tl.from(q('.progress-meter span'), { scaleX: 0, transformOrigin: '0 50%', duration: .9, ease: 'power3.inOut' }, .6);
+    tl.from(q('.progress-reward-icon'), { scale: .4, rotation: -30, duration: .55, stagger: .1, ease: 'back.out(2)' }, .65);
+    tl.from(q('.progress-cta'), { opacity: 0, y: 8, duration: .4 }, .85);
+    tl.from(q('.progress-level-row'), { opacity: 0, x: -12, duration: .35, stagger: .05 }, .8);
+  }, page);
 }

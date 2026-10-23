@@ -68,10 +68,7 @@ export function commissionGoals(sample) {
   const figures = node('p', 'commission-goal-figures');
   figures.append(node('span', '', `${cop(goal.earned)} acumulado`), node('span', 'commission-goal-left', `Te faltan ${cop(Math.max(0, goal.target - goal.earned))}`));
   goalCopy.append(goalTitle, node('strong', 'commission-goal-target', cop(goal.target)), bar, figures);
-  const mascot = node('img', 'commission-goal-mascot');
-  mascot.src = mascotImages.happy;
-  mascot.alt = '';
-  goalCard.append(ring, goalCopy, mascot);
+  goalCard.append(ring, goalCopy);
 
   const challengeCard = node('article', 'commission-challenge-card');
   const challengeTitle = node('h2', '', 'Desafío mensual');
@@ -160,7 +157,6 @@ export function playCommissionEntrance(page) {
       }
     }
     tl.from(q('.commission-goal-card, .commission-challenge-card'), { opacity: 0, y: 28, duration: .6, stagger: .12 }, .35);
-    tl.from(q('.commission-goal-mascot'), { opacity: 0, x: 40, rotation: 8, duration: .7, ease: 'back.out(1.6)' }, .9);
     for (const node of q('.commission-balance-copy strong, .commission-summary-item strong, .commission-goal-ring strong')) {
       const original = node.textContent;
       const target = Number(original.replace(/\D/g, ''));
@@ -182,6 +178,14 @@ export function playCommissionEntrance(page) {
     tl.from(q('.commission-badge'), { scale: 0, rotation: -60, duration: .55, stagger: .09, ease: 'back.out(2)' }, 1.35);
     tl.from(q('.commission-milestone > :not(.commission-badge)'), { opacity: 0, y: 8, duration: .35, stagger: .02 }, 1.5);
     tl.from(q('.commission-redeemed-section'), { opacity: 0, y: 20, duration: .5 }, 1.6);
+    // Cartera vacía: la tarjeta sube, Topitín entra saltando y los pasos aparecen en orden.
+    tl.from(q('.commission-empty'), { opacity: 0, y: 30, duration: .6 }, .5);
+    tl.from(q('.commission-empty-mascot'), { opacity: 0, y: 60, rotation: -10, duration: .8, ease: 'back.out(1.8)' }, .75);
+    tl.to(q('.commission-empty-mascot'), { y: -14, duration: .28, ease: 'power2.out', yoyo: true, repeat: 1 }, 1.6);
+    tl.from(q('.commission-empty-copy > h2, .commission-empty-copy > p'), { opacity: 0, x: -16, duration: .45, stagger: .08 }, .8);
+    tl.from(q('.commission-empty-steps li'), { opacity: 0, y: 14, duration: .45, stagger: .12 }, 1);
+    tl.from(q('.commission-empty-step-icon'), { scale: 0, rotation: -120, duration: .55, stagger: .12, ease: 'back.out(2)' }, 1.05);
+    tl.from(q('.commission-empty-cta'), { opacity: 0, scale: .85, duration: .5, ease: 'back.out(2)' }, 1.45);
   }, page);
 }
 

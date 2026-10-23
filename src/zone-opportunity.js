@@ -140,6 +140,8 @@ export function createZoneFocusCard(zone, onReset) {
   return card;
 }
 
+let targetCardCollapsed = false;
+
 export function createTargetCard(target, onFocus) {
   const card = element('div', 'map-glass map-target-card');
   card.setAttribute('role', 'status');
@@ -151,6 +153,19 @@ export function createTargetCard(target, onFocus) {
   const go = element('button', 'map-target-go', 'Ver en el mapa');
   go.type = 'button';
   go.addEventListener('click', onFocus);
-  card.append(icon, copy, go);
+  // Se puede plegar para ver el mapa completo; queda solo el nombre de la zona.
+  const toggle = element('button', 'map-target-toggle');
+  toggle.type = 'button';
+  toggle.append(element('span', 'map-heat-chevron'));
+  toggle.firstChild.setAttribute('aria-hidden', 'true');
+  const setCollapsed = collapsed => {
+    targetCardCollapsed = collapsed;
+    card.classList.toggle('is-collapsed', collapsed);
+    toggle.setAttribute('aria-expanded', String(!collapsed));
+    toggle.setAttribute('aria-label', collapsed ? 'Mostrar zona objetivo' : 'Ocultar zona objetivo');
+  };
+  toggle.addEventListener('click', () => setCollapsed(!targetCardCollapsed));
+  setCollapsed(targetCardCollapsed);
+  card.append(icon, copy, go, toggle);
   return card;
 }

@@ -115,6 +115,26 @@ export function renderAdvisorProfile(page, profile, actions, busy = false) {
   photo.append(description, controls, status);
   panel.append(photo);
   page.append(header, panel);
+  if (actions.theme) {
+    // Apariencia: automático (como el dispositivo), claro u oscuro.
+    const appearance = element('section', 'profile-section profile-appearance');
+    const heading = element('h2', '', 'Apariencia');
+    heading.id = 'profile-appearance-title';
+    appearance.setAttribute('aria-labelledby', heading.id);
+    const appearanceCopy = element('div', 'profile-section-copy');
+    appearanceCopy.append(heading, element('p', '', 'Elige cómo quieres ver la app. Automático usa el modo de tu dispositivo.'));
+    const options = element('div', 'profile-theme-options');
+    options.setAttribute('role', 'radiogroup');
+    options.setAttribute('aria-labelledby', heading.id);
+    for (const [mode, label] of [['system', 'Automático'], ['light', 'Claro'], ['dark', 'Oscuro']]) {
+      const option = action(label, `profile-theme-option${actions.theme.mode === mode ? ' is-active' : ''}`, () => { if (actions.theme.mode !== mode) actions.theme.set(mode); });
+      option.setAttribute('role', 'radio');
+      option.setAttribute('aria-checked', String(actions.theme.mode === mode));
+      options.append(option);
+    }
+    appearance.append(appearanceCopy, options);
+    page.append(appearance);
+  }
   if (profile.role !== 'advisor') return;
   for (const [kind, title, text, label, handler, icon] of [
     ['session', 'Tu sesión', 'Puedes volver a entrar cuando lo necesites.', 'Cerrar sesión', actions.signOut, 'logout'],

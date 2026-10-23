@@ -7,6 +7,7 @@ import { createNotificationCenter } from './notification-center.js';
 import { renderShop, renderHalloweenCollection } from './shop.js';
 import { renderRewards } from './rewards.js';
 import { playStoreEntrance, resetStoreEntrance } from './store-entrance.js';
+import { playMapEntrance, resetMapEntrance, revealZoneList } from './map-entrance.js';
 import { createClient } from '@supabase/supabase-js';
 import { getMascotStateForCurrentClient, getProgress, getXp, getLevelProgress, isTaskCompletionConfirmed } from './game.js';
 import { mascotImages, mascotLabels } from './mascot.js';
@@ -20,14 +21,16 @@ import { clearAdvisorEntrance, playAdvisorEntrance, resetAdvisorEntrance } from 
 import { animateSidebar, resetSidebarMotion } from './advisor-sidebar.js';
 import { bindAdvisorHover } from './advisor-hover.js';
 import { clearTopitinToast, showTopitinToast } from './topitin-toast.js';
-import { clearAdvisorEffects, celebrateTask, celebrateSale, flipMetric, morphWeeklyChart, revealRecommendation, ringNotificationBell } from './advisor-effects.js';
+import { openTopitinGuide } from './topitin-guide.js';
+import { clearAdvisorEffects, celebrateTask, celebrateSale, flipMetric, morphWeeklyChart, ringNotificationBell } from './advisor-effects.js';
 import { isValidProfileImage, profileImageExtension } from './profile.js';
 import { createProfileAvatar, createProfilePhotoPicker, renderAdvisorProfile, playProfileEntrance, clearProfileEntrance } from './profile-view.js';
 import { showLoadingScreen, clearLoadingScreen } from './loading-screen.js';
 import { attachRankingAvatars } from './ranking-avatars.js';
 import { COLOMBIA_DEPARTMENTS, citiesForDepartment, normalizeClientLocation } from './client-location.js';
 import { commissionSummary, getCommissionStatus } from './commission-wallet.js';
-import { getProgressModel, renderProgressPage, showLevelBanner } from './progress-page.js';
+import { getProgressModel, playProgressEntrance, renderProgressPage, resetProgressEntrance, showLevelBanner } from './progress-page.js';
+import { showProgressGuide } from './progress-guide.js';
 import { celebrateCommissionClaim, celebrateCommissionClaimed, commissionGoals, commissionMilestones, commissionStats, commissionTakeHome, playCommissionEntrance, resetCommissionEntrance } from './commission-gamification.js';
 
 const SUPABASE_TIMEOUT_MS = 15000;
@@ -45,8 +48,7 @@ function supabaseFetch(input, init = {}) {
 const db = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
   ? createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY, { global: { fetch: supabaseFetch } }) : null;
 const root = document.querySelector('#app');
-let user = null, profile = null, advisors = [], clients = [], sales = [], ranking = [], notifications = [], goals = [], selectedId = null, aiRecommendation = '', saleNotice = '';
-let theme = localStorage.getItem('ultracem-theme') || 'light';
+let user = null, profile = null, advisors = [], clients = [], sales = [], ranking = [], notifications = [], goals = [], selectedId = null, saleNotice = '';
 let advisorView = 'dashboard', adminView = 'dashboard';
 let advisorMapModule;
 // The 3D world survives re-renders of the Progreso page; it is destroyed when leaving it.
@@ -61,7 +63,20 @@ let profileKeyboardNavigation = false;
 let notificationChannel = null;
 let notificationCenter = null;
 const dismissedNotificationIds = new Set();
-document.documentElement.dataset.theme = theme;
+// Tema: «system» sigue al dispositivo; claro u oscuro se eligen en Perfil › Apariencia.
+const darkSchemeQuery = window.matchMedia('(prefers-color-scheme: dark)');
+let themeMode = 'system';
+try { themeMode = ['light', 'dark'].includes(localStorage.getItem('ultracem-theme-mode')) ? localStorage.getItem('ultracem-theme-mode') : 'system'; } catch { /* sin almacenamiento: sigue al dispositivo */ }
+const applyTheme = () => { document.documentElement.dataset.theme = themeMode === 'system' ? (darkSchemeQuery.matches ? 'dark' : 'light') : themeMode; };
+applyTheme();
+darkSchemeQuery.addEventListener('change', () => { if (themeMode === 'system') { applyTheme(); render(); } });
+function setThemeMode(mode) {
+  themeMode = mode;
+  try { localStorage.setItem('ultracem-theme-mode', mode); } catch { /* solo dura esta sesión */ }
+  const update = () => { applyTheme(); render(); };
+  if (document.startViewTransition && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) document.startViewTransition(update);
+  else update();
+}
 const taskOrder = ['Preparar una visita', 'Contactar al cliente', 'Revisar una cotización', 'Planear el siguiente paso'];
 
 function el(tag, className = '', value = '') {
@@ -101,7 +116,7 @@ async function signOut() {
   stopHalloweenSync();
   window.clearInterval(profilePhotoUrlTimer);
   profilePhotoUrlTimer = null;
-  user = profile = null; advisors = clients = sales = ranking = notifications = goals = []; aiRecommendation = ''; saleNotice = ''; advisorView = 'dashboard'; adminView = 'dashboard';
+  user = profile = null; advisors = clients = sales = ranking = notifications = goals = []; saleNotice = ''; advisorView = 'dashboard'; adminView = 'dashboard';
   render();
 }
 function scheduleProfilePhotoUrlRefresh() {
@@ -193,7 +208,7 @@ async function deleteAccount() {
   if (!window.confirm('Confirma nuevamente: borrar todo definitivamente.')) return;
   const result = await db.rpc('delete_mvp_own_account');
   if (result.error) { notice('No se pudo borrar la cuenta. Intenta de nuevo.', true); return; }
-  user = profile = null; advisors = clients = sales = ranking = []; aiRecommendation = ''; saleNotice = '';
+  user = profile = null; advisors = clients = sales = ranking = []; saleNotice = '';
   render();
 }
 function openProfilePanel(prompt = false) {
@@ -229,7 +244,6 @@ function advisorProfileCard() {
   const copy = el('span', 'profile-card-copy');
   const name = el('strong', 'profile-card-name', profile.full_name);
   const meta = el('span', 'profile-card-meta');
-  const levelChip = el('span', 'profile-card-level', `Nivel ${level.level}`);
   const balance = el('span', 'profile-card-points');
   const pointsIcon = el('span', 'profile-card-points-icon');
   pointsIcon.setAttribute('aria-hidden', 'true');
@@ -237,15 +251,14 @@ function advisorProfileCard() {
   const count = el('b', '', points.toLocaleString('es-CO'));
   count.dataset.sidebarCount = String(points);
   balance.append(pointsIcon, count, el('span', '', 'pts'));
-  meta.append(levelChip, balance);
+  // El nivel ya se ve en el banner del Inicio; aquí solo van los puntos.
+  meta.append(balance);
   copy.append(name, meta);
   const arrow = el('span', 'profile-card-arrow');
   arrow.setAttribute('aria-hidden', 'true');
   arrow.innerHTML = advisorIcon('arrow');
   open.append(avatar, copy, arrow);
-  const goal = el('p', 'profile-card-goal', level.target ? `${level.sales}/${level.target} ventas para Nivel ${level.level + 1}` : 'Nivel máximo alcanzado');
-  goal.setAttribute('aria-hidden', 'true');
-  card.append(open, goal);
+  card.append(open);
   return card;
 }
 // Tarjeta inferior del admin: mismo lugar y estilo que la del asesor, sin nivel ni puntos.
@@ -450,6 +463,7 @@ function shell() {
       ? [['dashboard', 'Resumen', 'home'], ['team', 'Asesores', 'clients'], ['zones', 'Zonas', 'target'], ['map', 'Mapa de ventas', 'map'], ['manage', 'Gestión', 'tasks']]
       : [['dashboard', 'Inicio', 'home'], ['commissions', 'Cartera de comisiones', 'sales'], ['map', 'Mapa clientela', 'map'], ['shop', 'Tienda cosméticos', 'shop'], ['rewards', 'Premios', 'gift'], ['progress', 'Progreso', 'flag'], ['profile', 'Perfil', 'profile']];
     if (admin) mobileLabels.dashboard = 'Resumen';
+    const mobileButtons = new Map();
     for (const [view, label, icon] of items) {
       // En escritorio el perfil vive en la tarjeta inferior; en móvil sigue en la barra.
       for (const [container, className] of view === 'profile' ? [[mobileNav, '']] : [[nav, 'sidebar-item'], [mobileNav, '']]) {
@@ -462,11 +476,45 @@ function shell() {
           control.classList.add('active');
           control.setAttribute('aria-current', 'page');
         }
-        container.append(control);
+        if (container === mobileNav) mobileButtons.set(view, control); else container.append(control);
       }
     }
+    // En móvil caben cuatro accesos fijos; el resto del asesor se abre desde «Más».
+    const moreViews = admin ? [] : ['commissions', 'shop', 'rewards'];
+    const barViews = admin ? items.map(([view]) => view) : ['dashboard', 'map', 'progress', 'profile'];
+    mobileNav.append(...barViews.map(view => mobileButtons.get(view)));
+    const mobileExtras = [];
+    if (moreViews.length) {
+      const sheet = el('div', 'advisor-more-sheet');
+      sheet.id = 'advisor-more-sheet';
+      sheet.inert = true;
+      const grid = el('div', 'advisor-more-grid');
+      grid.append(...moreViews.map(view => mobileButtons.get(view)));
+      sheet.append(el('p', 'advisor-more-title', 'Más secciones'), grid);
+      const backdrop = el('div', 'advisor-more-backdrop');
+      const more = button('Más', 'advisor-more-button', () => setMore(more.getAttribute('aria-expanded') !== 'true'));
+      const moreIcon = el('span', 'advisor-nav-icon');
+      moreIcon.innerHTML = advisorIcon('apps');
+      more.prepend(moreIcon);
+      more.setAttribute('aria-expanded', 'false');
+      more.setAttribute('aria-controls', sheet.id);
+      if (moreViews.includes(advisorView)) more.classList.add('active');
+      const setMore = open => {
+        sheet.inert = !open;
+        mobileNav.classList.toggle('more-open', open);
+        backdrop.classList.toggle('open', open);
+        more.setAttribute('aria-expanded', String(open));
+        if (open) grid.querySelector('button')?.focus({ preventScroll: true });
+      };
+      backdrop.addEventListener('click', () => setMore(false));
+      mobileNav.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && more.getAttribute('aria-expanded') === 'true') { setMore(false); more.focus(); }
+      });
+      mobileNav.append(more, sheet);
+      mobileExtras.push(backdrop);
+    }
     // Fuera de <main> para que ninguna animación de la página afecte la barra fija.
-    root.append(mobileNav);
+    root.append(...mobileExtras, mobileNav);
     animateSidebar(sidebar);
   }
   if (profile) {
@@ -480,7 +528,8 @@ function shell() {
       mobilePoints.append(mobilePointsIcon, el('strong', '', Number(profile.points || 0).toLocaleString('es-CO')), el('span', '', 'puntos'));
       actions.append(mobilePoints);
     }
-    notificationCenter = createNotificationCenter(root, {
+    // La campana vive en la barra superior, junto a los puntos.
+    notificationCenter = createNotificationCenter(actions, {
       role: profile.role, notifications, onRead: markNotificationsRead, onAction: openNotification,
       onClearRead: clearReadNotifications,
       onRefresh: async () => {
@@ -499,22 +548,6 @@ function shell() {
         return notifications;
       },
     });
-    const themeToggle = button('', 'theme-button', () => {
-      const applyTheme = () => {
-        theme = theme === 'dark' ? 'light' : 'dark';
-        localStorage.setItem('ultracem-theme', theme);
-        document.documentElement.dataset.theme = theme;
-        shell();
-        render();
-      };
-      if (document.startViewTransition && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) document.startViewTransition(applyTheme);
-      else applyTheme();
-    });
-    themeToggle.innerHTML = '<span class="theme-toggle-icon" aria-hidden="true"><i></i></span><span class="theme-toggle-label"></span>';
-    themeToggle.querySelector('.theme-toggle-label').textContent = theme === 'dark' ? 'Claro' : 'Oscuro';
-    themeToggle.setAttribute('aria-label', `Cambiar a modo ${theme === 'dark' ? 'claro' : 'oscuro'}`);
-    themeToggle.setAttribute('aria-pressed', String(theme === 'dark'));
-    actions.append(themeToggle);
     if (profile.role === 'admin') actions.append(button('Cerrar sesión', 'text-button', signOut));
   }
 }
@@ -865,6 +898,23 @@ function makeFlipMetric(item, front, { back, name }) {
     flipMetric(item, paint);
   });
 }
+// Podio del ranking: corona dorada para el #1, medallas de plata y bronce para el #2 y #3,
+// y un número neutro desde el #4. La posición sale del dato, no del orden en la lista.
+function rankBadge(position, placeholder = false) {
+  const badge = el('span', 'rank-medal');
+  badge.setAttribute('aria-label', `Puesto ${position}`);
+  if (placeholder || position > 3) {
+    badge.classList.add('rank-plain');
+    badge.textContent = String(position);
+    return badge;
+  }
+  const [metal, edge, ribbon] = { 1: ['#f5c518', '#b8890b', ''], 2: ['#cfd8e3', '#8a9bb0', '#4f7fb8'], 3: ['#e3a06a', '#a8652e', '#4f7fb8'] }[position];
+  badge.classList.add(`rank-${position}`);
+  badge.innerHTML = position === 1
+    ? `<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M4 11.5 9.5 16 16 6l6.5 10 5.5-4.5-2.6 13.5H6.6Z" fill="${metal}" stroke="${edge}" stroke-width="1.6" stroke-linejoin="round"/><rect x="6.6" y="25" width="18.8" height="3.4" rx="1.2" fill="${edge}"/><circle cx="16" cy="5.2" r="1.9" fill="${metal}" stroke="${edge}" stroke-width="1.2"/><text x="16" y="21.6" text-anchor="middle" font-size="9" font-weight="800" fill="#4a3500">1</text></svg>`
+    : `<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M10 1h5l3.5 10h-5ZM17 1h5l-3.5 10h-5Z" fill="${ribbon}"/><circle cx="16" cy="20" r="10" fill="${metal}" stroke="${edge}" stroke-width="1.8"/><text x="16" y="23.6" text-anchor="middle" font-size="10" font-weight="800" fill="#24323f">${position}</text></svg>`;
+  return badge;
+}
 function rankingSection(advisor = false) {
   const section = el('section', 'ranking-section');
   if (advisor) section.classList.add('advisor-ranking');
@@ -883,7 +933,7 @@ function rankingSection(advisor = false) {
     person.append(identity);
     if (advisor) {
       item.classList.toggle('ranking-placeholder', Boolean(row.placeholder));
-      const rank = el('span', 'rank-medal', String(row.position));
+      const rank = rankBadge(row.position, row.placeholder);
       identity.append(el('strong', '', row.full_name), el('span', 'muted', row.placeholder ? 'Posición disponible' : row.advisor_id === user?.id ? 'Tu posición actual' : 'Asesor comercial'));
       const values = el('div', 'ranking-values');
       const count = el('span', 'ranking-sales-value', row.placeholder ? '—' : String(confirmedSales));
@@ -962,43 +1012,19 @@ async function clearCompletedTasks(client) {
   });
   if (result) notice('Tareas completadas de ' + client.name + ' limpiadas. Las métricas se conservaron.');
 }
-async function requestRecommendation(client, control) {
-  const assistant = control.closest('.action-assistant');
-  const resultBox = assistant.querySelector('.assistant-result');
-  control.disabled = true;
-  control.textContent = 'Analizando…';
-  assistant.classList.add('is-thinking');
-  resultBox.setAttribute('aria-busy', 'true');
+// Idea de la IA solo para una tarea, reutilizando la función recommend-client.
+async function askTaskIdea(client, task) {
   const progress = getProgress(client.tasks);
-  try {
-    const result = await db.functions.invoke('recommend-client', {
+  const result = await db.functions.invoke('recommend-client', {
     body: {
-      name: client.name,
-      type: client.type,
-      completed_tasks: progress.completed,
-      total_tasks: progress.total,
-      pending_tasks: progress.total - progress.completed,
-      progress: progress.rounded,
-      tasks: client.tasks.filter(task => !task.completed).map(task => ({ title: task.title, description: task.description })),
+      name: client.name, type: client.type,
+      completed_tasks: progress.completed, total_tasks: progress.total, pending_tasks: progress.total - progress.completed, progress: progress.rounded,
+      tasks: [{ title: task.title, description: task.description }],
     },
-    });
-    if (!control.isConnected || selectedId !== client.id) return;
-    if (result.error || result.data?.error) throw new Error(result.data?.error || result.error.message);
-    if (!result.data?.recommendation?.trim()) throw new Error('No se pudo generar la recomendación. Intenta de nuevo.');
-    aiRecommendation = result.data.recommendation;
-    resultBox.querySelector('.assistant-result-text').textContent = aiRecommendation;
-    resultBox.hidden = false;
-    revealRecommendation(resultBox);
-  } catch (cause) {
-    if (control.isConnected) notice(cause.message || 'No se pudo generar la recomendación.', true);
-  } finally {
-    if (control.isConnected) {
-      assistant.classList.remove('is-thinking');
-      resultBox.setAttribute('aria-busy', 'false');
-      control.disabled = false;
-      control.textContent = 'Sugerir siguiente acción';
-    }
-  }
+  });
+  if (result.error || result.data?.error) throw new Error(result.data?.error || result.error.message);
+  if (!result.data?.recommendation?.trim()) throw new Error('No pude pensar una idea ahora. Intenta de nuevo.');
+  return result.data.recommendation.trim();
 }
 // Resumen, Asesores y Zonas (PRD A1–A5) se cargan aparte para no pesar en la vista del asesor.
 function adminPage(page) {
@@ -1170,6 +1196,7 @@ function advisorMapPage(page) {
   if (!ownClients.length) section.append(el('p', 'empty-state', admin ? 'Aún no hay clientes asignados a ningún asesor.' : 'Aún no tienes clientes asignados. Todos los departamentos están bloqueados.'));
   const zonesSlot = el('div', 'advisor-zone-slot');
   page.append(welcome, section, zonesSlot);
+  playMapEntrance(page);
   // El admin además ve a quién contactar en cada departamento (prospectos de muestra).
   const prospectsRequest = admin ? fetch('/data/prospects.json').then(response => response.ok ? response.json() : null).catch(() => null) : null;
   Promise.all([import('./advisor-map.js'), loadZoneMarket().catch(() => null), prospectsRequest]).then(async ([module, market, prospectData]) => {
@@ -1183,7 +1210,11 @@ function advisorMapPage(page) {
       section.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
       mapControls?.focusZone(zone);
     };
-    if (zones.length) zonesSlot.replaceWith(createZoneList(zones, { sample: market.sample, onSelect: focusFromList }));
+    if (zones.length) {
+      const zoneList = createZoneList(zones, { sample: market.sample, onSelect: focusFromList });
+      zonesSlot.replaceWith(zoneList);
+      revealZoneList(zoneList);
+    }
     mapControls = await module.renderAdvisorClientMap(container, ownClients, (state, message) => {
       if (!container.isConnected) return;
       status.textContent = state === 'ready' ? (admin ? 'Toca un departamento o una ★ para ver el cliente potencial más importante y su contacto.' : 'Toca un departamento o una zona de la lista para enfocarla.') : message;
@@ -1243,7 +1274,15 @@ function advisorProgressPage(page) {
     onSelect: select,
     onClients: () => { advisorView = 'dashboard'; render(); window.scrollTo(0, 0); },
     onReplay: () => celebrate(model.level - 1, model.level),
+    onGuide: () => showProgressGuide({ mascot: skinHappyImage() }),
   });
+  playProgressEntrance(page);
+  // La guía sale sola solo la primera vez; luego queda en «Repetir instrucciones».
+  const guideKey = `ultracem-progress-guide-${user.id}`;
+  if (!readSeenLevel(guideKey) && !document.querySelector('.progress-guide')) {
+    storeSeenLevel(guideKey, 1);
+    showProgressGuide({ mascot: skinHappyImage() });
+  }
   if (progressWorld) {
     view.status.textContent = '';
     progressWorld.attach(view.stage, view.labels, select);
@@ -1269,7 +1308,7 @@ function advisorProgressPage(page) {
     });
 }
 function advisorProfilePage(page) {
-  renderAdvisorProfile(page, profile, { upload: uploadProfilePhoto, remove: removeProfilePhoto, signOut, deleteAccount }, profilePhotoSaving);
+  renderAdvisorProfile(page, profile, { upload: uploadProfilePhoto, remove: removeProfilePhoto, signOut, deleteAccount, theme: { mode: themeMode, set: setThemeMode } }, profilePhotoSaving);
   playProfileEntrance(page, profileKeyboardNavigation);
 }
 // Archivada: la pestaña Historial de clientes ya no aparece en la navegación.
@@ -1359,7 +1398,23 @@ function advisorCommissionsPage(page) {
   overview.append(available, redeemed);
   page.append(welcome, overview, commissionGoals(stats));
   if (!ownSales.length) {
-    page.append(el('p', 'empty-state', 'Aún no tienes ventas confirmadas para mostrar en tu cartera.'));
+    // Cartera vacía: Topitín explica cómo se gana la primera comisión y lleva a los clientes.
+    const empty = el('section', 'commission-empty');
+    const emptyMascot = el('img', 'commission-empty-mascot');
+    emptyMascot.src = skinHappyImage(); emptyMascot.alt = ''; emptyMascot.width = 110; emptyMascot.height = 140;
+    const emptyCopy = el('div', 'commission-empty-copy');
+    const emptySteps = el('ol', 'commission-empty-steps');
+    for (const [icon, text] of [['tasks', 'Completa las 4 tareas de tu cliente'], ['check', 'Confirma la venta'], ['coin', 'Reclama tu comisión aquí']]) {
+      const step = el('li');
+      const stepIcon = el('span', 'commission-empty-step-icon'); stepIcon.innerHTML = advisorIcon(icon);
+      step.append(stepIcon, el('span', '', text));
+      emptySteps.append(step);
+    }
+    const goClients = button('Ir a mis clientes', 'primary commission-empty-cta', () => { advisorView = 'dashboard'; render(); window.scrollTo(0, 0); });
+    emptyCopy.append(el('h2', '', 'Tu primera comisión está cerca'), el('p', 'muted', 'Aún no tienes ventas confirmadas. Así llega dinero a tu cartera:'), emptySteps, goClients);
+    empty.append(emptyMascot, emptyCopy);
+    page.append(empty);
+    playCommissionEntrance(page);
     return;
   }
   const availableList = el('section', 'commission-list');
@@ -1524,7 +1579,7 @@ function advisorPage(page) {
   const list = el('ul', 'customer-list');
   for (const client of currentClients) {
     const item = el('li');
-    const control = button('', `customer-option${client.id === selectedId ? ' selected' : ''}`, () => { selectedId = client.id; aiRecommendation = ''; saleNotice = ''; render(); });
+    const control = button('', `customer-option${client.id === selectedId ? ' selected' : ''}`, () => { selectedId = client.id; saleNotice = ''; render(); });
     control.setAttribute('aria-pressed', String(client.id === selectedId));
     const location = client.city && client.department ? ` · ${client.city}, ${client.department}` : '';
     control.append(el('strong', '', client.name), el('span', 'muted', `${client.type}${location} · ${client.tasks.filter(task => !task.completed).length} pendientes`));
@@ -1544,6 +1599,14 @@ function advisorPage(page) {
     taskIcon.innerHTML = advisorIcon(['clients', 'phone', 'document', 'target'][taskOrder.indexOf(task.title)] || 'tasks');
     item.append(taskIcon);
     content.append(el('h3', '', task.title), el('p', 'task-description', task.description));
+    // Toda la tarjeta abre la guía de Topitín; el botón la deja al alcance del teclado.
+    const openGuide = () => openTopitinGuide({ task, client: activeClient, mascot: skinHappyImage(), onAskAI: db ? () => askTaskIdea(activeClient, task) : null });
+    const guideButton = button('Pregunta a Topitín', 'task-guide-button', openGuide);
+    const guideArrow = el('span', 'task-guide-arrow'); guideArrow.innerHTML = advisorIcon('arrow');
+    guideButton.append(guideArrow);
+    content.append(guideButton);
+    item.classList.add('has-guide');
+    item.addEventListener('click', event => { if (!event.target.closest('button')) openGuide(); });
     if (task.completed) {
       const completed = el('span', 'task-completed', 'Completado');
       const check = el('span', 'task-completed-icon'); check.innerHTML = advisorIcon('check');
@@ -1601,21 +1664,6 @@ function advisorPage(page) {
     doneTasks.append(el('summary', '', 'Ver las 4 tareas completadas'), taskList);
     detail.append(ready, doneTasks);
   } else detail.append(taskList);
-  const assistant = el('div', 'action-assistant');
-  const assistantHeading = el('div', 'assistant-heading');
-  const assistantIcon = el('span', 'assistant-heading-icon'); assistantIcon.innerHTML = advisorIcon('sparkles');
-  const assistantCopy = el('div', 'assistant-heading-copy');
-  assistantCopy.append(el('strong', '', 'Trompín'), el('span', '', 'Tu asistente comercial'));
-  assistantHeading.append(assistantIcon, assistantCopy);
-  const resultBox = el('div', 'assistant-result');
-  resultBox.setAttribute('role', 'status'); resultBox.setAttribute('aria-live', 'polite');
-  resultBox.hidden = !aiRecommendation;
-  const resultHeading = el('div', 'assistant-result-heading');
-  const resultIcon = el('span', 'assistant-result-icon'); resultIcon.innerHTML = advisorIcon('sparkles');
-  resultHeading.append(resultIcon, el('strong', '', 'Tu siguiente paso'));
-  resultBox.append(resultHeading, el('p', 'assistant-result-text', aiRecommendation));
-  assistant.append(assistantHeading, button('Sugerir siguiente acción', 'assistant-button', event => requestRecommendation(activeClient, event.currentTarget)), resultBox);
-  detail.append(assistant);
   panel.append(detail); rightColumn.append(panel);
   }
 
@@ -1793,9 +1841,10 @@ async function refresh(text, resources = ['advisors', 'clients', 'sales', 'ranki
 }
 function render() {
   advisorMapModule?.destroyAdvisorClientMap();
-  if (!profile || profile.role !== 'advisor' || advisorView !== 'progress') destroyProgressWorld();
+  if (!profile || profile.role !== 'advisor' || advisorView !== 'progress') { destroyProgressWorld(); resetProgressEntrance(); }
   clearProfileEntrance(!profile || profile.role !== 'advisor' || advisorView !== 'profile');
   if (!profile || profile.role !== 'advisor' || advisorView !== 'commissions') resetCommissionEntrance();
+  if (!profile || (profile.role === 'admin' ? adminView : advisorView) !== 'map') resetMapEntrance();
   if (!profile || profile.role !== 'advisor' || advisorView !== 'dashboard') resetAdvisorEntrance();
   const storeView = profile?.role !== 'admin' && ['shop', 'rewards'].includes(advisorView) ? advisorView : null;
   if (!profile || !storeView) resetStoreEntrance();

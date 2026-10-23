@@ -34,7 +34,7 @@ test('Progreso está en el menú, carga la escena 3D bajo demanda y la destruye 
   assert.match(main, /progress: 'Progreso'/);
   assert.match(main, /import\('\.\/progress-scene\.js'\)/);
   assert.doesNotMatch(main, /from '\.\/progress-scene\.js'/);
-  assert.match(main, /advisorView !== 'progress'\) destroyProgressWorld\(\)/);
+  assert.match(main, /advisorView !== 'progress'\) \{ destroyProgressWorld\(\); resetProgressEntrance\(\); \}/);
   assert.match(main, /db\.rpc\('get_my_level_progress'\)/);
 });
 
