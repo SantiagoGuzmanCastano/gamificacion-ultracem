@@ -208,3 +208,98 @@
 @media (prefers-reduced-motion: reduce) {
   .shop-page .shop-card-action:active { transform: none; }
 }
+
+/* Light storefront: isolated from dark mode and seasonal cards. */
+:root:not([data-theme="dark"]) .shop-page {
+  --shop-ink: #14233b;
+  --shop-muted: #3f5872;
+  --shop-border: #b4c9dc;
+  color: var(--shop-ink);
+  background: #f5f9fd;
+}
+:root:not([data-theme="dark"]) .shop-page .shop-heading {
+  background: linear-gradient(115deg, #fff 35%, #eaf4fc);
+  border-color: var(--shop-border);
+  color: #063b67;
+  box-shadow: 0 8px 24px rgb(6 59 103 / 6%);
+}
+:root:not([data-theme="dark"]) .shop-page .shop-heading::after {
+  background: linear-gradient(90deg, #ffc928, #e4ad00, transparent);
+}
+:root:not([data-theme="dark"]) .shop-page .shop-heading h1 { color: #063b67; }
+:root:not([data-theme="dark"]) .shop-page .shop-heading h1 + p { color: var(--shop-muted); }
+:root:not([data-theme="dark"]) .shop-page .shop-eyebrow { color: #235f86; }
+:root:not([data-theme="dark"]) .shop-page .shop-eyebrow svg { color: #946600; }
+:root:not([data-theme="dark"]) .shop-page .shop-eyebrow span { border-color: #9cbcd4; }
+:root:not([data-theme="dark"]) .shop-page .shop-xp {
+  background: #fff3c4;
+  border-color: #b58a17;
+  box-shadow: 0 4px 12px rgb(135 96 0 / 8%);
+}
+:root:not([data-theme="dark"]) .shop-page .shop-balance-note { color: #5d4a19; border-color: #d3ae47; }
+:root:not([data-theme="dark"]) .shop-page .shop-tab {
+  background: #fff;
+  border-color: var(--shop-border);
+  color: #063b67;
+  box-shadow: none;
+}
+:root:not([data-theme="dark"]) .shop-page .shop-tab svg { color: #235f86; }
+:root:not([data-theme="dark"]) .shop-page .shop-tab[aria-selected="true"] {
+  background: #063b67;
+  color: #fff;
+  border-color: #063b67;
+  box-shadow: 0 3px 0 #ffc928;
+}
+:root:not([data-theme="dark"]) .shop-page .shop-tab[aria-selected="true"] svg { color: #ffc928; }
+:root:not([data-theme="dark"]) .shop-page .shop-collection-heading p { color: var(--shop-muted); }
+:root:not([data-theme="dark"]) .shop-page .shop-count {
+  background: #fff;
+  color: var(--shop-muted);
+  border-color: var(--shop-border);
+}
+:root:not([data-theme="dark"]) .shop-page .shop-card:not(.shop-card-halloween) {
+  background: #fff;
+  border-color: var(--shop-border);
+  box-shadow: 0 6px 18px rgb(6 59 103 / 9%);
+}
+:root:not([data-theme="dark"]) .shop-page .shop-card:not(.shop-card-halloween) .shop-artwork { background: #eaf4fc; }
+:root:not([data-theme="dark"]) .shop-page .shop-card:not(.shop-card-halloween) .shop-artwork::before { opacity: .22; }
+:root:not([data-theme="dark"]) .shop-page .shop-card:not(.shop-card-halloween) .shop-card-details {
+  background: #fff;
+  border-color: var(--shop-border);
+}
+:root:not([data-theme="dark"]) .shop-page .shop-card:not(.shop-card-halloween) h3 { color: var(--shop-ink); }
+:root:not([data-theme="dark"]) .shop-page .shop-card:not(.shop-card-halloween) .shop-card-action {
+  background: #edf2f6;
+  color: #354f68;
+  border-color: #a7bacb;
+}
+:root:not([data-theme="dark"]) .shop-page .shop-card:not(.shop-card-halloween) .shop-card-action-available {
+  background: #d4edfc;
+  color: #164e78;
+  border-color: #5289b0;
+}
+:root:not([data-theme="dark"]) .shop-page .shop-card:not(.shop-card-halloween) .shop-card-action-ready {
+  background: #063b67;
+  color: #fff;
+  border-color: #063b67;
+}
+:root:not([data-theme="dark"]) .shop-page .shop-card:not(.shop-card-halloween).shop-card-equipped { border-color: #18845c; }
+:root:not([data-theme="dark"]) .shop-page .shop-card:not(.shop-card-halloween) .shop-card-action-equipped {
+  background: #def4e6;
+  color: #165a35;
+  border-color: #39815a;
+}
+:root:not([data-theme="dark"]) .shop-page .shop-note { color: var(--shop-muted); }
+:root:not([data-theme="dark"]) .shop-page .shop-note strong { color: var(--shop-ink); }
+:root:not([data-theme="dark"]) .shop-page .shop-tab:focus-visible,
+:root:not([data-theme="dark"]) .shop-page .shop-panel:focus-visible,
+:root:not([data-theme="dark"]) .shop-page .shop-card:not(.shop-card-halloween) .shop-card-action:focus-visible {
+  outline: 3px solid #0876c9;
+  outline-offset: 4px;
+}
+@media (hover: hover) and (pointer: fine) {
+  :root:not([data-theme="dark"]) .shop-page .shop-card:not(.shop-card-halloween):hover {
+    box-shadow: 0 0 0 2px #bc8b12, 0 6px 18px rgb(255 201 40 / 16%), 0 12px 24px rgb(6 59 103 / 12%);
+  }
+}
