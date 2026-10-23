@@ -24,6 +24,7 @@ import { showLoadingScreen, clearLoadingScreen } from './loading-screen.js';
 import { attachRankingAvatars } from './ranking-avatars.js';
 import { COLOMBIA_DEPARTMENTS, citiesForDepartment, normalizeClientLocation } from './client-location.js';
 import { commissionSummary, getCommissionStatus } from './commission-wallet.js';
+import { getProgressModel, renderProgressPage, showLevelBanner } from './progress-page.js';
 import { celebrateCommissionClaim, celebrateCommissionClaimed, commissionGoals, commissionMilestones, commissionStats, commissionTakeHome, playCommissionEntrance, resetCommissionEntrance } from './commission-gamification.js';
 
 const SUPABASE_TIMEOUT_MS = 15000;
@@ -45,6 +46,8 @@ let user = null, profile = null, advisors = [], clients = [], sales = [], rankin
 let theme = localStorage.getItem('ultracem-theme') || 'light';
 let advisorView = 'dashboard', adminView = 'dashboard';
 let advisorMapModule;
+// The 3D world survives re-renders of the Progreso page; it is destroyed when leaving it.
+let progressWorld = null, progressWorldRequest = 0, progressLevels = [], progressSelected = null;
 let halloweenEnabled = false, halloweenReady = false, halloweenSaving = false, halloweenError = '';
 let halloweenTimer = null, halloweenRequest = 0;
 let noticeTimer = null;
@@ -237,7 +240,7 @@ function advisorProfileCard() {
   arrow.setAttribute('aria-hidden', 'true');
   arrow.innerHTML = advisorIcon('arrow');
   open.append(avatar, copy, arrow);
-  const goal = el('p', 'profile-card-goal', level.target ? `${level.sales}/${level.target} ventas para Nivel ${level.level + 1}` : 'Nivel máximo inicial alcanzado');
+  const goal = el('p', 'profile-card-goal', level.target ? `${level.sales}/${level.target} ventas para Nivel ${level.level + 1}` : 'Nivel máximo alcanzado');
   goal.setAttribute('aria-hidden', 'true');
   card.append(open, goal);
   return card;
@@ -413,6 +416,7 @@ function shell() {
       advisorView = view;
       render();
       if (view === 'shop' || view === 'rewards') refreshHalloween();
+      if (view === 'progress') void refreshProgress();
       window.scrollTo(0, 0);
       const heading = document.querySelector('#page h1');
       if (heading) { heading.tabIndex = -1; heading.focus({ preventScroll: true }); }
@@ -423,8 +427,8 @@ function shell() {
     nav.replaceChildren();
     const mobileNav = el('nav', 'advisor-nav');
     mobileNav.setAttribute('aria-label', 'Portal del asesor');
-    const mobileLabels = { dashboard: 'Inicio', history: 'Clientes', commissions: 'Comisiones', map: 'Mapa', shop: 'Cosméticos', rewards: 'Premios', profile: 'Perfil' };
-    for (const [view, label, icon] of [['dashboard', 'Inicio', 'home'], ['commissions', 'Cartera de comisiones', 'sales'], ['map', 'Mapa clientela', 'map'], ['shop', 'Tienda cosméticos', 'shop'], ['rewards', 'Premios', 'gift'], ['profile', 'Perfil', 'profile']]) {
+    const mobileLabels = { dashboard: 'Inicio', history: 'Clientes', commissions: 'Comisiones', map: 'Mapa', shop: 'Cosméticos', rewards: 'Premios', progress: 'Progreso', profile: 'Perfil' };
+    for (const [view, label, icon] of [['dashboard', 'Inicio', 'home'], ['commissions', 'Cartera de comisiones', 'sales'], ['map', 'Mapa clientela', 'map'], ['shop', 'Tienda cosméticos', 'shop'], ['rewards', 'Premios', 'gift'], ['progress', 'Progreso', 'flag'], ['profile', 'Perfil', 'profile']]) {
       // En escritorio el perfil vive en la tarjeta inferior; en móvil sigue en la barra.
       for (const [container, className] of view === 'profile' ? [[mobileNav, '']] : [[nav, 'sidebar-item'], [mobileNav, '']]) {
         const control = button(container === mobileNav ? mobileLabels[view] : label, className, event => navigate(view, event));
@@ -921,14 +925,24 @@ async function resetAdvisorTasks(advisor, clientCount) {
 }
 async function deleteAdvisorClients(advisor, clientCount) {
   if (!clientCount) return;
-  const confirmed = window.confirm('¿Borrar los ' + clientCount + ' clientes de ' + advisor.full_name + '? También se eliminarán sus tareas y esta acción no se puede deshacer.');
+  const confirmed = window.confirm('¿Borrar los ' + clientCount + ' clientes de ' + advisor.full_name + '? También se eliminarán sus tareas y ventas, y sus puntos y nivel volverán a cero. Esta acción no se puede deshacer.');
   if (!confirmed) return;
   const result = await db.rpc('delete_mvp_advisor_clients', { target_advisor: advisor.user_id });
   if (result.error) {
     notice(result.error.message, true);
     return;
   }
-  await refresh('Clientes de ' + advisor.full_name + ' eliminados.');
+  await refresh('Clientes de ' + advisor.full_name + ' eliminados y puntos reiniciados.');
+}
+async function resetAdvisorProgress(advisor) {
+  const confirmed = window.confirm('¿Reiniciar los puntos de ' + advisor.full_name + '? Su nivel volverá a 1 y sus ventas acumuladas a 0. Los clientes y las comisiones se conservan. Esta acción no se puede deshacer.');
+  if (!confirmed) return;
+  const result = await db.rpc('reset_mvp_advisor_progress', { target_advisor: advisor.user_id });
+  if (result.error) {
+    notice(result.error.message, true);
+    return;
+  }
+  await refresh('Puntos de ' + advisor.full_name + ' reiniciados.');
 }
 async function deleteAdvisor(advisor) {
   const confirmed = window.confirm('¿Borrar la cuenta de ' + advisor.full_name + '? Se eliminarán también sus clientes, tareas y puntos del ranking. Esta acción no se puede deshacer.');
@@ -1014,6 +1028,7 @@ function adminPage(page) {
     actions.append(el('strong', 'pending-count', `${pending} pendientes`));
     if (assigned.length) actions.append(button('Borrar tareas', 'danger-button', () => resetAdvisorTasks(advisor, assigned.length)));
     if (assigned.length) actions.append(button('Borrar clientes', 'danger-button', () => deleteAdvisorClients(advisor, assigned.length)));
+    actions.append(button('Reiniciar puntos', 'danger-button', () => resetAdvisorProgress(advisor)));
     actions.append(button('Borrar asesor', 'danger-button', () => deleteAdvisor(advisor)));
     head.append(copy, actions); section.append(head);
     if (!assigned.length) section.append(el('p', 'empty-inline', 'Aún no tiene clientes.'));
@@ -1104,6 +1119,79 @@ function advisorMapPage(page) {
     status.textContent = `No se pudo cargar el mapa: ${error.message}`;
     status.classList.add('advisor-map-error');
   });
+}
+// Server truth for Progreso: the advisor's level and the level table. Until the migration
+// is applied both calls fail and the page keeps using the profile and src/levels.js.
+async function refreshProgress() {
+  const [own, levels] = await Promise.all([db.rpc('get_my_level_progress').maybeSingle(), db.from('mvp_levels').select('level,name,min_confirmed_sales,reward_amount').order('level')]);
+  if (import.meta.env.DEV && (own.error || levels.error)) console.warn('[progreso] usando niveles locales', own.error?.message || levels.error?.message);
+  let changed = false;
+  if (!levels.error && levels.data?.length) { progressLevels = levels.data; changed = true; }
+  if (!own.error && own.data) {
+    changed ||= profile.level !== own.data.level || profile.progression_sales !== own.data.confirmed_sales;
+    Object.assign(profile, { level: own.data.level, progression_sales: own.data.confirmed_sales });
+  }
+  if (changed && advisorView === 'progress') render();
+}
+function destroyProgressWorld() {
+  progressWorldRequest++;
+  progressWorld?.destroy();
+  progressWorld = null;
+}
+function readSeenLevel(key) {
+  try { return Number(localStorage.getItem(key)) || 0; } catch { return 0; }
+}
+function storeSeenLevel(key, level) {
+  try { localStorage.setItem(key, String(level)); } catch { /* sin almacenamiento: se celebra de nuevo la próxima vez */ }
+}
+function advisorProgressPage(page) {
+  const model = getProgressModel(profile.level, profile.progression_sales, progressLevels);
+  const seenKey = `ultracem-progress-level-${user.id}`;
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let view;
+  const select = level => {
+    progressSelected = level;
+    view.select(level);
+    progressWorld?.focus(level);
+  };
+  const celebrate = async (from, to) => {
+    if (!progressWorld) return;
+    await progressWorld.celebrate(from, to);
+    if (!progressWorld) return;
+    const reached = model.levels[to - 1];
+    showLevelBanner(view.stage.parentElement, reached, reducedMotion);
+    celebrateSale();
+    showTopitinToast({ mascot: skinHappyImage(), title: `¡Subiste al nivel ${to}!`, body: `Desbloqueaste la isla "${reached.name}" y su recompensa de $ ${reached.reward.toLocaleString('es-CO')}.` });
+  };
+  view = renderProgressPage(page, model, {
+    selected: progressSelected ?? model.level,
+    onSelect: select,
+    onClients: () => { advisorView = 'dashboard'; render(); window.scrollTo(0, 0); },
+    onReplay: () => celebrate(model.level - 1, model.level),
+  });
+  if (progressWorld) {
+    view.status.textContent = '';
+    progressWorld.attach(view.stage, view.labels, select);
+    progressWorld.setLevel(model.level);
+    return;
+  }
+  const request = ++progressWorldRequest;
+  import('./progress-scene.js')
+    .then(module => module.createProgressScene(view.stage, { level: model.level, skinImage: skinHappyImage(), labels: view.labels, onSelect: select, reducedMotion }))
+    .then(world => {
+      if (request !== progressWorldRequest) { world.destroy(); return; }
+      progressWorld = world;
+      view.status.textContent = '';
+      // First visit stores the level; later visits celebrate every level gained since then.
+      const seen = readSeenLevel(seenKey) || model.level;
+      storeSeenLevel(seenKey, model.level);
+      if (model.level > seen) void celebrate(seen, model.level);
+    })
+    .catch(error => {
+      if (request !== progressWorldRequest) return;
+      view.status.textContent = `No se pudo cargar el mundo 3D (${error.message}). Tu progreso sigue disponible en el panel.`;
+      view.status.classList.add('is-error');
+    });
 }
 function advisorProfilePage(page) {
   renderAdvisorProfile(page, profile, { upload: uploadProfilePhoto, remove: removeProfilePhoto, signOut, deleteAccount }, profilePhotoSaving);
@@ -1297,7 +1385,7 @@ function advisorPage(page) {
   const heroStats = el('div', 'hero-highlight-stats');
   const levelStat = el('div', 'hero-highlight hero-level-highlight');
   const levelIcon = el('span', 'hero-highlight-icon'); levelIcon.innerHTML = advisorIcon('trophy');
-  levelStat.append(levelIcon, el('span', '', levelProgress.target ? `${levelProgress.sales}/${levelProgress.target} ventas para Nivel ${levelProgress.level + 1}` : 'Nivel máximo inicial'), el('strong', '', `Nivel ${levelProgress.level}`));
+  levelStat.append(levelIcon, el('span', '', levelProgress.target ? `${levelProgress.sales}/${levelProgress.target} ventas para Nivel ${levelProgress.level + 1}` : 'Nivel máximo'), el('strong', '', `Nivel ${levelProgress.level}`));
   const streakStat = el('div', 'hero-highlight');
   const flame = el('span', 'hero-highlight-icon'); flame.innerHTML = advisorIcon('flame');
   streakStat.append(flame, el('span', '', 'Racha actual'), el('strong', '', `${streak} ${streak === 1 ? 'día' : 'días'}`));
@@ -1629,6 +1717,7 @@ async function refresh(text, resources = ['advisors', 'clients', 'sales', 'ranki
 }
 function render() {
   advisorMapModule?.destroyAdvisorClientMap();
+  if (!profile || profile.role !== 'advisor' || advisorView !== 'progress') destroyProgressWorld();
   clearProfileEntrance(!profile || profile.role !== 'advisor' || advisorView !== 'profile');
   if (!profile || profile.role !== 'advisor' || advisorView !== 'commissions') resetCommissionEntrance();
   if (!profile || profile.role !== 'advisor' || advisorView !== 'dashboard') resetAdvisorEntrance();
@@ -1645,6 +1734,7 @@ function render() {
   else if (advisorView === 'history') advisorHistoryPage(page);
   else if (advisorView === 'commissions') advisorCommissionsPage(page);
   else if (advisorView === 'map') advisorMapPage(page);
+  else if (advisorView === 'progress') advisorProgressPage(page);
   else if (advisorView === 'profile') advisorProfilePage(page);
   else {
     advisorPage(page);
