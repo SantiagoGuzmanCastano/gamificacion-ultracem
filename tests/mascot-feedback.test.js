@@ -11,3 +11,7 @@ test('mascot speaks for successful actions, not map navigation', () => {
   }
   assert.equal(getMascotFeedbackMessage('sale'), '¡Venta confirmada! ¡Buen trabajo!');
 });
+
+test('poking Topitín hints at the commission secret in the notifications', () => {
+  assert.match(getMascotFeedbackMessage('secret'), /secreto/);
+});

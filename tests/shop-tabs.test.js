@@ -55,7 +55,7 @@ test('shop tabs expose linked panels and show only the selected collection', () 
     assert.equal(tabs[i].getAttribute('aria-controls'), panels[i].id);
     assert.equal(panels[i].getAttribute('aria-labelledby'), tabs[i].id);
     assert.equal(panels[i].querySelectorAll('.shop-card').length, i === 0 ? 12 : 5);
-    if (i > 0) assert.equal(panels[i].querySelectorAll('button').length, 5);
+    if (i > 0) assert.equal(panels[i].querySelectorAll('.shop-card-action').length, 5);
   }
 }));
 
@@ -75,16 +75,16 @@ test('arrow keys wrap, Home/End select and only the active tab is in the tab ord
 test('Halloween refresh stays inside the outfit panel and existing equip callbacks work', () => setup(page => {
   const equipped = [];
   renderShop(page, 2, false, 'skeleton', skin => equipped.push(skin));
-  page.querySelector('.shop-card-clasico').querySelector('button').click();
+  page.querySelector('.shop-card-clasico').querySelector('.shop-card-action').click();
   assert.deepEqual(equipped, ['classic']);
   const tabs = page.querySelectorAll('[role="tab"]');
   assert.equal(tabs.length, 3);
   tabs[1].click();
-  renderHalloweenCollection(page, true, 'classic', 2, skin => equipped.push(skin));
+  renderHalloweenCollection(page, true, 'classic', 0, skin => equipped.push(skin), 100);
   const panel = page.querySelectorAll('[role="tabpanel"]')[0];
   assert.equal(panel.hidden, true);
   assert.ok(panel.querySelector('#halloween-collection'));
-  page.querySelector('.shop-card-esqueleto').querySelector('button').click();
+  page.querySelector('.shop-card-esqueleto').querySelector('.shop-card-action').click();
   assert.deepEqual(equipped, ['classic', 'skeleton']);
   renderHalloweenCollection(page, false);
   assert.equal(panel.querySelector('#halloween-collection'), null);
@@ -92,19 +92,21 @@ test('Halloween refresh stays inside the outfit panel and existing equip callbac
 
 test('cards expose honest equipped, available, locked and upcoming states', () => setup(page => {
   renderShop(page, 1, true, 'classic');
-  assert.equal(page.querySelector('.shop-card-clasico').querySelector('button').getAttribute('aria-pressed'), 'true');
-  assert.equal(page.querySelector('.shop-card-esqueleto').querySelector('button').getAttribute('disabled'), '');
+  assert.equal(page.querySelector('.shop-card-clasico').querySelector('.shop-card-action').getAttribute('aria-pressed'), 'true');
+  assert.equal(page.querySelector('.shop-card-esqueleto').querySelector('.shop-card-action').getAttribute('disabled'), '');
   assert.equal(page.querySelector('.shop-card-playero').querySelectorAll('.shop-card-state').length, 0);
-  renderShop(page, 2, true, 'classic');
-  assert.equal(page.querySelector('.shop-card-esqueleto').querySelector('button').getAttribute('disabled'), undefined);
+  renderShop(page, 0, true, 'classic', () => {}, 100);
+  assert.equal(page.querySelector('.shop-card-esqueleto').querySelector('.shop-card-action').getAttribute('disabled'), undefined);
 }));
 
-test('shop displays sample point costs and a real point balance without changing legacy equip rules', () => setup(page => {
+test('shop displays sample point costs and a real point balance, and 100 points unlock the skeleton', () => setup(page => {
   renderShop(page, 0, true, 'classic', () => {}, 275);
   assert.match(page.innerHTML, /<h1[^>]*>Tienda de cosméticos<\/h1>/);
   assert.match(page.innerHTML, /275/);
   assert.doesNotMatch(page.innerHTML, /Ventas confirmadas|Próximamente|Precio por definir/);
-  assert.match(page.querySelector('.shop-card-esqueleto').innerHTML, /100 puntos/);
+  assert.match(page.querySelector('.shop-card-esqueleto').innerHTML, /<span class="shop-action-copy">Equipar<\/span>/);
+  renderShop(page, 5, true, 'classic', () => {}, 50);
+  assert.match(page.querySelector('.shop-card-esqueleto').innerHTML, /<span class="shop-action-copy">100 puntos<\/span>/);
   for (const card of page.querySelectorAll('.shop-card')) assert.doesNotMatch(card.innerHTML || '', /ventas|Próximamente/);
 }));
 
@@ -119,7 +121,7 @@ test('conceptual cards share outfit point buttons without enabling purchases', (
     assert.equal(panel.querySelectorAll('.shop-card-preview').length, 0);
     assert.equal(panel.querySelectorAll('.shop-card-frame').length, 5);
     assert.equal(panel.querySelectorAll('.shop-card-action').length, 5);
-    for (const button of panel.querySelectorAll('button')) {
+    for (const button of panel.querySelectorAll('.shop-card-action')) {
       assert.equal(button.getAttribute('disabled'), '');
       assert.equal(button.events.click, undefined);
     }
@@ -139,7 +141,7 @@ test('cards omit redundant labels, descriptions and title emojis while retaining
   assert.equal(page.querySelectorAll('.shop-card-category').length, 0);
   for (const heading of page.querySelectorAll('h3')) assert.equal(heading.querySelectorAll('span').length, 0);
   assert.equal(page.querySelectorAll('.shop-card-description').length, 0);
-  assert.equal(page.querySelector('.shop-card-clasico').querySelector('button').getAttribute('aria-pressed'), 'true');
+  assert.equal(page.querySelector('.shop-card-clasico').querySelector('.shop-card-action').getAttribute('aria-pressed'), 'true');
 }));
 
 test('reference-inspired header and tabs use decorative icons and retain the point balance', () => setup(page => {
@@ -181,7 +183,8 @@ test('cards contain only artwork, name and a single-line action with equipped gr
   renderShop(page, 0, true);
   for (const card of page.querySelectorAll('.shop-card')) {
     assert.equal(card.querySelectorAll('h3').length, 1);
-    assert.equal(card.querySelectorAll('button').length, 1);
+    assert.equal(card.querySelectorAll('.shop-card-action').length, 1);
+    assert.equal(card.querySelectorAll('.shop-try').length, 1);
     assert.equal(card.querySelectorAll('p').length, 0);
     assert.equal(card.querySelectorAll('small').length, 0);
     assert.equal(card.querySelectorAll('.shop-card-state').length, 0);
@@ -228,11 +231,24 @@ test('Halloween refresh receives points but only existing equipment callbacks re
   const calls = [];
   renderShop(page, 2, false, 'classic', skin => calls.push(skin), 100);
   renderHalloweenCollection(page, true, 'classic', 2, skin => calls.push(skin), 100);
-  page.querySelector('.shop-card-esqueleto').querySelector('button').click();
+  page.querySelector('.shop-card-esqueleto').querySelector('.shop-card-action').click();
   assert.deepEqual(calls, ['skeleton']);
   renderHalloweenCollection(page, false);
   renderHalloweenCollection(page, true, 'classic', 0, skin => calls.push(skin), 300);
   assert.match(page.querySelector('.shop-card-zombie').innerHTML, /Disponible · 300 puntos/);
-  page.querySelector('.shop-card-zombie').querySelector('button').click();
+  page.querySelector('.shop-card-zombie').querySelector('.shop-card-action').click();
   assert.deepEqual(calls, ['skeleton']);
+}));
+
+test('try-on buttons only preview items in the stage and start with the equipped outfit', () => setup(page => {
+  renderShop(page, 0, false, 'classic', () => { throw new Error('try-on must not equip'); }, 500);
+  assert.match(page.innerHTML, /<figure class="shop-stage"/);
+  assert.match(page.innerHTML, /<figcaption class="shop-stage-caption" aria-live="polite"><span>Llevas puesto<\/span><strong>Pingüino Clásico<\/strong>/);
+  const tries = page.querySelectorAll('.shop-try');
+  assert.equal(tries.length, 20);
+  for (const control of tries) {
+    assert.equal(control.getAttribute('aria-pressed'), 'false');
+    assert.match(control.getAttribute('aria-label'), /^Probar .+ en el probador$/);
+    assert.match(control.getAttribute('data-stage-art'), /\.webp$/);
+  }
 }));

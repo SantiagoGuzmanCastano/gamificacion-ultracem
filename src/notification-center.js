@@ -126,7 +126,8 @@ export function createNotificationCenter(host, { notifications = [], role, onRea
         row.append(markRead);
       }
       const label = role === 'admin' && item.kind === 'client_request' ? 'Asignar cliente'
-        : role !== 'admin' && item.kind === 'client_assigned' ? 'Ver mis próximas acciones' : null;
+        : role !== 'admin' && item.kind === 'client_assigned' ? 'Ver mis próximas acciones'
+        : item.kind === 'commission_secret' ? 'Ir a mi cartera' : null;
       if (label) {
         const action = control('notification-action', label, async () => {
           action.disabled = true;
