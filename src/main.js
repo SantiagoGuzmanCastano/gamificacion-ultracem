@@ -237,7 +237,7 @@ function advisorProfileCard() {
   arrow.setAttribute('aria-hidden', 'true');
   arrow.innerHTML = advisorIcon('arrow');
   open.append(avatar, copy, arrow);
-  const goal = el('p', 'profile-card-goal', level.target ? `${level.sales}/${level.target} ventas para Nivel ${level.level + 1}` : 'Nivel máximo inicial alcanzado');
+  const goal = el('p', 'profile-card-goal', level.target ? `${level.sales}/${level.target} ventas para Nivel ${level.level + 1}` : 'Nivel máximo alcanzado');
   goal.setAttribute('aria-hidden', 'true');
   card.append(open, goal);
   return card;
@@ -1297,7 +1297,7 @@ function advisorPage(page) {
   const heroStats = el('div', 'hero-highlight-stats');
   const levelStat = el('div', 'hero-highlight hero-level-highlight');
   const levelIcon = el('span', 'hero-highlight-icon'); levelIcon.innerHTML = advisorIcon('trophy');
-  levelStat.append(levelIcon, el('span', '', levelProgress.target ? `${levelProgress.sales}/${levelProgress.target} ventas para Nivel ${levelProgress.level + 1}` : 'Nivel máximo inicial'), el('strong', '', `Nivel ${levelProgress.level}`));
+  levelStat.append(levelIcon, el('span', '', levelProgress.target ? `${levelProgress.sales}/${levelProgress.target} ventas para Nivel ${levelProgress.level + 1}` : 'Nivel máximo'), el('strong', '', `Nivel ${levelProgress.level}`));
   const streakStat = el('div', 'hero-highlight');
   const flame = el('span', 'hero-highlight-icon'); flame.innerHTML = advisorIcon('flame');
   streakStat.append(flame, el('span', '', 'Racha actual'), el('strong', '', `${streak} ${streak === 1 ? 'día' : 'días'}`));

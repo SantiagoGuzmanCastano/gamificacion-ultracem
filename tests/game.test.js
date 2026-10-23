@@ -39,8 +39,11 @@ test('cada tarea completada aporta diez XP', () => {
 
 test('el progreso de nivel usa ventas confirmadas', () => {
   assert.deepEqual(getLevelProgress(1, 0), { level: 1, sales: 0, target: 1, percentage: 0 });
-  assert.deepEqual(getLevelProgress(2, 1), { level: 2, sales: 1, target: 5, percentage: 20 });
-  assert.deepEqual(getLevelProgress(3, 5), { level: 3, sales: 5, target: null, percentage: 100 });
+  assert.deepEqual(getLevelProgress(2, 2), { level: 2, sales: 2, target: 3, percentage: 50 });
+  assert.deepEqual(getLevelProgress(4, 6), { level: 4, sales: 6, target: 8, percentage: 33 });
+  assert.deepEqual(getLevelProgress(7, 20), { level: 7, sales: 20, target: null, percentage: 100 });
+  // A profile still stored with the old three-level cap follows its confirmed sales.
+  assert.equal(getLevelProgress(3, 5).level, 4);
 });
 
 test('confirma la animación solo cuando la base guardó la tarea', () => {
