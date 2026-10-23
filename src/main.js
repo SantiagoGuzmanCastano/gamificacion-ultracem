@@ -12,6 +12,7 @@ import { getMascotStateForCurrentClient, getProgress, getXp, getLevelProgress, i
 import { mascotImages, mascotLabels } from './mascot.js';
 import { getMonthlyTons, getSalesStreak, getWeeklySales, getRankingSlots, getPortfolioProgress, getMonthlyGoal, getClientSaleState, getClientHistoryStatus, isCurrentClient, getTodaySales, getRankingGap } from './advisor-metrics.js';
 import { advisorIcon } from './advisor-icons.js';
+import { createZoneList, getZoneOpportunities, loadZoneMarket } from './zone-opportunity.js';
 import { clearMascotFeedback, showMascotFeedback, showMascotLine } from './mascot-feedback.js';
 import { clearAdvisorEntrance, playAdvisorEntrance, resetAdvisorEntrance } from './advisor-entrance.js';
 import { animateSidebar, resetSidebarMotion } from './advisor-sidebar.js';
@@ -1086,19 +1087,28 @@ function advisorMapPage(page) {
   status.setAttribute('role', 'status');
   const container = el('div', 'advisor-map-canvas');
   container.setAttribute('aria-label', 'Mapa de departamentos de Colombia y ciudades con clientes');
-  const legend = el('div', 'advisor-map-legend');
-  legend.append(el('span', 'advisor-map-legend-locked', 'Bloqueado'), el('span', 'advisor-map-legend-active', 'Con clientes'));
-  section.append(status, container, legend);
+  // Las leyendas, la brújula y la zona objetivo van encima del mapa (advisor-map.js).
+  section.append(status, container);
   if (!ownClients.length) section.append(el('p', 'empty-state', 'Aún no tienes clientes asignados. Todos los departamentos están bloqueados.'));
-  page.append(welcome, section);
-  import('./advisor-map.js').then(async module => {
+  const zonesSlot = el('div', 'advisor-zone-slot');
+  page.append(welcome, section, zonesSlot);
+  Promise.all([import('./advisor-map.js'), loadZoneMarket().catch(() => null)]).then(async ([module, market]) => {
     if (!container.isConnected) return;
     advisorMapModule = module;
-    await module.renderAdvisorClientMap(container, ownClients, (state, message) => {
+    // PRD · oportunidad por zona: el asesor ve solo las zonas donde tiene clientes.
+    const zones = market ? getZoneOpportunities(market, ownClients, sales, { onlyWithClients: true }) : [];
+    // Al elegir una zona de la lista, el mapa sube a la vista y la enfoca.
+    let mapControls = null;
+    const focusFromList = zone => {
+      section.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+      mapControls?.focusZone(zone);
+    };
+    if (zones.length) zonesSlot.replaceWith(createZoneList(zones, { sample: market.sample, onSelect: focusFromList }));
+    mapControls = await module.renderAdvisorClientMap(container, ownClients, (state, message) => {
       if (!container.isConnected) return;
-      status.textContent = state === 'ready' ? 'Selecciona un departamento o una ciudad para ver tus clientes.' : message;
+      status.textContent = state === 'ready' ? 'Toca un departamento o una zona de la lista para enfocarla.' : message;
       status.classList.toggle('advisor-map-error', state === 'error');
-    });
+    }, sales, { zones });
   }).catch(error => {
     if (!container.isConnected) return;
     status.textContent = `No se pudo cargar el mapa: ${error.message}`;
