@@ -244,23 +244,9 @@
 .advisor-shell .confirm-sale-button { min-height: 34px; padding: 8px 12px; border: 1px solid #ffdf5f; border-radius: 999px; background: #ffd124; color: #00263b; font-size: .75rem; font-weight: 800; white-space: nowrap; box-shadow: none; }
 .advisor-shell .client-complete-note { margin: 12px 0 0; padding: 11px 12px; border-radius: 9px; background: #d3f5e8; color: #075f46; font-size: .77rem; line-height: 1.5; }
 .sale-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
-.advisor-shell .sale-actions .secondary, .advisor-shell .assistant-button { padding: 8px 11px; border: 1px solid var(--dashboard-blue); border-radius: 8px; background: transparent; color: var(--dashboard-blue); font-size: .74rem; font-weight: 650; }
-.action-assistant { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--dashboard-line); color: var(--dashboard-ink); font-size: .75rem; }
-.action-assistant p { flex-basis: 100%; line-height: 1.6; }
-.assistant-heading { display: flex; align-items: center; gap: 9px; }
-.assistant-heading-icon { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 10px; background: color-mix(in srgb, var(--dashboard-blue) 10%, var(--dashboard-inset)); color: var(--dashboard-blue); }
-.assistant-heading-icon svg { width: 19px; height: 19px; }
-.assistant-heading-copy { display: grid; gap: 3px; }
-.assistant-heading-copy strong { font-size: .87rem; }
-.assistant-heading-copy > span { font-size: .7rem; color: var(--dashboard-muted); }
-.assistant-result { flex-basis: 100%; width: 100%; padding: 16px 18px; border: 1px solid color-mix(in srgb, var(--dashboard-blue) 28%, var(--dashboard-line)); border-radius: 13px; background: linear-gradient(120deg, color-mix(in srgb, var(--dashboard-blue) 7%, var(--dashboard-inset)), var(--dashboard-inset)); transform-origin: top center; }
-.assistant-result-heading { display: flex; align-items: center; gap: 7px; margin-bottom: 10px; color: var(--dashboard-blue); font-size: .76rem; }
-.assistant-result-icon { display: inline-flex; width: 18px; height: 18px; }
-.assistant-result-text { font-size: .86rem; line-height: 1.75 !important; white-space: pre-wrap; overflow-wrap: anywhere; }
-.is-thinking .assistant-heading-icon { box-shadow: 0 0 0 4px color-mix(in srgb, var(--dashboard-blue) 8%, transparent); }
+.advisor-shell .sale-actions .secondary { padding: 8px 11px; border: 1px solid var(--dashboard-blue); border-radius: 8px; background: transparent; color: var(--dashboard-blue); font-size: .74rem; font-weight: 650; }
 .advisor-confetti { position: fixed; z-index: 10000; inset: 0; pointer-events: none; overflow: hidden; perspective: 700px; }
 .advisor-confetti-piece { position: absolute; top: 0; left: 0; width: 7px; height: 10px; pointer-events: none; }
-.assistant-button { margin-left: auto; }
 .monthly-goal-body { display: grid; grid-template-columns: 116px minmax(0, 1fr); gap: 22px; align-items: center; margin-top: 18px; }
 .monthly-goal-ring, .portfolio-ring { width: 116px; }
 .monthly-goal-ring .ring-copy strong, .portfolio-ring .ring-copy strong { font-size: 1.5rem; }
@@ -306,7 +292,7 @@
   .advisor-hero .advisor-progress-ring:hover .ring-fill { filter: drop-shadow(0 0 9px #04cceb90); }
   .advisor-hero .hero-cta:hover { background-color: #ffe16b; border-color: #fff1b3; box-shadow: 0 0 0 4px #ffd12412, 0 8px 24px #ffd12433; }
   .advisor-shell :where(button:not(:disabled), a):hover { box-shadow: 0 4px 12px #00142514; }
-  .advisor-shell .customer-option:hover, .advisor-shell .assistant-button:hover, .advisor-shell .sale-actions .secondary:hover { background: color-mix(in srgb, var(--dashboard-blue) 9%, var(--dashboard-panel)); border-color: var(--dashboard-blue); }
+  .advisor-shell .customer-option:hover, .advisor-shell .sale-actions .secondary:hover { background: color-mix(in srgb, var(--dashboard-blue) 9%, var(--dashboard-panel)); border-color: var(--dashboard-blue); }
   .advisor-shell .sidebar-item:hover { box-shadow: 0 0 18px #04cce91a; }
   .advisor-shell .topbar .text-button:hover { text-decoration-color: var(--dashboard-blue); }
   .advisor-shell .advisor-overview .advisor-dashboard-column > section:hover { border-color: color-mix(in srgb, var(--dashboard-blue) 42%, var(--dashboard-line)); box-shadow: 0 10px 28px #00142514, 0 0 0 1px color-mix(in srgb, var(--dashboard-blue) 7%, transparent); }
@@ -442,7 +428,6 @@
   .monthly-goal-ring, .portfolio-ring { width: 90px; }
   .tonnage-value strong { font-size: 1.6rem; }
   .portfolio-body { gap: 14px; }
-  .assistant-button { margin-left: 0; }
   .weekly-chart { gap: 8px; }
 }
 @media (prefers-reduced-motion: reduce) {

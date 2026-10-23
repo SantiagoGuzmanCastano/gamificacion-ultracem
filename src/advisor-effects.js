@@ -2,15 +2,12 @@ import { gsap } from 'gsap';
 
 let confettiTimeline = null;
 let confettiLayer = null;
-let recommendationAnimation = null;
 
 export function clearAdvisorEffects() {
   confettiTimeline?.kill();
   confettiTimeline = null;
   confettiLayer?.remove();
   confettiLayer = null;
-  recommendationAnimation?.revert();
-  recommendationAnimation = null;
 }
 
 // Colores de Ultracem: amarillo, azules de la marca y blanco.
@@ -127,17 +124,6 @@ export function flipMetric(node, update) {
     // Nunca llega a 90°: de canto exacto la proyección se dispara y destella por toda la pantalla.
     .to(node, { rotationX: 75, scale: .97, opacity: .35, transformOrigin: '50% 50%', duration: .24, ease: 'sine.in', onComplete: update })
     .fromTo(node, { rotationX: -75, scale: .97, opacity: .35 }, { rotationX: 0, scale: 1, opacity: 1, duration: .5, ease: 'power3.out', clearProps: 'transform,opacity' });
-}
-
-export function revealRecommendation(result) {
-  recommendationAnimation?.revert();
-  recommendationAnimation = null;
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  recommendationAnimation = gsap.context(() => {
-    gsap.fromTo(result, { opacity: 0, y: 8, scale: .99 }, { opacity: 1, y: 0, scale: 1, duration: .28, ease: 'power3.out' });
-    gsap.fromTo(result.querySelector('.assistant-result-text'), { opacity: 0, y: 4 }, { opacity: 1, y: 0, delay: .08, duration: .28, ease: 'power3.out' });
-    gsap.fromTo(result.querySelector('.assistant-result-icon'), { scale: .9, rotation: -12 }, { scale: 1, rotation: 0, duration: .4, ease: 'back.out(1.3)' });
-  }, result);
 }
 
 // La gráfica semanal cambia entre ventas y toneladas: las barras crecen o bajan a su

@@ -22,7 +22,7 @@ import { animateSidebar, resetSidebarMotion } from './advisor-sidebar.js';
 import { bindAdvisorHover } from './advisor-hover.js';
 import { clearTopitinToast, showTopitinToast } from './topitin-toast.js';
 import { openTopitinGuide } from './topitin-guide.js';
-import { clearAdvisorEffects, celebrateTask, celebrateSale, flipMetric, morphWeeklyChart, revealRecommendation, ringNotificationBell } from './advisor-effects.js';
+import { clearAdvisorEffects, celebrateTask, celebrateSale, flipMetric, morphWeeklyChart, ringNotificationBell } from './advisor-effects.js';
 import { isValidProfileImage, profileImageExtension } from './profile.js';
 import { createProfileAvatar, createProfilePhotoPicker, renderAdvisorProfile, playProfileEntrance, clearProfileEntrance } from './profile-view.js';
 import { showLoadingScreen, clearLoadingScreen } from './loading-screen.js';
@@ -48,7 +48,7 @@ function supabaseFetch(input, init = {}) {
 const db = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
   ? createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY, { global: { fetch: supabaseFetch } }) : null;
 const root = document.querySelector('#app');
-let user = null, profile = null, advisors = [], clients = [], sales = [], ranking = [], notifications = [], goals = [], selectedId = null, aiRecommendation = '', saleNotice = '';
+let user = null, profile = null, advisors = [], clients = [], sales = [], ranking = [], notifications = [], goals = [], selectedId = null, saleNotice = '';
 let advisorView = 'dashboard', adminView = 'dashboard';
 let advisorMapModule;
 // The 3D world survives re-renders of the Progreso page; it is destroyed when leaving it.
@@ -116,7 +116,7 @@ async function signOut() {
   stopHalloweenSync();
   window.clearInterval(profilePhotoUrlTimer);
   profilePhotoUrlTimer = null;
-  user = profile = null; advisors = clients = sales = ranking = notifications = goals = []; aiRecommendation = ''; saleNotice = ''; advisorView = 'dashboard'; adminView = 'dashboard';
+  user = profile = null; advisors = clients = sales = ranking = notifications = goals = []; saleNotice = ''; advisorView = 'dashboard'; adminView = 'dashboard';
   render();
 }
 function scheduleProfilePhotoUrlRefresh() {
@@ -208,7 +208,7 @@ async function deleteAccount() {
   if (!window.confirm('Confirma nuevamente: borrar todo definitivamente.')) return;
   const result = await db.rpc('delete_mvp_own_account');
   if (result.error) { notice('No se pudo borrar la cuenta. Intenta de nuevo.', true); return; }
-  user = profile = null; advisors = clients = sales = ranking = []; aiRecommendation = ''; saleNotice = '';
+  user = profile = null; advisors = clients = sales = ranking = []; saleNotice = '';
   render();
 }
 function openProfilePanel(prompt = false) {
@@ -1026,44 +1026,6 @@ async function askTaskIdea(client, task) {
   if (!result.data?.recommendation?.trim()) throw new Error('No pude pensar una idea ahora. Intenta de nuevo.');
   return result.data.recommendation.trim();
 }
-async function requestRecommendation(client, control) {
-  const assistant = control.closest('.action-assistant');
-  const resultBox = assistant.querySelector('.assistant-result');
-  control.disabled = true;
-  control.textContent = 'Analizando…';
-  assistant.classList.add('is-thinking');
-  resultBox.setAttribute('aria-busy', 'true');
-  const progress = getProgress(client.tasks);
-  try {
-    const result = await db.functions.invoke('recommend-client', {
-    body: {
-      name: client.name,
-      type: client.type,
-      completed_tasks: progress.completed,
-      total_tasks: progress.total,
-      pending_tasks: progress.total - progress.completed,
-      progress: progress.rounded,
-      tasks: client.tasks.filter(task => !task.completed).map(task => ({ title: task.title, description: task.description })),
-    },
-    });
-    if (!control.isConnected || selectedId !== client.id) return;
-    if (result.error || result.data?.error) throw new Error(result.data?.error || result.error.message);
-    if (!result.data?.recommendation?.trim()) throw new Error('No se pudo generar la recomendación. Intenta de nuevo.');
-    aiRecommendation = result.data.recommendation;
-    resultBox.querySelector('.assistant-result-text').textContent = aiRecommendation;
-    resultBox.hidden = false;
-    revealRecommendation(resultBox);
-  } catch (cause) {
-    if (control.isConnected) notice(cause.message || 'No se pudo generar la recomendación.', true);
-  } finally {
-    if (control.isConnected) {
-      assistant.classList.remove('is-thinking');
-      resultBox.setAttribute('aria-busy', 'false');
-      control.disabled = false;
-      control.textContent = 'Sugerir siguiente acción';
-    }
-  }
-}
 // Resumen, Asesores y Zonas (PRD A1–A5) se cargan aparte para no pesar en la vista del asesor.
 function adminPage(page) {
   page.className = 'admin-page';
@@ -1616,7 +1578,7 @@ function advisorPage(page) {
   const list = el('ul', 'customer-list');
   for (const client of currentClients) {
     const item = el('li');
-    const control = button('', `customer-option${client.id === selectedId ? ' selected' : ''}`, () => { selectedId = client.id; aiRecommendation = ''; saleNotice = ''; render(); });
+    const control = button('', `customer-option${client.id === selectedId ? ' selected' : ''}`, () => { selectedId = client.id; saleNotice = ''; render(); });
     control.setAttribute('aria-pressed', String(client.id === selectedId));
     const location = client.city && client.department ? ` · ${client.city}, ${client.department}` : '';
     control.append(el('strong', '', client.name), el('span', 'muted', `${client.type}${location} · ${client.tasks.filter(task => !task.completed).length} pendientes`));
@@ -1701,21 +1663,6 @@ function advisorPage(page) {
     doneTasks.append(el('summary', '', 'Ver las 4 tareas completadas'), taskList);
     detail.append(ready, doneTasks);
   } else detail.append(taskList);
-  const assistant = el('div', 'action-assistant');
-  const assistantHeading = el('div', 'assistant-heading');
-  const assistantIcon = el('span', 'assistant-heading-icon'); assistantIcon.innerHTML = advisorIcon('sparkles');
-  const assistantCopy = el('div', 'assistant-heading-copy');
-  assistantCopy.append(el('strong', '', 'Trompín'), el('span', '', 'Tu asistente comercial'));
-  assistantHeading.append(assistantIcon, assistantCopy);
-  const resultBox = el('div', 'assistant-result');
-  resultBox.setAttribute('role', 'status'); resultBox.setAttribute('aria-live', 'polite');
-  resultBox.hidden = !aiRecommendation;
-  const resultHeading = el('div', 'assistant-result-heading');
-  const resultIcon = el('span', 'assistant-result-icon'); resultIcon.innerHTML = advisorIcon('sparkles');
-  resultHeading.append(resultIcon, el('strong', '', 'Tu siguiente paso'));
-  resultBox.append(resultHeading, el('p', 'assistant-result-text', aiRecommendation));
-  assistant.append(assistantHeading, button('Sugerir siguiente acción', 'assistant-button', event => requestRecommendation(activeClient, event.currentTarget)), resultBox);
-  detail.append(assistant);
   panel.append(detail); rightColumn.append(panel);
   }
 
