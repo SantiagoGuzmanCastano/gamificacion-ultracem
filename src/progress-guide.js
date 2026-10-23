@@ -20,7 +20,7 @@ function icon(name, className) {
   return node;
 }
 
-const steps = [
+const progressSteps = [
   {
     title: 'Tu planta crece con cada venta',
     say: 'Cada venta confirmada suma a tu barra. ¡Prueba: toca «Sumar venta»!',
@@ -106,7 +106,116 @@ const steps = [
   },
 ];
 
+// Inicio: cómo se lee el panel y cómo se llega a una venta, con mini demos para tocar.
+const dashboardSteps = [
+  {
+    title: 'Tus números de hoy',
+    say: 'Arriba ves tus clientes, toneladas, ventas y tu puesto. ¡Toca uno!',
+    demo: (react, say) => {
+      const box = make('div', 'pg-demo pg-demo-islands');
+      for (const [name, text, message] of [
+        ['clients', 'Clientes', 'Tus clientes actuales con tareas pendientes.'],
+        ['truck', 'Toneladas', 'Las toneladas de cemento que ya vendiste.'],
+        ['trophy', 'Puesto', 'Tu lugar en el ranking de asesores.'],
+      ]) {
+        const chip = make('button', 'pg-island is-current');
+        chip.type = 'button';
+        chip.append(icon(name, 'pg-island-icon'), make('span', '', text));
+        chip.addEventListener('click', () => {
+          for (const other of box.querySelectorAll('.pg-island')) other.classList.toggle('is-picked', other === chip);
+          say(`${message} Toca la tarjeta en el Inicio para ver el dato de hoy.`);
+          react('hop');
+          if (!reducedMotion()) gsap.fromTo(chip, { rotationY: 0 }, { rotationY: 360, duration: .6, ease: 'power2.out' });
+        });
+        box.append(chip);
+      }
+      return box;
+    },
+  },
+  {
+    title: 'Completa las 4 tareas',
+    say: 'Cada cliente trae 4 tareas. Márcalas para ver cómo avanza.',
+    done: '¡Todo listo! Si dudas en una tarea, toca «Pregunta a Topitín».',
+    demo: (react) => {
+      const box = make('div', 'pg-demo pg-demo-tasks');
+      const list = make('div', 'pg-task-list');
+      let done = 0;
+      for (const title of ['Preparar una visita', 'Contactar al cliente', 'Revisar una cotización', 'Planear el siguiente paso']) {
+        const task = make('button', 'pg-task');
+        task.type = 'button';
+        task.append(icon('check', 'pg-task-check'), make('span', '', title));
+        task.addEventListener('click', () => {
+          if (task.classList.contains('is-done')) return;
+          task.classList.add('is-done');
+          task.setAttribute('aria-pressed', 'true');
+          done += 1;
+          if (!reducedMotion()) gsap.fromTo(task.querySelector('.pg-task-check'), { scale: 0, rotation: -90 }, { scale: 1, rotation: 0, duration: .45, ease: 'back.out(2.4)' });
+          react(done === 4 ? 'done' : 'hop');
+        });
+        task.setAttribute('aria-pressed', 'false');
+        list.append(task);
+      }
+      box.append(list);
+      return box;
+    },
+  },
+  {
+    title: 'Confirma la venta',
+    say: 'Con las 4 tareas hechas aparece «Confirmar venta». ¡Pruébalo!',
+    done: '+100 puntos, tu comisión llega a la cartera y subes en el ranking.',
+    demo: (react) => {
+      const box = make('div', 'pg-demo pg-demo-chest');
+      const confirm = make('button', 'pg-demo-button', 'Confirmar venta');
+      confirm.type = 'button';
+      confirm.prepend(icon('check', 'pg-demo-button-icon'));
+      const prize = make('strong', 'pg-chest-prize', '+100 puntos');
+      confirm.addEventListener('click', () => {
+        confirm.disabled = true;
+        box.classList.add('is-open');
+        react('done');
+        if (reducedMotion()) return;
+        gsap.fromTo(prize, { opacity: 0, y: 10, scale: .7 }, { opacity: 1, y: 0, scale: 1, duration: .45, ease: 'back.out(2.4)' });
+        for (let index = 0; index < 8; index++) {
+          const coin = make('span', 'pg-coin');
+          coin.setAttribute('aria-hidden', 'true');
+          box.append(coin);
+          const angle = (index / 8) * Math.PI * 2;
+          gsap.fromTo(coin, { x: 0, y: 0, scale: .4, opacity: 1 }, { x: Math.cos(angle) * 80, y: Math.sin(angle) * 40 - 20, scale: 1, opacity: 0, duration: .9, ease: 'power2.out', onComplete: () => coin.remove() });
+        }
+      });
+      box.append(confirm, prize);
+      return box;
+    },
+  },
+  {
+    title: 'Ranking y meta del mes',
+    say: 'Más abajo compites en el ranking y llenas tu meta de toneladas del mes.',
+    demo: (react, say) => {
+      const box = make('div', 'pg-demo pg-demo-podium');
+      for (const [place, height, message] of [[2, 52, 'Plata: ¡muy cerca de la cima!'], [1, 74, '¡La corona es para quien más vende!'], [3, 38, 'Bronce: cada venta te sube un escalón.']]) {
+        const step = make('button', `pg-podium-step is-${place}`);
+        step.type = 'button';
+        step.style.height = `${height}px`;
+        step.append(make('span', '', String(place)));
+        step.setAttribute('aria-label', `Puesto ${place}`);
+        step.addEventListener('click', () => { say(message); react(place === 1 ? 'done' : 'hop'); });
+        box.append(step);
+      }
+      if (!reducedMotion()) gsap.from(box.children, { scaleY: 0, transformOrigin: '50% 100%', duration: .6, stagger: .1, ease: 'back.out(1.6)', delay: .2 });
+      return box;
+    },
+  },
+];
+
 export function showProgressGuide({ mascot }) {
+  return openGuide(progressSteps, { mascot });
+}
+
+export function showDashboardGuide({ mascot }) {
+  return openGuide(dashboardSteps, { mascot });
+}
+
+function openGuide(steps, { mascot }) {
   document.querySelector('.progress-guide')?.remove();
   const dialog = make('dialog', 'progress-guide');
   dialog.setAttribute('aria-labelledby', 'progress-guide-title');

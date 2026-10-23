@@ -62,3 +62,10 @@ test('only the next level label shows the missing sales, and Progreso has a GSAP
   assert.match(page, /export function playProgressEntrance\(page\)/);
   assert.match(main, /playProgressEntrance\(page\);/);
 });
+
+test('Inicio has a Topitín guide button under the welcome title', () => {
+  assert.match(main, /'¿Cómo funciona esta pantalla\?', 'advisor-guide-button', \(\) => showDashboardGuide/);
+  const guide = readFileSync(new URL('../src/progress-guide.js', import.meta.url), 'utf8');
+  assert.match(guide, /export function showDashboardGuide\(\{ mascot \}\)/);
+  for (const title of ['Tus números de hoy', 'Completa las 4 tareas', 'Confirma la venta', 'Ranking y meta del mes']) assert.ok(guide.includes(`'${title}'`));
+});
