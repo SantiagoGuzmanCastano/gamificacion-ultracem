@@ -1,9 +1,11 @@
 .topitin-guide {
-  --guide-bg: #fff; --guide-ink: #102f49; --guide-muted: #46637b; --guide-line: #ccdfec; --guide-soft: #eef8ff; --guide-accent: #00688d; --guide-stage: linear-gradient(160deg, #e3f6fd, #fff6d6);
+  --guide-bg: #fff; --guide-ink: #102f49; --guide-muted: #46637b; --guide-line: #ccdfec; --guide-soft: #eef8ff; --guide-accent: #00688d; --guide-stage: linear-gradient(160deg, #e3f4fc, #d4e9f8);
+  --guide-strong: #0a5f9e; --guide-strong-ink: #fff; --guide-tip: #e4f0fa;
   position: fixed; width: min(calc(100vw - 24px), 440px); max-height: calc(100dvh - 24px); overflow-y: auto; padding: 22px 22px 18px;
-  border: 1px solid var(--guide-line); border-radius: 24px; background: var(--guide-bg); color: var(--guide-ink); box-shadow: 0 24px 60px rgb(0 20 37 / 32%);
+  border: 1px solid #b4cde0; border-radius: 24px; background: var(--guide-bg); color: var(--guide-ink); box-shadow: 0 24px 60px rgb(0 20 37 / 32%);
 }
-:root[data-theme="dark"] .topitin-guide { --guide-bg: #00263b; --guide-ink: #edf6ff; --guide-muted: #b5cce1; --guide-line: #285772; --guide-soft: #04354b; --guide-accent: #67dcf0; --guide-stage: linear-gradient(160deg, #053a52, #2a2a12); }
+:root[data-theme="dark"] .topitin-guide { border-color: #285772; }
+:root[data-theme="dark"] .topitin-guide { --guide-bg: #00263b; --guide-ink: #edf6ff; --guide-muted: #b5cce1; --guide-line: #285772; --guide-soft: #04354b; --guide-accent: #67dcf0; --guide-stage: linear-gradient(160deg, #053a52, #2a2a12); --guide-strong: #ffd124; --guide-strong-ink: #00243b; --guide-tip: color-mix(in srgb, #ffd124 18%, #00263b); }
 .topitin-guide::backdrop { background: rgb(0 14 26 / 62%); }
 .topitin-guide-close { position: absolute; top: 12px; right: 12px; display: grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 0; border-radius: 10px; background: transparent; color: var(--guide-muted); font-size: 1.5rem; line-height: 1; cursor: pointer; }
 .topitin-guide-head { padding-right: 34px; }
@@ -31,8 +33,8 @@
 .topitin-guide-body { display: grid; gap: 12px; margin-top: 16px; }
 .topitin-guide-steps { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .topitin-guide-steps li { display: grid; grid-template-columns: 26px minmax(0, 1fr); align-items: start; gap: 10px; padding: 10px 12px; border: 1px solid var(--guide-line); border-radius: 14px; background: var(--guide-soft); font-size: .86rem; line-height: 1.45; }
-.topitin-guide-step-number { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: #ffd124; color: #00243b; font-size: .78rem; font-weight: 850; }
-.topitin-guide-tip { margin: 0; padding: 10px 12px; border-radius: 14px; background: color-mix(in srgb, #ffd124 18%, var(--guide-bg)); color: var(--guide-ink); font-size: .84rem; line-height: 1.45; }
+.topitin-guide-step-number { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--guide-strong); color: var(--guide-strong-ink); font-size: .78rem; font-weight: 850; }
+.topitin-guide-tip { margin: 0; padding: 10px 12px; border-radius: 14px; background: var(--guide-tip); color: var(--guide-ink); font-size: .84rem; line-height: 1.45; }
 .topitin-guide-extra:empty { display: none; }
 .topitin-guide-extra { padding: 12px 14px; border: 1px dashed var(--guide-accent); border-radius: 14px; }
 .topitin-guide-idea, .topitin-guide-error { margin: 0; font-size: .86rem; line-height: 1.45; }
@@ -44,7 +46,7 @@
 .topitin-guide-actions button { flex: 1; min-height: 44px; border-radius: 999px; font-size: .88rem; font-weight: 800; cursor: pointer; }
 .topitin-guide-ask { border: 1px solid var(--guide-line); background: transparent; color: var(--guide-ink); }
 .topitin-guide-ask:disabled { cursor: wait; opacity: .7; }
-.topitin-guide-done { border: 0; background: #ffd124; color: #00243b; }
+.topitin-guide-done { border: 0; background: var(--guide-strong); color: var(--guide-strong-ink); }
 .topitin-guide button:focus-visible { outline: 3px solid var(--guide-accent); outline-offset: 2px; }
 
 @media (prefers-reduced-motion: no-preference) {
