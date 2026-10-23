@@ -129,7 +129,7 @@ test('reduced motion and keyboard navigation leave the profile immediately visib
 
 test('ranking shows advisor photos in both views without changing position or metrics', () => {
   const source = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
-  const fn = source.slice(source.indexOf('function rankingSection('), source.indexOf('function intro('));
+  const fn = source.slice(source.indexOf('// Podio del ranking'), source.indexOf('function intro('));
   const { createProfileAvatar } = setup();
   const rankingSection = runInNewContext(`${fn}; rankingSection;`, {
     ranking: [{ advisor_id: 'a', full_name: 'Ana', position: 1, confirmed_sales: 2, confirmed_tons: 70, avatar_url: '/ana.png' }],

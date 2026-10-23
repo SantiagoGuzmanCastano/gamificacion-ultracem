@@ -258,9 +258,7 @@ function advisorProfileCard() {
   arrow.setAttribute('aria-hidden', 'true');
   arrow.innerHTML = advisorIcon('arrow');
   open.append(avatar, copy, arrow);
-  const goal = el('p', 'profile-card-goal', level.target ? `${level.sales}/${level.target} ventas para Nivel ${level.level + 1}` : 'Nivel máximo alcanzado');
-  goal.setAttribute('aria-hidden', 'true');
-  card.append(open, goal);
+  card.append(open);
   return card;
 }
 // Tarjeta inferior del admin: mismo lugar y estilo que la del asesor, sin nivel ni puntos.
@@ -900,6 +898,23 @@ function makeFlipMetric(item, front, { back, name }) {
     flipMetric(item, paint);
   });
 }
+// Podio del ranking: corona dorada para el #1, medallas de plata y bronce para el #2 y #3,
+// y un número neutro desde el #4. La posición sale del dato, no del orden en la lista.
+function rankBadge(position, placeholder = false) {
+  const badge = el('span', 'rank-medal');
+  badge.setAttribute('aria-label', `Puesto ${position}`);
+  if (placeholder || position > 3) {
+    badge.classList.add('rank-plain');
+    badge.textContent = String(position);
+    return badge;
+  }
+  const [metal, edge, ribbon] = { 1: ['#f5c518', '#b8890b', ''], 2: ['#cfd8e3', '#8a9bb0', '#4f7fb8'], 3: ['#e3a06a', '#a8652e', '#4f7fb8'] }[position];
+  badge.classList.add(`rank-${position}`);
+  badge.innerHTML = position === 1
+    ? `<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M4 11.5 9.5 16 16 6l6.5 10 5.5-4.5-2.6 13.5H6.6Z" fill="${metal}" stroke="${edge}" stroke-width="1.6" stroke-linejoin="round"/><rect x="6.6" y="25" width="18.8" height="3.4" rx="1.2" fill="${edge}"/><circle cx="16" cy="5.2" r="1.9" fill="${metal}" stroke="${edge}" stroke-width="1.2"/><text x="16" y="21.6" text-anchor="middle" font-size="9" font-weight="800" fill="#4a3500">1</text></svg>`
+    : `<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M10 1h5l3.5 10h-5ZM17 1h5l-3.5 10h-5Z" fill="${ribbon}"/><circle cx="16" cy="20" r="10" fill="${metal}" stroke="${edge}" stroke-width="1.8"/><text x="16" y="23.6" text-anchor="middle" font-size="10" font-weight="800" fill="#24323f">${position}</text></svg>`;
+  return badge;
+}
 function rankingSection(advisor = false) {
   const section = el('section', 'ranking-section');
   if (advisor) section.classList.add('advisor-ranking');
@@ -918,7 +933,7 @@ function rankingSection(advisor = false) {
     person.append(identity);
     if (advisor) {
       item.classList.toggle('ranking-placeholder', Boolean(row.placeholder));
-      const rank = el('span', 'rank-medal', String(row.position));
+      const rank = rankBadge(row.position, row.placeholder);
       identity.append(el('strong', '', row.full_name), el('span', 'muted', row.placeholder ? 'Posición disponible' : row.advisor_id === user?.id ? 'Tu posición actual' : 'Asesor comercial'));
       const values = el('div', 'ranking-values');
       const count = el('span', 'ranking-sales-value', row.placeholder ? '—' : String(confirmedSales));

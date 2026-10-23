@@ -196,12 +196,10 @@
 :root[data-theme="dark"] .weekly-sales-card .dashboard-heading-icon { color: var(--dashboard-blue); }
 .advisor-shell .ranking-list { display: grid; gap: 7px; border: 0; margin-top: 18px; }
 .advisor-shell .advisor-ranking .ranking-row { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 12px; min-height: 64px; padding: 10px; border: 1px solid transparent; border-bottom-color: var(--dashboard-line); border-radius: 9px; background: transparent; }
-.advisor-shell .advisor-ranking .ranking-row.current { border-color: #a68109; background: #fff8d7; }
-:root[data-theme="dark"] .advisor-shell .advisor-ranking .ranking-row.current { border-color: #9b821c; background: #30331d; }
-.rank-medal { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: #ffd124; color: #253023; font-weight: 850; box-shadow: inset 0 0 0 3px #ffffff55; }
-.ranking-row:nth-child(2) .rank-medal { background: #bacbdf; }
-.ranking-row:nth-child(3) .rank-medal { background: #ffad5a; }
-.ranking-placeholder .rank-medal { background: var(--dashboard-ring) !important; color: var(--dashboard-muted); box-shadow: none; }
+.advisor-shell .advisor-ranking .ranking-row.current { border-color: color-mix(in srgb, var(--dashboard-blue) 55%, var(--dashboard-line)); background: color-mix(in srgb, var(--dashboard-blue) 8%, var(--dashboard-panel)); }
+.rank-medal { display: grid; place-items: center; align-self: center; width: 30px; height: 30px; }
+.rank-medal svg { width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 2px 2px rgb(0 30 50 / 18%)); }
+.rank-medal.rank-plain { width: 26px; height: 26px; justify-self: center; border-radius: 50%; background: var(--dashboard-ring); color: var(--dashboard-muted); font-size: .82rem; font-weight: 800; }
 .advisor-ranking .ranking-identity { padding: 0; font-size: .86rem; }
 .ranking-person { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .ranking-person .ranking-avatar { width: 44px; height: 44px; font-size: 1.05rem; }
@@ -314,7 +312,7 @@
   .advisor-shell .advisor-overview .advisor-dashboard-column > section:hover { border-color: color-mix(in srgb, var(--dashboard-blue) 42%, var(--dashboard-line)); box-shadow: 0 10px 28px #00142514, 0 0 0 1px color-mix(in srgb, var(--dashboard-blue) 7%, transparent); }
   .advisor-shell .advisor-metrics .metric:hover::before { opacity: 1; }
   .advisor-shell .advisor-ranking .ranking-row:hover, .advisor-shell .action-task-list .task:hover { border-color: color-mix(in srgb, var(--dashboard-blue) 42%, var(--dashboard-line)); background: color-mix(in srgb, var(--dashboard-blue) 5%, var(--dashboard-inset)); }
-  .advisor-shell .advisor-ranking .ranking-row.current:hover { border-color: #b29424; background: color-mix(in srgb, #ffd124 10%, var(--dashboard-panel)); }
+  .advisor-shell .advisor-ranking .ranking-row.current:hover { border-color: var(--dashboard-blue); background: color-mix(in srgb, var(--dashboard-blue) 12%, var(--dashboard-panel)); }
   .advisor-shell .weekly-chart-column:hover { background: color-mix(in srgb, var(--dashboard-blue) 8%, transparent); border-radius: 8px; }
 }
 @media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
@@ -434,7 +432,8 @@
   .advisor-shell .advisor-metrics .metric-label { font-size: .7rem; }
   .advisor-shell .advisor-overview .advisor-dashboard-column > section { padding: 16px; }
   .advisor-shell .advisor-ranking .ranking-row { gap: 8px; padding: 8px 0; grid-template-columns: 26px minmax(0, 1fr) auto; }
-  .rank-medal { width: 25px; height: 25px; }
+  .rank-medal { width: 26px; height: 26px; }
+  .rank-medal.rank-plain { width: 24px; height: 24px; }
   .ranking-values { gap: 6px; font-size: .76rem; }
   .ranking-values span { min-width: 28px; }
   .ranking-values small { font-size: .6rem; }
@@ -736,7 +735,6 @@
 .profile-card-points-icon { display: inline-flex; width: 13px; height: 13px; color: #ffd124; }
 .profile-card-points-icon svg, .profile-card-arrow svg { width: 100%; height: 100%; }
 .profile-card-arrow { display: inline-flex; width: 16px; height: 16px; color: #9fd8f0; transition: translate 180ms cubic-bezier(.23, 1, .32, 1), color 180ms ease; }
-.profile-card-goal { margin: 0 6px; color: rgb(216 233 251 / 70%); font-size: .66rem; line-height: 1.4; }
 @media (hover: hover) and (pointer: fine) {
   .profile-card-button:hover { border-color: rgb(121 229 244 / 55%); background-color: rgb(255 255 255 / 4%); }
   .profile-card-button:hover .profile-card-arrow { translate: 3px 0; color: #fff; }
@@ -887,7 +885,7 @@
   /* Ranking: la fila se corre, aparece una barra de acento y la medalla gira. */
   .advisor-shell .advisor-ranking .ranking-row { transition: translate 240ms cubic-bezier(.23, 1, .32, 1), background-color 180ms ease, border-color 180ms ease, box-shadow 240ms ease; }
   .advisor-shell .advisor-ranking .ranking-row:hover { translate: 4px 0; box-shadow: 0 6px 16px #00142510; }
-  .advisor-shell .advisor-ranking .ranking-row.current:hover { box-shadow: 0 6px 16px #ffd12422; }
+  .advisor-shell .advisor-ranking .ranking-row.current:hover { box-shadow: 0 6px 16px color-mix(in srgb, var(--dashboard-blue) 18%, transparent); }
   .rank-medal, .ranking-person .ranking-avatar { transition: rotate 320ms cubic-bezier(.23, 1, .32, 1), scale 260ms cubic-bezier(.23, 1, .32, 1); }
   .advisor-shell .ranking-row:hover .rank-medal { rotate: -14deg; scale: 1.08; }
   .advisor-shell .ranking-row:hover .ranking-avatar { scale: 1.05; }

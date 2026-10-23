@@ -62,6 +62,8 @@ export function playAdvisorEntrance(root) {
     const panels = ['.advisor-ranking', '.advisor-client-panel', '.tonnage-goal-card', '.weekly-sales-card', '.portfolio-card'].flatMap(all);
     sequence.fromTo(track(panels), { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: .55, stagger: .1 }, .65);
     sequence.fromTo(track(all('.advisor-ranking .ranking-row')), { opacity: 0, x: -14 }, { opacity: 1, x: 0, duration: .4, stagger: .06 }, .85);
+    // Podio: la corona y las medallas caen con un pequeño rebote, el 1.º primero.
+    sequence.fromTo(track(all('.advisor-ranking .rank-medal svg')), { scale: 0, rotation: -25, transformOrigin: '50% 100%' }, { scale: 1, rotation: 0, duration: .55, stagger: .12, ease: 'back.out(2.2)' }, 1.05);
     sequence.fromTo(track(all('.advisor-client-panel .customer-option, .advisor-client-panel .task')), { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: .4, stagger: .05 }, .9);
     sequence.fromTo(track(all('.tonnage-track > span')), { scaleX: 0, transformOrigin: 'left center' }, { scaleX: 1, duration: .9, ease: 'power2.out' }, .9);
     sequence.fromTo(track(all('.weekly-chart-bar')), { scaleY: 0, transformOrigin: 'center bottom' }, { scaleY: 1, duration: .65, stagger: .05, ease: 'power2.out' }, .95);

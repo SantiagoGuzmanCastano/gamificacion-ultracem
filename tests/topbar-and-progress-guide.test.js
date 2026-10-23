@@ -46,3 +46,11 @@ test('the target-zone card on the map can be collapsed', () => {
   const css = readFileSync(new URL('../src/advisor.css', import.meta.url), 'utf8');
   assert.match(css, /\.map-target-card\.is-collapsed \.map-target-reason, \.map-target-card\.is-collapsed \.map-target-go \{ display: none; \}/);
 });
+
+test('ranking shows a crown and medals for the podium and no level goal in the sidebar card', () => {
+  assert.match(main, /function rankBadge\(position, placeholder = false\)/);
+  assert.match(main, /rankBadge\(row\.position, row\.placeholder\)/);
+  assert.doesNotMatch(main, /profile-card-goal/);
+  const entrance = readFileSync(new URL('../src/advisor-entrance.js', import.meta.url), 'utf8');
+  assert.ok(entrance.includes('.advisor-ranking .rank-medal svg'));
+});
