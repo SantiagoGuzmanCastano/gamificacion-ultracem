@@ -595,7 +595,18 @@ function authPage(mode = 'login') {
       submit.textContent = mode === 'login' ? 'Entrar' : 'Crear cuenta';
     }
   });
-  page.replaceChildren(form, button(mode === 'login' ? 'Crear cuenta de asesor' : 'Ya tengo cuenta', 'text-button auth-toggle', () => authPage(mode === 'login' ? 'signup' : 'login')));
+  // Panel de marca: la planta de Ultracem de fondo y el logo blanco encima.
+  const brand = el('aside', 'auth-brand');
+  brand.innerHTML = `<img class="auth-logo" src="/ultracem-logo.png" alt="Ultracem" width="414" height="148">
+    <div class="auth-brand-copy">
+      <span class="auth-kicker">Gamificación comercial</span>
+      <h2>Construyendo un mundo más fuerte.</h2>
+      <p>Gestiona tus clientes, completa misiones y sube de nivel con cada venta.</p>
+    </div>
+    <ul class="auth-perks"><li>Misiones</li><li>Ranking</li><li>Premios</li></ul>`;
+  const panel = el('div', 'auth-panel');
+  panel.append(form, button(mode === 'login' ? 'Crear cuenta de asesor' : 'Ya tengo cuenta', 'text-button auth-toggle', () => authPage(mode === 'login' ? 'signup' : 'login')));
+  page.replaceChildren(brand, panel);
 }
 async function loadData() {
   let own = await db.from('mvp_profiles').select('user_id,full_name,role,equipped_skin,avatar_path,photo_prompted_at,points,level,progression_sales').eq('user_id', user.id).single();
