@@ -67,5 +67,7 @@ test('Inicio has a Topitín guide button under the welcome title', () => {
   assert.match(main, /'¿Cómo funciona esta pantalla\?', 'advisor-guide-button', \(\) => showDashboardGuide/);
   const guide = readFileSync(new URL('../src/progress-guide.js', import.meta.url), 'utf8');
   assert.match(guide, /export function showDashboardGuide\(\{ mascot \}\)/);
-  for (const title of ['Tus números de hoy', 'Completa las 4 tareas', 'Confirma la venta', 'Ranking y meta del mes']) assert.ok(guide.includes(`'${title}'`));
+  for (const title of ['¡Hola, soy Topitín!', 'Tus clientes asignados', '4 tareas = 1 venta', 'Confirma la venta', 'Tu avance de un vistazo', 'Ranking y meta del mes', 'Siempre estoy contigo']) assert.ok(guide.includes(`'${title}'`));
+  // El paso de clientes muestra una mini versión del panel real.
+  assert.match(guide, /demo: clientsPreview/);
 });

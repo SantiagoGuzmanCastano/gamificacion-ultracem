@@ -106,41 +106,105 @@ const progressSteps = [
   },
 ];
 
-// Inicio: cómo se lee el panel y cómo se llega a una venta, con mini demos para tocar.
+// Inicio: qué es el sistema (un CRM en modo juego) y el camino cliente → tareas → venta,
+// en el orden en que se trabaja, con mini demos para tocar.
+const taskSteps = [['clients', 'Preparar una visita'], ['phone', 'Contactar al cliente'], ['document', 'Revisar una cotización'], ['target', 'Planear el siguiente paso']];
+
+// Mini versión del panel «Clientes actuales pendientes» con clientes de ejemplo.
+function clientsPreview(react, say) {
+  const box = make('div', 'pg-demo pg-demo-window');
+  const bar = make('div', 'pg-window-bar');
+  bar.setAttribute('aria-hidden', 'true');
+  bar.append(make('i'), make('i'), make('i'), make('span', '', 'Inicio · Clientes actuales pendientes'));
+  const body = make('div', 'pg-window-body');
+  const rail = make('div', 'pg-window-rail');
+  const detail = make('div', 'pg-window-detail');
+  detail.setAttribute('aria-live', 'polite');
+  const sample = [
+    { name: 'Ferretería El Roble', type: 'Ferretería', city: 'Medellín', tons: 30, done: 1 },
+    { name: 'Constructora Andes', type: 'Constructora', city: 'Bogotá', tons: 120, done: 0 },
+    { name: 'Depósito La Ceiba', type: 'Depósito', city: 'Cali', tons: 12, done: 3 },
+  ];
+  const paint = client => {
+    const head = make('div', 'pg-window-head');
+    head.append(make('span', 'pg-window-type', client.type), make('strong', '', client.name), make('span', 'pg-window-count', `${client.done}/4 completadas · ${client.tons} t`));
+    const list = make('ol', 'pg-window-tasks');
+    taskSteps.forEach(([name, title], index) => {
+      const item = make('li', index < client.done ? 'is-done' : '');
+      item.append(icon(name, 'pg-window-task-icon'), make('span', '', title), make('em', '', index < client.done ? 'Completado' : 'Pendiente'));
+      list.append(item);
+    });
+    detail.replaceChildren(head, list);
+  };
+  for (const client of sample) {
+    const option = make('button', 'pg-window-client');
+    option.type = 'button';
+    option.append(make('strong', '', client.name), make('span', '', `${client.city} · ${4 - client.done} ${client.done === 3 ? 'pendiente' : 'pendientes'}`));
+    option.addEventListener('click', () => {
+      for (const other of rail.children) {
+        other.classList.toggle('is-selected', other === option);
+        other.setAttribute('aria-pressed', String(other === option));
+      }
+      paint(client);
+      say(`${client.name} pide ${client.tons} toneladas. ${client.done === 3 ? '¡Solo le falta 1 tarea para ser una venta!' : `Le faltan ${4 - client.done} tareas para convertirse en venta.`}`);
+      react('hop');
+      if (!reducedMotion()) gsap.from(detail.children, { opacity: 0, x: 10, duration: .3, stagger: .05, ease: 'power2.out' });
+    });
+    option.setAttribute('aria-pressed', 'false');
+    rail.append(option);
+  }
+  rail.firstChild.classList.add('is-selected');
+  rail.firstChild.setAttribute('aria-pressed', 'true');
+  paint(sample[0]);
+  body.append(rail, detail);
+  box.append(bar, body, make('p', 'pg-window-hint', '¿Sin clientes? Toca «Solicitar un cliente» y el administrador te asigna uno.'));
+  return box;
+}
+
 const dashboardSteps = [
   {
-    title: 'Tus números de hoy',
-    say: 'Arriba ves tus clientes, toneladas, ventas y tu puesto. ¡Toca uno!',
+    title: '¡Hola, soy Topitín!',
+    say: 'Esto es tu CRM de ventas en modo juego. Toca cada paso para ver cómo funciona.',
+    done: 'Ese es todo el juego: clientes → tareas → venta → premios. ¡Te lo muestro!',
     demo: (react, say) => {
-      const box = make('div', 'pg-demo pg-demo-islands');
+      const box = make('div', 'pg-demo pg-demo-flow');
+      const seen = new Set();
       for (const [name, text, message] of [
-        ['clients', 'Clientes', 'Tus clientes actuales con tareas pendientes.'],
-        ['truck', 'Toneladas', 'Las toneladas de cemento que ya vendiste.'],
-        ['trophy', 'Puesto', 'Tu lugar en el ranking de asesores.'],
+        ['clients', 'Cliente', 'El administrador te asigna clientes. Cada uno simula una oportunidad de venta real.'],
+        ['tasks', '4 tareas', 'Con cada cliente completas 4 tareas: son los pasos de una venta.'],
+        ['check', 'Venta', 'Al terminar las 4 tareas confirmas la venta: ese cliente queda cerrado.'],
+        ['gift', 'Premios', 'Cada venta te da puntos, comisión, niveles y te sube en el ranking.'],
       ]) {
-        const chip = make('button', 'pg-island is-current');
-        chip.type = 'button';
-        chip.append(icon(name, 'pg-island-icon'), make('span', '', text));
-        chip.addEventListener('click', () => {
-          for (const other of box.querySelectorAll('.pg-island')) other.classList.toggle('is-picked', other === chip);
-          say(`${message} Toca la tarjeta en el Inicio para ver el dato de hoy.`);
-          react('hop');
-          if (!reducedMotion()) gsap.fromTo(chip, { rotationY: 0 }, { rotationY: 360, duration: .6, ease: 'power2.out' });
+        const node = make('button', 'pg-flow-step');
+        node.type = 'button';
+        node.append(icon(name, 'pg-island-icon'), make('span', '', text));
+        node.addEventListener('click', () => {
+          for (const other of box.children) other.classList.toggle('is-picked', other === node);
+          node.classList.add('is-seen');
+          seen.add(text);
+          if (seen.size === 4) react('done');
+          else { say(message); react('hop'); }
+          if (!reducedMotion()) gsap.fromTo(node, { y: 0 }, { y: -8, duration: .16, yoyo: true, repeat: 1, ease: 'power2.out' });
         });
-        box.append(chip);
+        box.append(node);
       }
       return box;
     },
   },
   {
-    title: 'Completa las 4 tareas',
-    say: 'Cada cliente trae 4 tareas. Márcalas para ver cómo avanza.',
-    done: '¡Todo listo! Si dudas en una tarea, toca «Pregunta a Topitín».',
+    title: 'Tus clientes asignados',
+    say: 'En «Clientes actuales pendientes» están los clientes que te asignaron. ¡Toca uno!',
+    demo: clientsPreview,
+  },
+  {
+    title: '4 tareas = 1 venta',
+    say: 'Cada cliente trae estas 4 tareas, una por cada paso de una venta real. ¡Márcalas!',
+    done: '¡Todo listo! Con las 4 hechas, ese cliente está listo para cerrar.',
     demo: (react) => {
       const box = make('div', 'pg-demo pg-demo-tasks');
       const list = make('div', 'pg-task-list');
       let done = 0;
-      for (const title of ['Preparar una visita', 'Contactar al cliente', 'Revisar una cotización', 'Planear el siguiente paso']) {
+      for (const [, title] of taskSteps) {
         const task = make('button', 'pg-task');
         task.type = 'button';
         task.append(icon('check', 'pg-task-check'), make('span', '', title));
@@ -162,7 +226,7 @@ const dashboardSteps = [
   {
     title: 'Confirma la venta',
     say: 'Con las 4 tareas hechas aparece «Confirmar venta». ¡Pruébalo!',
-    done: '+100 puntos, tu comisión llega a la cartera y subes en el ranking.',
+    done: '+100 puntos, tus toneladas suman a la meta y tu comisión llega a la cartera.',
     demo: (react) => {
       const box = make('div', 'pg-demo pg-demo-chest');
       const confirm = make('button', 'pg-demo-button', 'Confirmar venta');
@@ -188,11 +252,44 @@ const dashboardSteps = [
     },
   },
   {
+    title: 'Tu avance de un vistazo',
+    say: 'Arriba del Inicio ves cómo vas. Toca el círculo y cada dato.',
+    demo: (react, say) => {
+      const box = make('div', 'pg-demo pg-demo-stats');
+      const ring = make('button', 'pg-ring');
+      ring.type = 'button';
+      ring.innerHTML = '<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="42"/><circle class="pg-ring-fill" cx="50" cy="50" r="42" pathLength="100" stroke-dasharray="50 100"/></svg>';
+      ring.append(make('strong', '', '50%'), make('span', '', '2 de 4 tareas'));
+      const chips = make('div', 'pg-stat-chips');
+      const pick = (node, message) => {
+        for (const other of box.querySelectorAll('.is-picked')) other.classList.remove('is-picked');
+        node.classList.add('is-picked');
+        say(message);
+        react('hop');
+      };
+      ring.addEventListener('click', () => pick(ring, 'El círculo es el avance de las tareas de tus clientes actuales.'));
+      for (const [name, text, message] of [
+        ['flag', 'Nivel', 'Tu nivel sube con ventas confirmadas. Lo ves crecer en Progreso.'],
+        ['flame', 'Racha', 'Los días seguidos que trabajas. ¡No la rompas!'],
+        ['truck', 'Toneladas', 'Las toneladas de cemento que ya vendiste. Toca la tarjeta en Inicio y se voltea.'],
+        ['trophy', 'Puesto', 'Tu lugar en el ranking de asesores.'],
+      ]) {
+        const chip = make('button', 'pg-stat-chip');
+        chip.type = 'button';
+        chip.append(icon(name, 'pg-stat-icon'), make('span', '', text));
+        chip.addEventListener('click', () => pick(chip, message));
+        chips.append(chip);
+      }
+      box.append(ring, chips);
+      return box;
+    },
+  },
+  {
     title: 'Ranking y meta del mes',
-    say: 'Más abajo compites en el ranking y llenas tu meta de toneladas del mes.',
+    say: 'Más abajo compites por ventas confirmadas y llenas tu meta mensual de toneladas.',
     demo: (react, say) => {
       const box = make('div', 'pg-demo pg-demo-podium');
-      for (const [place, height, message] of [[2, 52, 'Plata: ¡muy cerca de la cima!'], [1, 74, '¡La corona es para quien más vende!'], [3, 38, 'Bronce: cada venta te sube un escalón.']]) {
+      for (const [place, height, message] of [[2, 52, 'Plata: ¡muy cerca de la cima!'], [1, 74, '¡La corona es para quien más ventas confirma!'], [3, 38, 'Bronce: cada venta te sube un escalón.']]) {
         const step = make('button', `pg-podium-step is-${place}`);
         step.type = 'button';
         step.style.height = `${height}px`;
@@ -205,6 +302,24 @@ const dashboardSteps = [
       return box;
     },
   },
+  {
+    title: 'Siempre estoy contigo',
+    say: '¿No sabes cómo hacer una tarea? Toca «Pregunta a Topitín». ¡Pruébalo!',
+    done: '¡Así! Te doy pasos concretos para esa tarea y, si quieres, una idea extra.',
+    demo: (react) => {
+      const box = make('div', 'pg-demo pg-demo-ask');
+      const card = make('div', 'pg-ask-card');
+      const copy = make('div', 'pg-ask-copy');
+      copy.append(make('strong', '', 'Contactar al cliente'), make('span', '', 'Llama o escribe y acuerda el siguiente paso.'));
+      const ask = make('button', 'pg-demo-button', 'Pregunta a Topitín');
+      ask.type = 'button';
+      ask.prepend(icon('sparkles', 'pg-demo-button-icon'));
+      ask.addEventListener('click', () => { card.classList.add('is-asked'); react('done'); });
+      card.append(icon('phone', 'pg-window-task-icon'), copy);
+      box.append(card, ask);
+      return box;
+    },
+  },
 ];
 
 export function showProgressGuide({ mascot }) {
@@ -212,12 +327,12 @@ export function showProgressGuide({ mascot }) {
 }
 
 export function showDashboardGuide({ mascot }) {
-  return openGuide(dashboardSteps, { mascot });
+  return openGuide(dashboardSteps, { mascot, className: 'is-dashboard' });
 }
 
-function openGuide(steps, { mascot }) {
+function openGuide(steps, { mascot, className = '' }) {
   document.querySelector('.progress-guide')?.remove();
-  const dialog = make('dialog', 'progress-guide');
+  const dialog = make('dialog', `progress-guide ${className}`.trim());
   dialog.setAttribute('aria-labelledby', 'progress-guide-title');
   const close = make('button', 'progress-guide-close', '×');
   close.type = 'button';
