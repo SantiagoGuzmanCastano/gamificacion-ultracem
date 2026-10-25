@@ -105,6 +105,29 @@ export function celebrateSale() {
   shower({ count: Math.round(Math.min(120, Math.max(50, width / 11))), life: 2.1, delay: .15 }, stage);
 }
 
+// Puntos ganados: la cifra de «Puntos para canjear» cuenta hasta el nuevo total, se enciende en
+// amarillo y un «+5 puntos» (o «+100») sube desde ella y se desvanece.
+export function popPoints(amount) {
+  const stat = document.querySelector?.('.hero-points-highlight');
+  const value = stat?.querySelector('strong');
+  if (!value || !amount) return;
+  const total = Number(value.textContent.replace(/\D/g, '')) || 0;
+  const chip = document.createElement('span');
+  chip.className = 'hero-points-gain';
+  chip.setAttribute('aria-hidden', 'true');
+  chip.textContent = `+${amount} puntos`;
+  stat.append(chip);
+  stat.classList.add('is-gaining');
+  const done = () => { chip.remove(); stat.classList.remove('is-gaining'); value.textContent = total.toLocaleString('es-CO'); };
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { setTimeout(done, 1600); return; }
+  const counter = { value: Math.max(0, total - amount) };
+  gsap.timeline({ onComplete: done })
+    .fromTo(chip, { autoAlpha: 0, y: 6, scale: .8 }, { autoAlpha: 1, y: -6, scale: 1, duration: .35, ease: 'back.out(2.2)' }, 0)
+    .to(counter, { value: total, duration: .8, ease: 'power2.out', onUpdate: () => { value.textContent = Math.round(counter.value).toLocaleString('es-CO'); } }, .1)
+    .fromTo(value, { scale: 1 }, { scale: 1.12, duration: .18, yoyo: true, repeat: 1, ease: 'power2.out', transformOrigin: 'left center' }, .75)
+    .to(chip, { autoAlpha: 0, y: -26, duration: .5, ease: 'power2.in' }, 1.25);
+}
+
 // La campana se sacude para señalar que llegó una notificación nueva.
 export function ringNotificationBell() {
   const bell = document.querySelector?.('.notification-bell');

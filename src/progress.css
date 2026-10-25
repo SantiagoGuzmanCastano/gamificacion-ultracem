@@ -97,7 +97,8 @@
 }
 :root[data-theme="dark"] .progress-guide { --guide-bg: #00263b; --guide-ink: #edf6ff; --guide-muted: #b5cce1; --guide-line: #285772; --guide-soft: #04384a; --guide-accent: #67dcf0; --guide-stage: linear-gradient(160deg, #053a52, #2a2a12); --guide-strong: #ffd124; --guide-strong-ink: #00243b; border-color: #285772; }
 .progress-guide::backdrop { background: rgb(0 14 26 / 62%); }
-.progress-guide-close { position: absolute; top: 12px; right: 12px; display: grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 0; border-radius: 10px; background: transparent; color: var(--guide-muted); font-size: 1.5rem; line-height: 1; cursor: pointer; }
+/* z-index: el título y el contador se animan con transform y, sin él, quedaban encima de la × y se comían el clic. */
+.progress-guide-close { position: absolute; z-index: 5; top: 12px; right: 12px; display: grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 0; border-radius: 10px; background: transparent; color: var(--guide-muted); font-size: 1.5rem; line-height: 1; cursor: pointer; }
 .progress-guide-step { margin: 0 0 4px; color: var(--guide-accent); font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
 .progress-guide h2 { margin: 0 0 14px; color: var(--guide-ink); font-size: 1.3rem; letter-spacing: -.02em; }
 .progress-guide-stage { display: grid; grid-template-columns: 88px minmax(0, 1fr); align-items: end; gap: 12px; padding: 12px 14px 8px; border-radius: 18px; background: var(--guide-stage); text-align: left; }
@@ -157,6 +158,33 @@
 .pg-flow-step .pg-island-icon { background: #25d5e3; color: #00313b; }
 .pg-flow-step.is-seen .pg-island-icon { background: #ffd124; color: #3b2a00; }
 .pg-flow-step.is-picked { border-color: var(--guide-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--guide-accent) 25%, transparent); }
+/* Guías: tarjetas de temas en dos columnas; con etiqueta «Funcional» o «Conceptual» en el admin. */
+.pg-demo-topics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.pg-topic { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 4px 8px; width: 100%; min-height: 54px; padding: 8px 10px; border: 2px solid var(--guide-line); border-radius: 12px; background: var(--guide-bg); color: var(--guide-ink); font-size: .74rem; font-weight: 600; line-height: 1.25; text-align: left; cursor: pointer; }
+.pg-topic .pg-island-icon { background: #25d5e3; color: #00313b; }
+/* Controles del mapa: una tarjeta por equipo con sus gestos; la del equipo actual resaltada. */
+.pg-demo-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; align-items: stretch; }
+.pg-controls-card { display: grid; align-content: start; gap: 8px; width: 100%; padding: 10px; border: 2px solid var(--guide-line); border-radius: 12px; background: var(--guide-bg); color: var(--guide-ink); font: inherit; text-align: left; cursor: pointer; }
+.pg-controls-card.is-mine { border-color: color-mix(in srgb, var(--guide-accent) 55%, var(--guide-line)); }
+.pg-controls-card.is-picked { border-color: var(--guide-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--guide-accent) 25%, transparent); }
+.pg-controls-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: .8rem; }
+.pg-controls-head .pg-island-icon { background: #25d5e3; color: #00313b; }
+.pg-controls-mine { padding: 1px 7px; border-radius: 999px; background: #20e5bb26; color: #0b9c7d; font-size: .6rem; font-weight: 800; }
+:root[data-theme="dark"] .pg-controls-mine { color: #20e5bb; }
+.pg-controls-list { display: grid; gap: 5px; margin: 0; padding: 0; list-style: none; }
+.pg-controls-list li { display: grid; gap: 1px; font-size: .7rem; line-height: 1.25; }
+.pg-controls-list b { font-weight: 700; }
+.pg-controls-list span { color: var(--guide-muted); font-weight: 500; }
+/* Con etiqueta, el ícono ocupa las dos filas; sin ella, ícono y texto quedan centrados en una sola. */
+.pg-topic:has(.pg-topic-tag) .pg-island-icon { grid-row: 1 / 3; }
+.pg-topic.is-seen .pg-island-icon { background: #ffd124; color: #3b2a00; }
+.pg-topic.is-picked { border-color: var(--guide-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--guide-accent) 25%, transparent); }
+.pg-topic-tag { justify-self: start; padding: 1px 7px; border-radius: 999px; font-size: .6rem; font-weight: 800; letter-spacing: .02em; }
+.pg-topic-tag.is-real { background: #20e5bb26; color: #0b9c7d; }
+.pg-topic-tag.is-sample { border: 1px dashed currentColor; color: #b07a00; }
+:root[data-theme="dark"] .pg-topic-tag.is-real { color: #20e5bb; }
+:root[data-theme="dark"] .pg-topic-tag.is-sample { color: #ffd76a; }
+.progress-guide.is-admin .progress-guide-bubble { font-size: .84rem; }
 .pg-demo-window { justify-items: stretch; gap: 8px; padding: 0 0 10px; overflow: hidden; border-style: solid; text-align: left; }
 .pg-window-bar { display: flex; align-items: center; gap: 5px; padding: 7px 10px; border-bottom: 1px solid var(--guide-line); background: var(--guide-bg); }
 .pg-window-bar i { width: 8px; height: 8px; border-radius: 50%; background: var(--guide-line); }
@@ -211,3 +239,51 @@
   .pg-demo-flow { gap: 10px; }
   .pg-flow-step { font-size: .64rem; }
 }
+
+/* Panel derecho más claro: barra por segmentos (una venta = un segmento), meta con su premio,
+   total desbloqueado y el camino de niveles como línea de tiempo. */
+.progress-segments { display: flex; gap: 4px; margin: 16px 0 8px; }
+.progress-segments span { flex: 1; height: 10px; border-radius: 999px; background: var(--dashboard-ring); }
+.progress-segments span.is-filled { background: var(--progress-gold); box-shadow: 0 0 8px #ffd12455; }
+.progress-meter-copy strong { color: var(--dashboard-ink); }
+.progress-goal { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; padding: 10px 12px; border-radius: 12px; background: var(--dashboard-inset); }
+.progress-goal-copy { margin: 0; color: var(--dashboard-muted); font-size: .85rem; line-height: 1.35; }
+.progress-goal-copy strong { color: var(--dashboard-ink); }
+.progress-goal-prize { display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto; color: var(--progress-gold); font-size: .95rem; }
+.progress-goal-icon { display: inline-flex; width: 18px; height: 18px; }
+.progress-goal-icon svg { width: 100%; height: 100%; }
+.progress-reward .progress-reward-row { grid-template-columns: auto minmax(0, 1fr); margin-top: 0; }
+.progress-reward .progress-card-title { margin-bottom: 2px; }
+.progress-reward .progress-footnote { margin-top: 10px; }
+.progress-level-list li { position: relative; }
+.progress-level-list li + li::before { content: ''; position: absolute; left: 24px; top: -6px; width: 2px; height: 14px; border-radius: 2px; background: var(--dashboard-line); }
+.progress-level-list li.is-completed + li::before, .progress-level-list li.is-current + li::before { background: var(--progress-gold); }
+.progress-level-list li.is-current + li::before { background: linear-gradient(var(--progress-gold), var(--dashboard-line)); }
+.progress-level-reward { display: grid; justify-items: end; gap: 1px; }
+.progress-level-reward strong { font-size: .85rem; }
+.progress-level-state { color: var(--dashboard-muted); font-size: .7rem; font-weight: 700; }
+.progress-level-row.is-completed .progress-level-state { color: var(--dashboard-green); }
+.progress-level-row.is-current .progress-level-state { color: var(--progress-cyan); }
+.progress-level-state.is-next { color: var(--progress-gold); }
+.progress-level-row.is-locked .progress-level-reward { opacity: 1; }
+.progress-level-row.is-locked .progress-level-reward strong { opacity: .7; }
+@media (max-width: 420px) {
+  .progress-goal { flex-direction: column; align-items: flex-start; gap: 6px; }
+}
+
+/* Escritorio: el panel y el mundo miden lo mismo; el camino de niveles se desplaza por dentro. */
+.progress-level-list { position: relative; overflow-y: auto; overscroll-behavior: contain; scroll-snap-type: y proximity; scrollbar-width: thin; scrollbar-color: var(--dashboard-line) transparent; mask-image: linear-gradient(transparent, #000 10px, #000 calc(100% - 10px), transparent); }
+.progress-level-list li { scroll-snap-align: start; }
+@media (min-width: 1101px) {
+  .progress-layout { align-items: stretch; }
+  .progress-world { height: auto; min-height: 460px; }
+  .progress-side { align-content: start; }
+}
+
+/* Progreso: guía y «Repetir celebración» juntos bajo el título, ambos pequeños. */
+.progress-guide-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
+.advisor-shell .progress-heading .progress-guide-row .advisor-guide-button { margin-top: 0; }
+.progress-replay-small { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 3px 12px 3px 9px; border: 1px solid color-mix(in srgb, var(--dashboard-line) 70%, transparent); border-radius: 999px; background: transparent; color: var(--dashboard-muted); font: inherit; font-size: .74rem; font-weight: 600; cursor: pointer; transition: border-color 180ms ease, color 180ms ease, translate 200ms cubic-bezier(.23, 1, .32, 1); }
+.progress-replay-small .progress-replay-icon { width: 15px; height: 15px; color: #ffd124; }
+.progress-replay-small:hover { border-color: #ffd124; color: var(--dashboard-ink); translate: 0 -1px; }
+.progress-replay-small:focus-visible { outline: 2px solid var(--dashboard-blue); outline-offset: 2px; }

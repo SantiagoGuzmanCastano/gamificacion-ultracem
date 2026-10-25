@@ -86,6 +86,14 @@ export function rewardRail(points, collection = rewards.filter(reward => !reward
   };
 }
 
+// Meta del banner de Inicio: el bono más barato que todavía no alcanza y cuántos ya puede canjear.
+export function nextRewardGoal(profilePoints, collection = rewards.filter(reward => !reward.featured)) {
+  const points = rewardPoints(profilePoints);
+  const sorted = [...collection].sort((a, b) => a.cost - b.cost);
+  const next = sorted.find(reward => reward.cost > points) ?? null;
+  return { points, next, missing: next ? next.cost - points : 0, percentage: next ? rewardProgress(next, points).percentage : 100, available: sorted.filter(reward => reward.cost <= points).length };
+}
+
 let selectedCategory = 'all';
 
 // Los premios de Halloween siguen el mismo interruptor del admin que la tienda de cosméticos.

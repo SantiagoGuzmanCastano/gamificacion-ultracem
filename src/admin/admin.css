@@ -16,12 +16,20 @@
 }
 :root[data-theme="dark"] .admin-prd { --admin-green: #3ccf93; --admin-yellow: #f2c14e; --admin-red: #ff7a6b; }
 .admin-figures-live { grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 12px; }
-.admin-profile-card .profile-card-button { cursor: default; }
 .admin-loading { padding: 40px 0; color: var(--muted); }
 
 .admin-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding-top: 32px; }
 .admin-head h1 { color: var(--navy); font-size: 1.6rem; }
 .admin-head p { margin-top: 6px; color: var(--muted); max-width: 68ch; line-height: 1.5; font-size: .92rem; }
+/* Botón de la guía del panel: discreto, con un punto dorado que marca que es importante. */
+.admin-guide-button { display: inline-flex; align-items: center; gap: 8px; min-height: 32px; padding: 4px 14px 4px 5px; border: 1px solid color-mix(in srgb, #ffd124 45%, var(--line)); border-radius: 999px; background: color-mix(in srgb, #ffd124 8%, transparent); color: var(--ink); font: inherit; font-size: .78rem; font-weight: 700; cursor: pointer; transition: border-color 180ms ease, background-color 180ms ease, translate 200ms cubic-bezier(.23, 1, .32, 1); }
+.admin-guide-button:hover { border-color: #ffd124; background: color-mix(in srgb, #ffd124 14%, transparent); translate: 0 -1px; }
+.admin-guide-button:focus-visible { outline: 2px solid #ffd124; outline-offset: 2px; }
+.admin-guide-dot { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: #ffd124; color: #002338; font-size: .8rem; font-weight: 900; }
+@media (prefers-reduced-motion: no-preference) {
+  .admin-guide-dot { animation: admin-guide-pulse 2.4s ease-in-out infinite; }
+}
+@keyframes admin-guide-pulse { 50% { box-shadow: 0 0 0 5px #ffd12433; } }
 .admin-sample { flex: none; padding: 4px 10px; border: 1px dashed var(--line); border-radius: 999px; color: var(--muted); font-size: .75rem; }
 
 .admin-card { background: var(--admin-card); border: 1px solid var(--line); border-radius: 14px; padding: 20px; box-shadow: 0 8px 22px rgb(6 59 103 / 6%); }
@@ -146,9 +154,14 @@
 .manage-chip-done { background: color-mix(in srgb, var(--admin-green) 16%, transparent); color: var(--admin-green); }
 .manage-advisor-body { padding: 0 20px 16px; display: grid; gap: 12px; }
 .manage-clients { list-style: none; margin: 0; padding: 0; }
-.manage-clients > li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 12px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line); }
+.manage-clients > li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px 12px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line); }
 .manage-clients > li > div { display: grid; gap: 2px; }
 .manage-clients > li > div span { color: var(--muted); font-size: .78rem; }
+/* Borrar un cliente: papelera discreta que se pone roja al pasar el mouse. */
+.manage-client-delete { display: grid; place-items: center; width: 32px; height: 32px; padding: 7px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--muted); cursor: pointer; transition: color 160ms ease, border-color 160ms ease, background-color 160ms ease; }
+.manage-client-delete svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.manage-client-delete:hover { border-color: #c4475f; background: color-mix(in srgb, #e0566f 12%, transparent); color: #e0566f; }
+.manage-client-delete:focus-visible { outline: 2px solid #e0566f; outline-offset: 2px; }
 .manage-tasks { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
 .manage-tasks li { padding: 2px 8px; border: 1px dashed var(--line); border-radius: 6px; font-size: .74rem; color: var(--muted); }
 .manage-danger { border-top: 1px solid var(--line); padding-top: 10px; }
@@ -194,3 +207,40 @@
 .admin-shell .advisor-map-container .maplibregl-popup-close-button:hover { background: rgb(0 104 141 / 10%); }
 .admin-shell .advisor-map-container .maplibregl-popup-content:has(.map-prospect) .maplibregl-popup-close-button { color: #b5cce1; }
 .admin-shell .advisor-map-container .maplibregl-popup-content:has(.map-prospect) .maplibregl-popup-close-button:hover { background: rgb(255 255 255 / 10%); color: #fff; }
+
+/* Guías del admin: «Importante» dorado y, al lado, «¿Cómo funciona?» pequeño y discreto. */
+.admin-guide-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
+.admin-how-button { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 3px 12px 3px 8px; border: 1px solid color-mix(in srgb, var(--line) 70%, transparent); border-radius: 999px; background: transparent; color: var(--muted); font: inherit; font-size: .74rem; font-weight: 600; cursor: pointer; transition: border-color 180ms ease, color 180ms ease, translate 200ms cubic-bezier(.23, 1, .32, 1); }
+.admin-how-button:hover { border-color: var(--accent); color: var(--ink); translate: 0 -1px; }
+.admin-how-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.admin-how-icon { display: inline-flex; width: 15px; height: 15px; color: var(--accent); }
+.admin-how-icon svg { width: 100%; height: 100%; }
+.admin-how-button.is-nudged { border-color: #ffd124; color: var(--ink); }
+@media (prefers-reduced-motion: no-preference) {
+  .admin-how-button.is-nudged { animation: admin-how-nudge 1.1s ease-in-out 3; }
+}
+@keyframes admin-how-nudge { 0%, 100% { box-shadow: 0 0 0 0 #ffd12400; } 50% { box-shadow: 0 0 0 6px #ffd12440; translate: 0 -2px; } }
+/* Perfil del admin: tarjeta simple con su cuenta y el botón de cerrar sesión. */
+.admin-profile-panel { display: grid; justify-items: start; gap: 14px; max-width: 460px; margin-top: 18px; }
+.admin-profile-who { display: flex; align-items: center; gap: 14px; }
+.admin-profile-who > div { display: grid; gap: 2px; }
+.admin-profile-who strong { font-size: 1.1rem; }
+.admin-profile-who span { color: var(--muted); font-size: .86rem; }
+.admin-profile-avatar { width: 56px; height: 56px; font-size: 1.3rem; }
+.admin-profile-role { padding: 3px 10px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: .75rem; font-weight: 700; }
+.admin-signout { min-height: 42px; padding: 8px 18px; border: 1px solid #c4475f; border-radius: 12px; background: transparent; color: #e0566f; font: inherit; font-weight: 750; cursor: pointer; transition: background-color 160ms ease; }
+.admin-signout:hover { background: color-mix(in srgb, #e0566f 12%, transparent); }
+.admin-signout:focus-visible { outline: 2px solid #e0566f; outline-offset: 2px; }
+
+/* Tarjeta del admin en la barra lateral: rol arriba, nombre abajo en pequeño y la flecha con aire. */
+.admin-profile-card .profile-card-button { gap: 10px; padding-right: 14px; }
+.admin-profile-card .profile-card-name { font-size: .86rem; }
+.admin-profile-card .admin-card-name { display: block; overflow: hidden; color: #b5cce1; font-size: .74rem; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.admin-profile-card .profile-card-arrow { margin-left: 6px; }
+
+/* Gestión: botón de demo junto a «¿Cómo funciona?», dorado suave para distinguirlo. */
+.admin-demo-button { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 3px 12px 3px 8px; border: 1px solid color-mix(in srgb, #ffd124 45%, var(--line)); border-radius: 999px; background: color-mix(in srgb, #ffd124 8%, transparent); color: var(--ink); font: inherit; font-size: .74rem; font-weight: 700; cursor: pointer; transition: border-color 180ms ease, background-color 180ms ease, translate 200ms cubic-bezier(.23, 1, .32, 1); }
+.admin-demo-button .admin-how-icon { color: #e0a800; }
+.admin-demo-button:hover:not(:disabled) { border-color: #ffd124; background: color-mix(in srgb, #ffd124 16%, transparent); translate: 0 -1px; }
+.admin-demo-button:disabled { opacity: .6; cursor: wait; }
+.admin-demo-button:focus-visible { outline: 2px solid #ffd124; outline-offset: 2px; }

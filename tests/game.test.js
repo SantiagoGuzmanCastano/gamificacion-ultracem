@@ -17,8 +17,9 @@ test('la mascota solo cambia de ánimo cuando hay cliente actual', () => {
 
   assert.equal(getMascotStateForCurrentClient(null), 'happy');
   assert.equal(getMascotStateForCurrentClient(clientWith(0)), 'sad');
-  assert.equal(getMascotStateForCurrentClient(clientWith(1)), 'neutral');
+  assert.equal(getMascotStateForCurrentClient(clientWith(1)), 'sad');
   assert.equal(getMascotStateForCurrentClient(clientWith(2)), 'neutral');
+  assert.equal(getMascotStateForCurrentClient(clientWith(3)), 'neutral');
   assert.equal(getMascotStateForCurrentClient(clientWith(4)), 'happy');
 });
 

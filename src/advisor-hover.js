@@ -1,6 +1,6 @@
 // Hovers vivos de Inicio: un foco de luz que sigue al cursor dentro de cada panel y
 // un leve paralaje en el héroe. Solo escribe variables CSS; el CSS decide cómo se ve.
-const spotTargets = '.advisor-hero, .advisor-metrics, .advisor-overview .advisor-dashboard-column > section';
+const spotTargets = '.advisor-hero, .advisor-metrics, .advisor-overview .advisor-dashboard-column > section, .commission-goal-card, .commission-challenge-card, .commission-milestones, .commission-item, .shop-tab, .rewards-filter';
 let bound = false;
 
 export function bindAdvisorHover() {

@@ -322,6 +322,173 @@ const dashboardSteps = [
   },
 ];
 
+// Tarjetas de temas: cada una explica una pieza al tocarla; al verlas todas, Topitín celebra.
+function topicsDemo(topics) {
+  return (react, say) => {
+    const box = make('div', 'pg-demo pg-demo-topics');
+    const seen = new Set();
+    for (const [name, text, message, tag] of topics) {
+      const node = make('button', 'pg-topic');
+      node.type = 'button';
+      node.append(icon(name, 'pg-island-icon'), make('span', '', text));
+      if (tag) node.append(make('small', `pg-topic-tag is-${tag}`, tag === 'real' ? 'Funcional' : 'Conceptual'));
+      node.addEventListener('click', () => {
+        for (const other of box.children) other.classList.toggle('is-picked', other === node);
+        node.classList.add('is-seen');
+        seen.add(text);
+        say(message);
+        react(seen.size === topics.length ? 'done' : 'hop');
+      });
+      box.append(node);
+    }
+    return box;
+  };
+}
+
+// «Importante» del admin: solo explica la relación con el PRD y después invita a «¿Cómo funciona?».
+const adminPrdSteps = [
+  {
+    title: 'Importante: este panel y el PRD',
+    say: 'Este panel sigue el PRD. Varias piezas son conceptuales porque así lo pedía el documento, pero le dimos funcionalidad real a todo lo que se pudo. Toca cada tarjeta.',
+    done: 'Eso es todo lo importante. Ahora toca «¿Cómo funciona?» para ver qué hace esta vista.',
+    demo: topicsDemo([
+      ['flag', 'Diseñado desde el PRD', 'El panel responde a lo que pedía el PRD: la meta de participación, las zonas por atacar y el avance de cada asesor.'],
+      ['map', 'Partes conceptuales', 'Algunas cifras, como el mercado de cemento por zona, no existen en la app: se muestran con datos de referencia para ilustrar la idea.', 'sample'],
+      ['check', 'Funcional donde se pudo', 'Todo lo que se pudo conectar quedó funcionando de verdad con los datos de la app.', 'real'],
+      ['sparkles', 'Cómo distinguirlas', 'En la guía de cada vista, cada pieza lleva la etiqueta «Funcional» o «Conceptual».'],
+    ]),
+  },
+];
+
+// «¿Cómo funciona?» de cada vista del admin: qué hace cada parte, con su etiqueta.
+const adminViewSteps = {
+  dashboard: [{
+    title: 'Resumen: ¿cómo vamos?',
+    say: 'Aquí ves el avance del equipo hacia la meta de participación. Toca cada parte.',
+    demo: topicsDemo([
+      ['target', 'Avance a la meta', 'Compara la participación de Ultracem con la meta del 10 %. El mercado total es de referencia.', 'sample'],
+      ['clients', 'Equipo en la app', 'Asesores, clientes, ventas y toneladas registradas en la app.', 'real'],
+      ['sparkles', 'Qué hacer hoy', 'Dónde crecer, quién necesita apoyo y qué hacer hoy, calculado con esos datos.', 'real'],
+    ]),
+  }],
+  team: [{
+    title: 'Asesores: avance y metas',
+    say: 'Cada asesor con lo vendido frente a su meta y un semáforo. Toca para ver más.',
+    demo: topicsDemo([
+      ['sales', 'Avance de cada asesor', 'Toneladas vendidas contra su meta, con semáforo: cumple, en riesgo o crítico.', 'real'],
+      ['target', 'Definir metas', 'Edita la meta en la fila y se guarda al instante; el asesor la ve en su Inicio.', 'real'],
+      ['lock', 'Datos sin registro', 'Lo que la app aún no registra, como clientes recuperados, aparece como «s/d».', 'sample'],
+    ]),
+  }],
+  zones: [{
+    title: 'Zonas: dónde crecer',
+    say: 'La brecha de cada departamento frente a la meta, de mayor a menor oportunidad.',
+    demo: topicsDemo([
+      ['map', 'Brecha por departamento', 'Participación de cada zona frente al 10 %: atacar o defender. El mercado es de referencia.', 'sample'],
+      ['clients', 'Ciudades con clientes', 'Toca un departamento con clientes y ves sus ciudades con los datos de la app.', 'real'],
+    ]),
+  }],
+  map: [{
+    title: 'Mapa de ventas',
+    say: 'El mismo mapa del asesor, con los clientes y ventas de todo el equipo y el país desbloqueado.',
+    demo: topicsDemo([
+      ['map', 'Ventas del equipo', 'Columnas y pines con los clientes y ventas de todos los asesores.', 'real'],
+      ['star', 'Estrellas', 'Cada estrella muestra el cliente potencial más grande del departamento. Son empresas de ejemplo.', 'sample'],
+    ]),
+  }],
+  manage: [{
+    title: 'Gestión: el día a día',
+    say: 'Aquí operas la app de verdad: todo lo que hagas se guarda en la base.',
+    demo: topicsDemo([
+      ['clients', 'Crear y asignar clientes', 'Creas un cliente, eliges al asesor y se generan sus 4 tareas automáticamente.', 'real'],
+      ['tasks', 'Solicitudes', 'Cuando un asesor pide un cliente te llega una notificación, y aquí se lo asignas.', 'real'],
+      ['lock', 'Limpiar y reiniciar', 'Borrar tareas, clientes o asesores y reiniciar puntos, siempre con confirmación.', 'real'],
+      ['sparkles', 'Evento de temporada', 'Activa o apaga el evento de Halloween en la tienda y los premios.', 'real'],
+    ]),
+  }],
+};
+
+// «¿Cómo funciona esta pantalla?» del asesor en Cartera, Mapa, Tienda y Premios.
+const screenSteps = {
+  commissions: [{
+    title: 'Cartera de comisiones',
+    say: 'Aquí cobras lo que ganas con cada venta confirmada. Toca cada parte.',
+    done: '¡Eso es todo! Confirma ventas y vuelve aquí a cobrar.',
+    demo: topicsDemo([
+      ['coins', 'Comisión disponible', 'Lo que ya puedes cobrar. Toca «Reclamar» y queda en trámite.'],
+      ['wallet', 'Total canjeado', 'Todo lo que ya cobraste. Psst… tócala 5 veces seguidas.'],
+      ['target', 'Meta y desafío', 'Tu meta de comisión del mes y las toneladas del desafío mensual.'],
+      ['trophy', 'Hitos y logros', 'Pasa el mouse por cada logro para ver cuánto te falta.'],
+    ]),
+  }],
+  map: [{
+    title: 'Mapa clientela',
+    say: 'Dónde ya vendiste y dónde quedan toneladas por ganar. Toca cada parte.',
+    done: 'Toca un departamento o una zona de la lista y el mapa la enfoca.',
+    demo: topicsDemo([
+      ['map', 'Departamentos', 'Los azules tienen clientes tuyos; los demás se abren cuando te asignan uno ahí.'],
+      ['clients', 'Pines de ciudades', 'Cada pin muestra tus clientes y el avance de sus tareas; dorado si ya vendiste.'],
+      ['target', 'Zona objetivo', 'La tarjeta dorada te sugiere la zona con más toneladas por ganar.'],
+      ['sales', 'Calor de toneladas', 'Del azul al rojo: dónde quedan más toneladas por vender.'],
+    ]),
+  }, {
+    title: 'Controles del mapa',
+    say: 'Así te mueves por el mapa en el computador y en el celular. Toca tu equipo.',
+    demo: (react, say) => {
+      const box = make('div', 'pg-demo pg-demo-controls');
+      const touch = globalThis.matchMedia?.('(pointer: coarse)').matches ?? false;
+      for (const [name, label, controls, mine] of [
+        ['monitor', 'Computador', [['Arrastrar', 'mover'], ['Rueda del mouse', 'acercar o alejar'], ['Doble clic', 'acercar'], ['Clic derecho y arrastrar', 'girar e inclinar']], !touch],
+        ['mobile', 'Celular', [['Un dedo', 'mover'], ['Pellizcar', 'acercar o alejar'], ['Dos dedos y girar', 'rotar'], ['Dos dedos arriba o abajo', 'inclinar']], touch],
+      ]) {
+        const card = make('button', `pg-controls-card${mine ? ' is-mine' : ''}`);
+        card.type = 'button';
+        const head = make('span', 'pg-controls-head');
+        head.append(icon(name, 'pg-island-icon'), make('strong', '', label));
+        if (mine) head.append(make('small', 'pg-controls-mine', 'Tu equipo'));
+        const list = make('ul', 'pg-controls-list');
+        for (const [gesture, effect] of controls) {
+          const item = make('li');
+          item.append(make('b', '', gesture), make('span', '', effect));
+          list.append(item);
+        }
+        card.append(head, list);
+        card.addEventListener('click', () => {
+          for (const other of box.children) other.classList.toggle('is-picked', other === card);
+          say(mine ? '¡Ese es tu equipo! Pruébalo en el mapa al cerrar.' : 'Así se usa en el otro equipo.');
+          react('hop');
+        });
+        box.append(card);
+      }
+      return box;
+    },
+  }],
+  shop: [{
+    title: 'Tienda de cosméticos',
+    say: 'Viste a Topitín con lo que vas ganando. Toca cada parte.',
+    demo: topicsDemo([
+      ['shop', 'Atuendos', 'Toca uno para ver cómo le queda a Topitín y equípalo.'],
+      ['gift', 'Cofres', 'Cofres por rareza con cosméticos sorpresa.'],
+      ['clients', 'Avatares', 'Marcos para tu foto de perfil.'],
+      ['sparkles', 'Tus puntos', 'Los puntos de tus tareas y ventas son los que usas aquí.'],
+    ]),
+  }],
+  rewards: [{
+    title: 'Catálogo de premios',
+    say: 'Tus puntos se convierten en premios. Toca cada parte.',
+    demo: topicsDemo([
+      ['sparkles', 'Puntos acumulados', 'Lo que llevas: +5 por cada tarea y +100 por cada venta.'],
+      ['flag', 'Camino de bonos', 'La barra muestra qué bonos ya alcanzas y cuál sigue.'],
+      ['gift', 'Colección', 'Filtra por categoría y toca un premio para ver el detalle.'],
+      ['star', 'Exclusivos', 'Premios de temporada por tiempo limitado.'],
+    ]),
+  }],
+};
+
+export function showScreenGuide(view, { mascot }) {
+  return openGuide(screenSteps[view] ?? screenSteps.commissions, { mascot, className: 'is-dashboard', finish: 'Entendido' });
+}
+
 export function showProgressGuide({ mascot }) {
   return openGuide(progressSteps, { mascot });
 }
@@ -330,7 +497,15 @@ export function showDashboardGuide({ mascot }) {
   return openGuide(dashboardSteps, { mascot, className: 'is-dashboard' });
 }
 
-function openGuide(steps, { mascot, className = '' }) {
+export function showAdminPrdGuide({ mascot, onFinish }) {
+  return openGuide(adminPrdSteps, { mascot, className: 'is-dashboard is-admin', finish: 'Ver cómo funciona', onFinish });
+}
+
+export function showAdminViewGuide(view, { mascot, finish = 'Entendido', onFinish = null }) {
+  return openGuide(adminViewSteps[view] ?? adminViewSteps.dashboard, { mascot, className: 'is-dashboard is-admin', finish: finish || 'Entendido', onFinish });
+}
+
+function openGuide(steps, { mascot, className = '', finish = '¡A vender!', onFinish = null }) {
   document.querySelector('.progress-guide')?.remove();
   const dialog = make('dialog', `progress-guide ${className}`.trim());
   dialog.setAttribute('aria-labelledby', 'progress-guide-title');
@@ -387,7 +562,7 @@ function openGuide(steps, { mascot, className = '' }) {
     demoSlot.replaceChildren(demo);
     dots.replaceChildren(...steps.map((_, dot) => make('span', dot === index ? 'is-active' : '')));
     back.hidden = index === 0;
-    next.textContent = index === steps.length - 1 ? '¡A vender!' : 'Siguiente';
+    next.textContent = index === steps.length - 1 ? finish : 'Siguiente';
     if (!reducedMotion()) {
       gsap.timeline({ defaults: { ease: 'power3.out' } })
         // fromTo con valores finales fijos: tocar «Siguiente» rápido no deja el título a medias.
@@ -398,7 +573,7 @@ function openGuide(steps, { mascot, className = '' }) {
   };
   back.addEventListener('click', () => { if (index > 0) { index--; show(-1); } });
   next.addEventListener('click', () => {
-    if (index === steps.length - 1) { dialog.close(); return; }
+    if (index === steps.length - 1) { dialog.close(); onFinish?.(); return; }
     index++;
     show(1);
   });

@@ -7,9 +7,9 @@ test('mascot speaks for successful actions, not map navigation', () => {
     assert.equal(getMascotFeedbackMessage(event), null);
   }
   for (const completed of [1, 2, 3, 4]) {
-    assert.ok(getMascotFeedbackMessage('task', completed));
+    assert.match(getMascotFeedbackMessage('task', completed), /\+5 puntos$/);
   }
-  assert.equal(getMascotFeedbackMessage('sale'), '¡Venta confirmada! ¡Buen trabajo!');
+  assert.equal(getMascotFeedbackMessage('sale'), '¡Venta confirmada! +100 puntos');
 });
 
 test('poking Topitín hints at the commission secret in the notifications', () => {

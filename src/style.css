@@ -32,7 +32,8 @@ button, input, select { font: inherit; }
 button, select { cursor: pointer; }
 button { transition: background-color 160ms ease, color 160ms ease; }
 button:focus-visible, input:focus-visible, select:focus-visible, [tabindex="-1"]:focus-visible { outline: 3px solid var(--yellow); outline-offset: 3px; }
-::selection { background: #bdefff; color: var(--navy); }
+/* Texto oscuro fijo: en tema oscuro --navy es claro y lo seleccionado no se leía (también el nombre con degradado). */
+::selection { background: #bdefff; color: #063b67; -webkit-text-fill-color: #063b67; }
 input { caret-color: var(--accent); }
 * { scrollbar-color: #b6c8d6 transparent; scrollbar-width: thin; }
 :root[data-theme="dark"], :root[data-theme="dark"] * { scrollbar-color: #1d4862 transparent; }
