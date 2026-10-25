@@ -1,7 +1,8 @@
 import { LEVELS, MAX_LEVEL, levelForSales } from './levels.js';
 
+// Topitín: triste hasta la primera tarea (0/4 y 1/4), serio en 2/4 y 3/4 y feliz con las 4.
 export function getMascotState(percentage) {
-  if (percentage === 0) return 'sad';
+  if (percentage < 50) return 'sad';
   if (percentage < 100) return 'neutral';
   return 'happy';
 }

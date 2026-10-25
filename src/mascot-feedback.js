@@ -5,11 +5,12 @@ let dismissTimer = null;
 let bubble = null;
 
 export function getMascotFeedbackMessage(event, completedTasks = 1) {
-  if (event === 'sale') return '¡Venta confirmada! ¡Buen trabajo!';
+  if (event === 'sale') return '¡Venta confirmada! +100 puntos';
   if (event === 'secret') return 'Psst… tengo un secreto. Revisa tus notificaciones.';
   if (event !== 'task') return null;
-  const messages = ['¡Primer paso completado!', '¡Cada paso cuenta!', '¡Vas con todo!', '¡Buen trabajo! Ya puedes confirmar la venta.'];
-  return messages[Math.min(3, Math.max(0, completedTasks - 1))];
+  const messages = ['¡Primer paso completado!', '¡Cada paso cuenta!', '¡Vas con todo!', '¡Ya puedes confirmar la venta!'];
+  // Cada tarea suma 5 puntos y Topitín lo dice.
+  return `${messages[Math.min(3, Math.max(0, completedTasks - 1))]} +5 puntos`;
 }
 
 export function clearMascotFeedback() {

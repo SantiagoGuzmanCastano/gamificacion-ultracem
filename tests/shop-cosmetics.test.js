@@ -6,7 +6,7 @@ import * as shop from '../src/shop.js';
 test('shop navigation is named Tienda cosméticos for advisors and hidden for admins', () => {
   const main = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
   assert.ok(main.includes("['shop', 'Tienda cosméticos', 'shop']"));
-  assert.ok(main.includes("[['dashboard', 'Resumen', 'home'], ['team', 'Asesores', 'clients'], ['zones', 'Zonas', 'target'], ['map', 'Mapa de ventas', 'map'], ['manage', 'Gestión', 'tasks']]"));
+  assert.ok(main.includes("[['dashboard', 'Resumen', 'home'], ['team', 'Asesores', 'clients'], ['zones', 'Zonas', 'target'], ['map', 'Mapa de ventas', 'map'], ['manage', 'Gestión', 'tasks'], ['profile', 'Perfil', 'profile']]"));
   assert.equal(main.includes("['shop', 'Tienda',"), false);
 });
 

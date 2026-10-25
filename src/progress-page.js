@@ -31,28 +31,33 @@ export function showLevelBanner(world, level, reducedMotion = false) {
     .to(banner, { scale: 0, opacity: 0, duration: .3, delay: 2.4, ease: 'back.in(2)' });
 }
 
-export function renderProgressPage(page, model, { selected = model.level, onSelect = () => {}, onClients = () => {}, onReplay = null, onGuide = null } = {}) {
+export function renderProgressPage(page, model, { selected = model.level, onSelect = () => {}, onClients = () => {}, onReplay = null, onGuide = null, guideMascot = '' } = {}) {
   page.className = 'advisor-page progress-page';
   const heading = element('header', 'progress-heading');
   const copy = element('div');
   copy.append(element('h1', '', 'Tu progreso'), element('p', '', 'Cada venta confirmada hace crecer tu planta. Desbloquea nuevas islas y recompensas.'));
-  heading.append(copy);
-  const headingActions = element('div', 'progress-heading-actions');
+  // Bajo el título, pequeños y juntos: la guía y «Repetir celebración».
+  const tools = element('div', 'progress-guide-row');
   if (onGuide) {
-    const guide = element('button', 'progress-replay progress-guide-open', 'Repetir instrucciones');
-    guide.prepend(iconNode('flag', 'progress-replay-icon'));
+    const guide = element('button', 'advisor-guide-button progress-guide-open', '¿Cómo funciona esta pantalla?');
     guide.type = 'button';
+    if (guideMascot) {
+      const buddy = element('img', 'advisor-guide-mascot');
+      buddy.src = guideMascot; buddy.alt = ''; buddy.width = 26; buddy.height = 26;
+      guide.prepend(buddy);
+    }
     guide.addEventListener('click', onGuide);
-    headingActions.append(guide);
+    tools.append(guide);
   }
   if (onReplay && model.level > 1) {
-    const replay = element('button', 'progress-replay', 'Repetir celebración');
+    const replay = element('button', 'progress-replay-small', 'Repetir celebración');
     replay.type = 'button';
     replay.prepend(iconNode('sparkles', 'progress-replay-icon'));
     replay.addEventListener('click', onReplay);
-    headingActions.append(replay);
+    tools.append(replay);
   }
-  if (headingActions.childElementCount) heading.append(headingActions);
+  if (tools.childElementCount) copy.append(tools);
+  heading.append(copy);
 
   const layout = element('div', 'progress-layout');
   const world = element('section', 'progress-world');
@@ -86,6 +91,7 @@ export function renderProgressPage(page, model, { selected = model.level, onSele
   const side = element('aside', 'progress-side');
   side.setAttribute('aria-label', 'Detalle de tu progreso');
 
+  // Tarjeta principal: nivel, una barra por segmentos (uno por venta), lo que falta y su recompensa.
   const currentCard = element('section', 'progress-card progress-current');
   const currentTop = element('div', 'progress-current-top');
   const currentCopy = element('div');
@@ -94,54 +100,50 @@ export function renderProgressPage(page, model, { selected = model.level, onSele
   emblem.setAttribute('aria-hidden', 'true');
   emblem.innerHTML = `<svg viewBox="0 0 64 64"><path d="M32 4 56 18v28L32 60 8 46V18Z"/></svg><strong>${model.level}</strong>`;
   currentTop.append(currentCopy, emblem);
-  const meter = element('div', 'progress-meter');
-  meter.setAttribute('role', 'progressbar');
-  meter.setAttribute('aria-label', model.next ? `Avance hacia el nivel ${model.next.level}` : 'Nivel máximo');
-  meter.setAttribute('aria-valuemin', '0');
-  meter.setAttribute('aria-valuemax', '100');
-  meter.setAttribute('aria-valuenow', String(model.percentage));
-  const fill = element('span');
-  fill.style.width = `${model.percentage}%`;
-  meter.append(fill);
-  const meterCopy = model.next
-    ? `${model.sales} de ${model.next.minSales} ventas confirmadas para el nivel ${model.next.level}`
-    : `${plural(model.sales, 'venta confirmada', 'ventas confirmadas')}. ¡Llegaste a la cima!`;
-  currentCard.append(currentTop, meter, element('p', 'progress-meter-copy', meterCopy));
-
-  const rewardCard = element('section', 'progress-card progress-reward');
-  rewardCard.append(element('span', 'progress-card-title', `Recompensa del nivel ${model.level}`));
-  const rewardRow = element('div', 'progress-reward-row');
-  const rewardValue = element('div');
-  rewardValue.append(element('strong', 'progress-money', money(model.current.reward)), element('span', 'progress-reward-caption', 'meta de recompensa'));
-  rewardRow.append(iconNode('coins', 'progress-reward-icon'), rewardValue, element('span', 'progress-pill is-done', 'Desbloqueada'));
-  rewardCard.append(rewardRow);
-
-  const nextCard = element('section', 'progress-card progress-next');
+  const goal = model.next ? model.next.minSales : model.sales;
+  const segments = element('div', 'progress-segments');
+  segments.setAttribute('role', 'progressbar');
+  segments.setAttribute('aria-label', model.next ? `Ventas confirmadas hacia el nivel ${model.next.level}` : 'Nivel máximo');
+  segments.setAttribute('aria-valuemin', '0');
+  segments.setAttribute('aria-valuemax', String(Math.max(goal, 1)));
+  segments.setAttribute('aria-valuenow', String(Math.min(model.sales, Math.max(goal, 1))));
+  for (let index = 0; index < Math.max(goal, 1); index++) segments.append(element('span', index < model.sales || !model.next ? 'is-filled' : ''));
+  const count = element('p', 'progress-meter-copy');
+  if (model.next) count.append(element('strong', '', `${model.sales} de ${model.next.minSales}`), ' ventas confirmadas');
+  else count.append(element('strong', '', plural(model.sales, 'venta confirmada', 'ventas confirmadas')), ' · ¡Llegaste a la cima!');
+  currentCard.append(currentTop, segments, count);
   if (model.next) {
-    nextCard.append(element('span', 'progress-card-title', 'Siguiente recompensa'));
-    const nextRow = element('div', 'progress-reward-row');
-    const nextValue = element('div');
-    nextValue.append(element('strong', 'progress-money', money(model.next.reward)), element('span', 'progress-reward-caption', model.next.name));
-    const lockPill = element('span', 'progress-pill is-locked', `Nivel ${model.next.level}`);
-    lockPill.prepend(iconNode('lock', 'progress-pill-icon'));
-    nextRow.append(iconNode('gift', 'progress-reward-icon is-locked'), nextValue, lockPill);
-    const missing = element('p', 'progress-next-copy');
-    missing.append('Te ', element('strong', '', model.remaining === 1 ? 'falta 1 venta confirmada' : `faltan ${model.remaining} ventas confirmadas`), ' para abrir el cofre.');
+    const goalRow = element('div', 'progress-goal');
+    const goalCopy = element('p', 'progress-goal-copy');
+    goalCopy.append('Te ', element('strong', '', model.remaining === 1 ? 'falta 1 venta' : `faltan ${model.remaining} ventas`), ` para el Nivel ${model.next.level}`);
+    const prize = element('span', 'progress-goal-prize');
+    prize.append(iconNode('gift', 'progress-goal-icon'), element('strong', '', money(model.next.reward)));
+    goalRow.append(goalCopy, prize);
     const cta = element('button', 'progress-cta', 'Ir a mis clientes');
     cta.type = 'button';
     cta.append(iconNode('arrow', 'progress-cta-icon'));
     cta.addEventListener('click', onClients);
-    nextCard.append(nextRow, missing, cta);
+    currentCard.append(goalRow, cta);
   } else {
-    nextCard.append(element('span', 'progress-card-title', 'Todas las recompensas desbloqueadas'), element('p', 'progress-next-copy', 'Eres Maestro comercial. Sigue vendiendo para defender tu lugar en el ranking.'));
+    currentCard.append(element('p', 'progress-next-copy', 'Eres Maestro comercial. Sigue vendiendo para defender tu lugar en el ranking.'));
   }
 
+  // Lo alcanzado hasta hoy, con la aclaración de que son metas del programa.
+  const reached = model.levels.filter(level => level.state !== 'locked');
+  const rewardCard = element('section', 'progress-card progress-reward');
+  const rewardRow = element('div', 'progress-reward-row');
+  const rewardValue = element('div');
+  rewardValue.append(element('span', 'progress-card-title', 'Recompensas desbloqueadas'), element('strong', 'progress-money', money(reached.reduce((total, level) => total + Number(level.reward || 0), 0))), element('span', 'progress-reward-caption', reached.length === 1 ? 'Nivel 1' : `Niveles 1 a ${reached.length}`));
+  rewardRow.append(iconNode('coins', 'progress-reward-icon'), rewardValue);
+  rewardCard.append(rewardRow, element('p', 'progress-footnote', 'Son metas del programa: se muestran aquí y no se suman automáticamente a tu cartera.'));
+
+  // Camino de niveles: línea de tiempo con las ventas que pide cada nivel y su estado.
   const listCard = element('section', 'progress-card progress-levels');
-  listCard.append(element('h2', 'progress-card-title', 'Todos los niveles'));
+  listCard.append(element('h2', 'progress-card-title', 'Camino de niveles'));
   const list = element('ol', 'progress-level-list');
   const rowButtons = new Map();
   for (const level of model.levels) {
-    const item = element('li');
+    const item = element('li', `is-${level.state}`);
     const row = element('button', `progress-level-row is-${level.state}`);
     row.type = 'button';
     row.dataset.level = level.level;
@@ -149,24 +151,44 @@ export function renderProgressPage(page, model, { selected = model.level, onSele
     dot.setAttribute('aria-hidden', 'true');
     if (level.state !== 'current') dot.innerHTML = advisorIcon(level.state === 'locked' ? 'lock' : 'check');
     const name = element('span', 'progress-level-name');
-    name.append(element('strong', '', `Nivel ${level.level}`), element('small', '', level.name));
-    row.append(dot, name, element('span', 'progress-level-reward', money(level.reward)));
+    const requirement = level.minSales ? plural(level.minSales, 'venta', 'ventas') : 'Al empezar';
+    name.append(element('strong', '', `Nivel ${level.level}`), element('small', '', `${requirement} · ${level.name}`));
+    const isNext = model.next && level.level === model.next.level;
+    const state = level.state === 'completed' ? 'Desbloqueada' : level.state === 'current' ? 'Tu nivel' : isNext ? (model.remaining === 1 ? 'Falta 1 venta' : `Faltan ${model.remaining} ventas`) : 'Bloqueado';
+    const reward = element('span', 'progress-level-reward');
+    reward.append(element('strong', '', money(level.reward)), element('small', `progress-level-state${isNext ? ' is-next' : ''}`, state));
+    row.append(dot, name, reward);
     row.addEventListener('click', () => onSelect(level.level));
     item.append(row);
     list.append(item);
     rowButtons.set(level.level, row);
   }
-  listCard.append(list, element('p', 'progress-footnote', 'Las recompensas son metas del programa: se muestran aquí y no se suman automáticamente a tu cartera.'));
+  listCard.append(list);
 
-  side.append(currentCard, rewardCard, nextCard, listCard);
+  side.append(currentCard, rewardCard, listCard);
   layout.append(world, side);
   page.replaceChildren(heading, layout);
 
-  const select = level => {
+  // El camino muestra tres niveles a la vez (último desbloqueado, actual y siguiente) y se desplaza.
+  const items = [...list.children];
+  const scrollToLevel = (level, behavior = 'auto') => {
+    const index = model.levels.findIndex(item => item.level === level);
+    const first = Math.max(0, Math.min(index - 1, items.length - 3));
+    list.scrollTo({ top: items[first].offsetTop, behavior });
+  };
+  const fitWindow = () => {
+    if (!list.isConnected || items.length < 3) return;
+    const last = items[Math.min(2, items.length - 1)];
+    list.style.maxHeight = `${last.offsetTop + last.offsetHeight}px`;
+    scrollToLevel(model.level);
+  };
+  requestAnimationFrame(fitWindow);
+  const select = (level, fromUser = true) => {
     for (const [id, row] of rowButtons) row.setAttribute('aria-pressed', String(id === level));
     for (const [id, label] of labelButtons) label.classList.toggle('is-selected', id === level);
+    if (fromUser && list.isConnected) scrollToLevel(level, globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth');
   };
-  select(selected);
+  select(selected, false);
   return { stage, labels: labelButtons, status, select };
 }
 
@@ -188,12 +210,11 @@ export function playProgressEntrance(page) {
   progressEntrance = gsap.context(() => {
     const tl = gsap.timeline({ defaults: { ease: 'power3.out' }, onComplete: () => gsap.set(q('.progress-heading *, .progress-world, .progress-side *'), { clearProps: 'transform,opacity' }) });
     tl.from(q('.progress-heading h1, .progress-heading p'), { opacity: 0, y: -14, duration: .45, stagger: .08 }, 0);
-    tl.from(q('.progress-heading-actions > *'), { opacity: 0, y: -8, scale: .9, duration: .4, stagger: .06, ease: 'back.out(2)' }, .15);
     tl.from(q('.progress-world'), { opacity: 0, y: 24, scale: .985, duration: .7 }, .1);
     tl.from(q('.progress-side > .progress-card'), { opacity: 0, x: 24, duration: .55, stagger: .1 }, .25);
     tl.from(q('.progress-emblem'), { scale: 0, rotation: -120, duration: .7, ease: 'back.out(1.8)' }, .5);
-    tl.from(q('.progress-meter span'), { scaleX: 0, transformOrigin: '0 50%', duration: .9, ease: 'power3.inOut' }, .6);
-    tl.from(q('.progress-reward-icon'), { scale: .4, rotation: -30, duration: .55, stagger: .1, ease: 'back.out(2)' }, .65);
+    tl.from(q('.progress-segments span'), { scaleX: 0, transformOrigin: '0 50%', duration: .35, stagger: .06, ease: 'power2.out' }, .6);
+    tl.from(q('.progress-reward-icon, .progress-goal-icon'), { scale: .4, rotation: -30, duration: .55, stagger: .1, ease: 'back.out(2)' }, .65);
     tl.from(q('.progress-cta'), { opacity: 0, y: 8, duration: .4 }, .85);
     tl.from(q('.progress-level-row'), { opacity: 0, x: -12, duration: .35, stagger: .05 }, .8);
   }, page);

@@ -136,6 +136,7 @@ test('ranking shows advisor photos in both views without changing position or me
     user: { id: 'a' }, createProfileAvatar,
     getRankingSlots: rows => [...rows, { position: 2, full_name: 'Falta un asesor', placeholder: true }],
     el(tag, cls = '', text = '') { const node = new Element(tag); node.className = cls; node.textContent = text; return node; },
+    button(label, cls, handler) { const node = new Element('button'); node.className = cls; node.textContent = label; node.addEventListener('click', handler); return node; },
   });
   for (const advisor of [true, false]) {
     const section = rankingSection(advisor);

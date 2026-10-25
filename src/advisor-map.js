@@ -454,7 +454,7 @@ export function createMapOverlays() {
   const heatLegend = document.createElement('div');
   heatLegend.className = 'map-glass map-heat-legend';
   // El título es un botón que pliega la leyenda para dejar ver el mapa; se recuerda en la sesión.
-  heatLegend.innerHTML = '<button type="button" class="map-heat-toggle" aria-expanded="true" aria-controls="map-heat-body"><strong>Toneladas por vender</strong><span class="map-heat-chevron" aria-hidden="true"></span></button><div class="map-heat-body" id="map-heat-body"><div class="map-heat-ramp"></div><div class="map-heat-labels"><span>Baja</span><span>Alta</span></div><span class="map-sold-key">Base dorada: vendidas</span></div>';
+  heatLegend.innerHTML = '<button type="button" class="map-heat-toggle" aria-expanded="true" aria-controls="map-heat-body"><strong>Toneladas por vender</strong><span class="map-heat-chevron" aria-hidden="true"></span></button><div class="map-heat-body" id="map-heat-body"><div class="map-heat-ramp"></div><div class="map-heat-labels"><span>Baja</span><span>Alta</span></div><span class="map-sold-key">Base dorada: vendidas</span><div class="map-state-legend"><span class="map-state-locked">Bloqueado</span><span class="map-state-active">Con clientes</span></div></div>';
   const toggle = heatLegend.querySelector('.map-heat-toggle');
   const setCollapsed = collapsed => {
     heatLegend.classList.toggle('is-collapsed', collapsed);
@@ -468,10 +468,7 @@ export function createMapOverlays() {
   compass.className = 'map-glass map-compass';
   compass.setAttribute('aria-hidden', 'true');
   compass.innerHTML = COMPASS_SVG;
-  const stateLegend = document.createElement('div');
-  stateLegend.className = 'map-glass map-state-legend';
-  stateLegend.innerHTML = '<span class="map-state-locked">Bloqueado</span><span class="map-state-active">Con clientes</span>';
-  return { heatLegend, compass, stateLegend };
+  return { heatLegend, compass };
 }
 
 // Vista del admin: a quién contactar en cada departamento (public/data/prospects.json), de mayor a menor volumen.
@@ -884,9 +881,9 @@ export async function renderAdvisorClientMap(container, clients = [], onStatus =
     markers.push(new Marker({ element: root, offset: [0, 18] }).setLngLat(group.coordinates).addTo(map));
   }
 
-  const { heatLegend, compass, stateLegend } = createMapOverlays();
-  // En la vista del admin sobran las leyendas de calor y de zonas bloqueadas.
-  overlays = [createMapClouds(), compass, ...(unlocked ? [] : [heatLegend, stateLegend])];
+  const { heatLegend, compass } = createMapOverlays();
+  // En la vista del admin sobra la leyenda (calor y zonas bloqueadas).
+  overlays = [createMapClouds(), compass, ...(unlocked ? [] : [heatLegend])];
   const targetCard = target && createTargetCard(target, () => {
     userMoved = true;
     stopSway();

@@ -9,15 +9,27 @@ const MONTHLY_TONS_TARGET = 50;
 const CHALLENGE_STEPS = 6;
 const stateLabels = { done: 'Completado', progress: 'En progreso', locked: 'Bloqueado' };
 
-// Prueba de concepto: los logros son de muestra y no se leen de Supabase.
-const sampleMilestones = [
-  { icon: 'check', title: 'Primera comisión', reward: '+50 puntos', state: 'done' },
-  { icon: 'coins', title: '$500.000 acumulados', reward: '+50 puntos', state: 'done' },
-  { icon: 'clients', title: '5 ventas concretadas', reward: '+100 puntos', state: 'done' },
-  { icon: 'sales', title: '$1.000.000 acumulados', reward: '+100 puntos', state: 'progress', progress: 68 },
-  { icon: 'trophy', title: 'Meta mensual', reward: '+200 puntos', state: 'locked' },
-  { icon: 'star', title: '10 ventas concretadas', reward: '+100 puntos', state: 'locked' },
+// Logros con metas fijas; el avance sale de las ventas confirmadas del asesor.
+const milestoneGoals = [
+  { icon: 'check', title: 'Primera comisión', reward: '+50 puntos', metric: 'commissions', target: 1 },
+  { icon: 'coins', title: '$500.000 acumulados', reward: '+50 puntos', metric: 'total', target: 500000 },
+  { icon: 'clients', title: '5 ventas concretadas', reward: '+100 puntos', metric: 'sales', target: 5 },
+  { icon: 'sales', title: '$1.000.000 acumulados', reward: '+100 puntos', metric: 'total', target: 1000000 },
+  { icon: 'trophy', title: 'Meta mensual', reward: '+200 puntos', metric: 'monthly', target: MONTHLY_GOAL },
+  { icon: 'star', title: '10 ventas concretadas', reward: '+100 puntos', metric: 'sales', target: 10 },
 ];
+
+// Lo logrado queda completo, el primero pendiente va en progreso y el resto bloqueado.
+export function milestoneProgress(values) {
+  let current = false;
+  return milestoneGoals.map(goal => {
+    const value = Number(values[goal.metric] || 0);
+    const progress = Math.min(100, Math.round(value / goal.target * 100));
+    let state = 'done';
+    if (value < goal.target) { state = current ? 'locked' : 'progress'; current = true; }
+    return { ...goal, value, progress, missing: Math.max(0, goal.target - value), state };
+  });
+}
 
 const hasCommission = sale => Number(sale.commission_amount) > 0;
 const sameMonth = (value, now) => { const date = new Date(value); return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth(); };
@@ -29,7 +41,9 @@ export function commissionStats(ownSales, now = new Date()) {
   const tons = monthly.reduce((total, sale) => total + Number(sale.tons_sold || 0), 0);
   const monthName = now.toLocaleDateString('es-CO', { month: 'long' });
   const month = `${monthName.charAt(0).toUpperCase()}${monthName.slice(1)} ${now.getFullYear()}`;
-  return { month, goal: { target: MONTHLY_GOAL, earned }, challenge: { tons, target: MONTHLY_TONS_TARGET, steps: CHALLENGE_STEPS }, milestones: sampleMilestones };
+  const paid = ownSales.filter(hasCommission);
+  const milestones = milestoneProgress({ commissions: paid.length, total: paid.reduce((total, sale) => total + Number(sale.commission_amount), 0), sales: ownSales.length, monthly: earned });
+  return { month, goal: { target: MONTHLY_GOAL, earned }, challenge: { tons, target: MONTHLY_TONS_TARGET, steps: CHALLENGE_STEPS }, milestones };
 }
 
 function node(tag, className = '', text = '') {
@@ -107,17 +121,44 @@ export function commissionMilestones(sample, onViewRedeemed = null) {
     head.append(link);
   }
   const list = node('ol', 'commission-milestone-list');
-  for (const item of sample.milestones) {
+  sample.milestones.forEach((item, index) => {
     const entry = node('li', `commission-milestone ${item.state}`);
     const badge = icon(item.state === 'locked' ? 'lock' : item.icon, 'commission-badge');
     if (item.state === 'progress') badge.style.setProperty('--badge-progress', `${item.progress}%`);
     const reward = node('span', 'commission-reward');
     reward.append(icon('star', 'commission-reward-icon'), item.reward);
-    entry.append(badge, node('strong', '', item.title), reward, node('small', '', stateLabels[item.state]));
+    entry.append(badge, node('strong', '', item.title), reward, node('small', '', stateLabels[item.state]), milestoneTip(item, index));
+    // Enfocable para que el detalle también se abra con teclado o con un toque en el celular.
+    entry.tabIndex = 0;
+    entry.setAttribute('aria-describedby', `milestone-tip-${index}`);
     list.append(entry);
-  }
+  });
   section.append(head, list);
   return section;
+}
+
+// Detalle al pasar el puntero: cuánto lleva, cuánto falta y qué gana.
+function milestoneTip(item, index) {
+  const money = item.metric === 'total' || item.metric === 'monthly';
+  const format = value => money ? cop(value) : value.toLocaleString('es-CO');
+  const unit = item.missing === 1 ? 'venta' : 'ventas';
+  const tip = node('span', 'commission-milestone-tip');
+  tip.id = `milestone-tip-${index}`;
+  tip.setAttribute('role', 'tooltip');
+  const bar = node('span', 'commission-milestone-tip-bar');
+  const fill = node('span', 'commission-milestone-tip-fill');
+  fill.style.width = `${item.progress}%`;
+  bar.append(fill);
+  const missing = item.state === 'done' ? '¡Logrado!'
+    : item.metric === 'commissions' ? 'Te falta tu primera comisión'
+    : `Te faltan ${money ? cop(item.missing) : `${item.missing} ${unit}`}${item.metric === 'monthly' ? ' este mes' : ''}`;
+  tip.append(
+    node('span', 'commission-milestone-tip-count', `${format(Math.min(item.value, item.target))} / ${format(item.target)}`),
+    bar,
+    node('strong', 'commission-milestone-tip-missing', missing),
+    node('span', 'commission-milestone-tip-reward', item.state === 'done' ? `Ganaste ${item.reward}` : `Al lograrlo: ${item.reward}`),
+  );
+  return tip;
 }
 
 let entrance = null;
@@ -176,7 +217,8 @@ export function playCommissionEntrance(page) {
     tl.from(q('.commission-available-section .commission-item'), { opacity: 0, x: -30, duration: .5, stagger: .1 }, 1.05);
     tl.from(q('.commission-milestones'), { opacity: 0, y: 24, duration: .5 }, 1.2);
     tl.from(q('.commission-badge'), { scale: 0, rotation: -60, duration: .55, stagger: .09, ease: 'back.out(2)' }, 1.35);
-    tl.from(q('.commission-milestone > :not(.commission-badge)'), { opacity: 0, y: 8, duration: .35, stagger: .02 }, 1.5);
+    // El tooltip queda fuera: GSAP le dejaría opacity en línea y el hover ya no lo mostraría.
+    tl.from(q('.commission-milestone > :not(.commission-badge, .commission-milestone-tip)'), { opacity: 0, y: 8, duration: .35, stagger: .02 }, 1.5);
     tl.from(q('.commission-redeemed-section'), { opacity: 0, y: 20, duration: .5 }, 1.6);
     // Cartera vacía: la tarjeta sube, Topitín entra saltando y los pasos aparecen en orden.
     tl.from(q('.commission-empty'), { opacity: 0, y: 30, duration: .6 }, .5);
@@ -210,6 +252,7 @@ export function commissionTakeHome(amount, count, mascotSrc = mascotImages.happy
   card.setAttribute('aria-label', `Total neto canjeado: ${cop(amount)}, ${count} ${count === 1 ? 'venta canjeada' : 'ventas canjeadas'}`);
   card.innerHTML = `<span class="commission-summary-icon commission-takehome-icon" aria-hidden="true">${advisorIcon('wallet')}</span>
     <div><span>Total neto canjeado</span><strong>${cop(amount)}</strong><small>${count} ${count === 1 ? 'venta canjeada' : 'ventas canjeadas'} · lo que te llevaste a casa</small></div>
+    <em class="commission-takehome-hint" aria-hidden="true">Toca 5×</em>
     <span class="commission-takehome-shine" aria-hidden="true"></span>`;
   card.addEventListener('click', event => {
     if (document.querySelector('.commission-bonus')) return;

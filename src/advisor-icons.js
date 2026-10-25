@@ -30,6 +30,8 @@ const paths = {
   apps: '<rect x="4" y="4" width="6" height="6" rx="1.5"/><rect x="14" y="4" width="6" height="6" rx="1.5"/><rect x="4" y="14" width="6" height="6" rx="1.5"/><rect x="14" y="14" width="6" height="6" rx="1.5"/>',
   flag:'<path d="M5 21V4M5 4h13l-3 4.5 3 4.5H5"/>',
   shield: '<path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6Z"/><path d="m9 12 2 2 4-4"/>',
+  monitor: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>',
+  mobile: '<rect x="7" y="2" width="10" height="20" rx="2.5"/><path d="M11 18h2"/>',
 };
 
 export function advisorIcon(name) {

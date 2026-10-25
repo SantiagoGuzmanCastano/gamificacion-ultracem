@@ -22,7 +22,7 @@ import { animateSidebar, resetSidebarMotion } from './advisor-sidebar.js';
 import { bindAdvisorHover } from './advisor-hover.js';
 import { clearTopitinToast, showTopitinToast } from './topitin-toast.js';
 import { openTopitinGuide } from './topitin-guide.js';
-import { clearAdvisorEffects, celebrateTask, celebrateSale, flipMetric, morphWeeklyChart, ringNotificationBell } from './advisor-effects.js';
+import { clearAdvisorEffects, celebrateTask, celebrateSale, flipMetric, morphWeeklyChart, popPoints, ringNotificationBell } from './advisor-effects.js';
 import { isValidProfileImage, profileImageExtension } from './profile.js';
 import { createProfileAvatar, createProfilePhotoPicker, renderAdvisorProfile, playProfileEntrance, clearProfileEntrance } from './profile-view.js';
 import { showLoadingScreen, clearLoadingScreen } from './loading-screen.js';
@@ -30,7 +30,10 @@ import { attachRankingAvatars } from './ranking-avatars.js';
 import { COLOMBIA_DEPARTMENTS, citiesForDepartment, normalizeClientLocation } from './client-location.js';
 import { commissionSummary, getCommissionStatus } from './commission-wallet.js';
 import { getProgressModel, playProgressEntrance, renderProgressPage, resetProgressEntrance, showLevelBanner } from './progress-page.js';
-import { showDashboardGuide, showProgressGuide } from './progress-guide.js';
+import { showDashboardGuide, showProgressGuide, showScreenGuide } from './progress-guide.js';
+import { adminGuideBar } from './admin/admin-guide.js';
+import { playGuideEntrance, resetGuideEntrance } from './guide-entrance.js';
+import { playAdminEntrance, resetAdminEntrance } from './admin/admin-entrance.js';
 import { celebrateCommissionClaim, celebrateCommissionClaimed, commissionGoals, commissionMilestones, commissionStats, commissionTakeHome, playCommissionEntrance, resetCommissionEntrance } from './commission-gamification.js';
 
 const SUPABASE_TIMEOUT_MS = 15000;
@@ -261,17 +264,38 @@ function advisorProfileCard() {
   card.append(open);
   return card;
 }
-// Tarjeta inferior del admin: mismo lugar y estilo que la del asesor, sin nivel ni puntos.
+// Tarjeta inferior del admin: mismo lugar y estilo que la del asesor; abre su perfil para cerrar sesión.
 function adminProfileCard() {
-  const card = el('section', 'advisor-profile-card admin-profile-card');
-  const row = el('div', 'profile-card-button');
+  const card = el('section', `advisor-profile-card admin-profile-card${adminView === 'profile' ? ' current' : ''}`);
+  const row = button('', 'profile-card-button', () => { adminView = 'profile'; render(); window.scrollTo(0, 0); });
+  row.setAttribute('aria-label', `Abrir mi perfil: ${profile.full_name}, Administrador`);
+  if (adminView === 'profile') row.setAttribute('aria-current', 'page');
   const avatar = el('span', 'profile-card-avatar');
   avatar.append(profileAvatar());
   const copy = el('span', 'profile-card-copy');
-  copy.append(el('strong', 'profile-card-name', profile.full_name), el('span', 'profile-card-meta', 'Administrador'));
-  row.append(avatar, copy);
+  // El rol va primero y el nombre debajo.
+  copy.append(el('strong', 'profile-card-name', 'Administrador'), el('span', 'profile-card-meta admin-card-name', profile.full_name));
+  const arrow = el('span', 'profile-card-arrow');
+  arrow.setAttribute('aria-hidden', 'true');
+  arrow.innerHTML = advisorIcon('arrow');
+  row.append(avatar, copy, arrow);
   card.append(row);
   return card;
+}
+// Perfil del admin: quién es y el botón para cerrar sesión (sin guía).
+function adminProfilePage(page) {
+  page.className = 'admin-page admin-prd admin-profile';
+  const head = el('header', 'admin-head'), headCopy = el('div');
+  headCopy.append(el('h1', '', 'Tu perfil'), el('p', '', 'Tu cuenta de administrador.'));
+  head.append(headCopy);
+  const card = el('section', 'admin-card admin-profile-panel');
+  const who = el('div', 'admin-profile-who');
+  const copy = el('div');
+  copy.append(el('strong', '', profile.full_name), el('span', '', user?.email || 'Administrador'));
+  who.append(profileAvatar('admin-profile-avatar'), copy);
+  card.append(who, el('span', 'admin-profile-role', 'Administrador'), button('Cerrar sesión', 'admin-signout', signOut));
+  page.append(head, card);
+  playAdminEntrance(page, 'profile');
 }
 function notice(text, error = false) {
   const node = document.querySelector('#notice');
@@ -344,6 +368,14 @@ function pokeTopitin(client, progress, portfolio, stats) {
   pokeTurn++;
   showMascotLine(line);
   if (line.startsWith('Psst')) revealCommissionSecret();
+}
+// «¿Cómo funciona esta pantalla?»: el mismo botón pequeño con Topitín en todas las pantallas del asesor.
+function screenGuideButton(open) {
+  const guide = button('¿Cómo funciona esta pantalla?', 'advisor-guide-button', open);
+  const guideMascot = el('img', 'advisor-guide-mascot');
+  guideMascot.src = skinHappyImage(); guideMascot.alt = ''; guideMascot.width = 26; guideMascot.height = 26;
+  guide.prepend(guideMascot);
+  return guide;
 }
 const skinHappyImage = () => profile?.equipped_skin === 'skeleton' ? '/skins/skeleton/happy.png' : mascotImages.happy;
 // Easter egg: tocar a Topitín en Inicio deja una pista en las notificaciones.
@@ -460,10 +492,12 @@ function shell() {
     mobileNav.setAttribute('aria-label', portal);
     const mobileLabels = { dashboard: 'Inicio', history: 'Clientes', commissions: 'Comisiones', map: 'Mapa', shop: 'Cosméticos', rewards: 'Premios', progress: 'Progreso', profile: 'Perfil', team: 'Asesores', zones: 'Zonas', manage: 'Gestión' };
     const items = admin
-      ? [['dashboard', 'Resumen', 'home'], ['team', 'Asesores', 'clients'], ['zones', 'Zonas', 'target'], ['map', 'Mapa de ventas', 'map'], ['manage', 'Gestión', 'tasks']]
+      ? [['dashboard', 'Resumen', 'home'], ['team', 'Asesores', 'clients'], ['zones', 'Zonas', 'target'], ['map', 'Mapa de ventas', 'map'], ['manage', 'Gestión', 'tasks'], ['profile', 'Perfil', 'profile']]
       : [['dashboard', 'Inicio', 'home'], ['commissions', 'Cartera de comisiones', 'sales'], ['map', 'Mapa clientela', 'map'], ['shop', 'Tienda cosméticos', 'shop'], ['rewards', 'Premios', 'gift'], ['progress', 'Progreso', 'flag'], ['profile', 'Perfil', 'profile']];
     if (admin) mobileLabels.dashboard = 'Resumen';
     const mobileButtons = new Map();
+    // Avisos en la navegación: comisión por reclamar en Cartera y nivel nuevo sin ver en Progreso.
+    const badges = admin ? {} : navBadges();
     for (const [view, label, icon] of items) {
       // En escritorio el perfil vive en la tarjeta inferior; en móvil sigue en la barra.
       for (const [container, className] of view === 'profile' ? [[mobileNav, '']] : [[nav, 'sidebar-item'], [mobileNav, '']]) {
@@ -475,6 +509,13 @@ function shell() {
         if ((admin ? adminView : advisorView) === view) {
           control.classList.add('active');
           control.setAttribute('aria-current', 'page');
+        }
+        if (badges[view]) {
+          const badge = el('span', 'nav-badge');
+          badge.dataset.navBadge = view;
+          badge.setAttribute('aria-hidden', 'true');
+          control.append(badge);
+          control.setAttribute('aria-label', `${label} · ${badges[view]}`);
         }
         if (container === mobileNav) mobileButtons.set(view, control); else container.append(control);
       }
@@ -499,6 +540,7 @@ function shell() {
       more.setAttribute('aria-expanded', 'false');
       more.setAttribute('aria-controls', sheet.id);
       if (moreViews.includes(advisorView)) more.classList.add('active');
+      if (moreViews.some(view => badges[view])) { const badge = el('span', 'nav-badge'); badge.setAttribute('aria-hidden', 'true'); more.append(badge); }
       const setMore = open => {
         sheet.inert = !open;
         mobileNav.classList.toggle('more-open', open);
@@ -548,7 +590,6 @@ function shell() {
         return notifications;
       },
     });
-    if (profile.role === 'admin') actions.append(button('Cerrar sesión', 'text-button', signOut));
   }
 }
 function authPage(mode = 'login') {
@@ -926,34 +967,81 @@ function rankBadge(position, placeholder = false) {
     : `<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M10 1h5l3.5 10h-5ZM17 1h5l-3.5 10h-5Z" fill="${ribbon}"/><circle cx="16" cy="20" r="10" fill="${metal}" stroke="${edge}" stroke-width="1.8"/><text x="16" y="23.6" text-anchor="middle" font-size="10" font-weight="800" fill="#24323f">${position}</text></svg>`;
   return badge;
 }
+function advisorRankingRow(row) {
+  const confirmedSales = Number(row.confirmed_sales ?? row.sales ?? 0);
+  const item = el('li', 'ranking-row' + (row.advisor_id === user?.id ? ' current' : ''));
+  const identity = el('div', 'ranking-identity');
+  const person = el('div', 'ranking-person');
+  if (!row.placeholder) person.append(createProfileAvatar(row, 'ranking-avatar'));
+  person.append(identity);
+  item.classList.toggle('ranking-placeholder', Boolean(row.placeholder));
+  const rank = rankBadge(row.position, row.placeholder);
+  identity.append(el('strong', '', row.full_name), el('span', 'muted', row.placeholder ? 'Posición disponible' : row.advisor_id === user?.id ? 'Tu posición actual' : 'Asesor comercial'));
+  const values = el('div', 'ranking-values');
+  const count = el('span', 'ranking-sales-value', row.placeholder ? '—' : String(confirmedSales));
+  count.append(el('small', '', 'ventas'));
+  const tons = el('span', 'ranking-tons-value', row.placeholder ? '—' : `${Number(row.confirmed_tons || 0).toLocaleString('es-CO')} t`);
+  tons.append(el('small', '', 'vendidas'));
+  values.append(count, tons); item.append(rank, person, values);
+  return item;
+}
+// Ranking completo en un pop-up: todos los asesores, se cierra con Esc, con la X o tocando afuera.
+function openRankingDialog(trigger) {
+  document.querySelector('.ranking-dialog-backdrop')?.remove();
+  const backdrop = el('div', 'profile-dialog-backdrop ranking-dialog-backdrop');
+  const dialog = el('section', 'ranking-dialog advisor-ranking');
+  dialog.setAttribute('role', 'dialog');
+  dialog.setAttribute('aria-modal', 'true');
+  dialog.setAttribute('aria-labelledby', 'ranking-dialog-title');
+  const head = el('div', 'ranking-dialog-head');
+  const title = el('h2', '', 'Ranking completo');
+  title.id = 'ranking-dialog-title';
+  const close = () => { backdrop.remove(); document.removeEventListener('keydown', onKey); trigger?.focus(); };
+  const onKey = event => { if (event.key === 'Escape') close(); };
+  const closeButton = button('×', 'ranking-dialog-close', close);
+  closeButton.setAttribute('aria-label', 'Cerrar ranking');
+  head.append(title, closeButton);
+  const list = el('ol', 'ranking-list');
+  for (const row of getRankingSlots(ranking)) list.append(advisorRankingRow(row));
+  dialog.append(head, el('p', 'muted', `${ranking.length} ${ranking.length === 1 ? 'asesor' : 'asesores'} · ordenados por ventas confirmadas`), list);
+  backdrop.append(dialog);
+  backdrop.addEventListener('click', event => { if (event.target === backdrop) close(); });
+  document.addEventListener('keydown', onKey);
+  (document.querySelector('.advisor-shell') ?? document.body).append(backdrop);
+  closeButton.focus();
+}
 function rankingSection(advisor = false) {
   const section = el('section', 'ranking-section');
   if (advisor) section.classList.add('advisor-ranking');
-  section.append(el('h2', 'section-title', 'Ranking de asesores'), el('p', 'muted', 'El ranking se ordena por ventas confirmadas.'));
+  const heading = el('h2', 'section-title', 'Ranking de asesores');
+  section.append(heading, el('p', 'muted', 'El ranking se ordena por ventas confirmadas.'));
   if (!ranking.length && !advisor) {
     section.append(el('p', 'empty-state', 'Aún no hay asesores con actividad registrada.'));
     return section;
   }
   const list = el('ol', 'ranking-list');
-  for (const row of advisor ? getRankingSlots(ranking) : ranking) {
+  if (advisor) {
+    // En la tarjeta va el podio (y tu puesto si estás fuera); el resto, en «Ver más».
+    const slots = getRankingSlots(ranking);
+    const visible = slots.slice(0, 3);
+    const own = slots.find(row => row.advisor_id === user?.id);
+    if (own && !visible.includes(own)) visible.push(own);
+    for (const row of visible) list.append(advisorRankingRow(row));
+    if (ranking.length) {
+      const more = button('Ver más', 'ranking-more', () => openRankingDialog(more));
+      more.setAttribute('aria-haspopup', 'dialog');
+      heading.append(more);
+    }
+    section.append(list);
+    return section;
+  }
+  for (const row of ranking) {
     const confirmedSales = Number(row.confirmed_sales ?? row.sales ?? 0);
     const item = el('li', 'ranking-row' + (row.advisor_id === user?.id ? ' current' : ''));
     const identity = el('div', 'ranking-identity');
     const person = el('div', 'ranking-person');
     if (!row.placeholder) person.append(createProfileAvatar(row, 'ranking-avatar'));
     person.append(identity);
-    if (advisor) {
-      item.classList.toggle('ranking-placeholder', Boolean(row.placeholder));
-      const rank = rankBadge(row.position, row.placeholder);
-      identity.append(el('strong', '', row.full_name), el('span', 'muted', row.placeholder ? 'Posición disponible' : row.advisor_id === user?.id ? 'Tu posición actual' : 'Asesor comercial'));
-      const values = el('div', 'ranking-values');
-      const count = el('span', 'ranking-sales-value', row.placeholder ? '—' : String(confirmedSales));
-      count.append(el('small', '', 'ventas'));
-      const tons = el('span', 'ranking-tons-value', row.placeholder ? '—' : `${Number(row.confirmed_tons || 0).toLocaleString('es-CO')} t`);
-      tons.append(el('small', '', 'vendidas'));
-      values.append(count, tons); item.append(rank, person, values); list.append(item);
-      continue;
-    }
     identity.append(el('strong', '', `${row.position}. ${row.full_name}`), el('span', 'muted', `${confirmedSales} ventas · ${Number(row.confirmed_tons || 0).toLocaleString('es-CO')} toneladas`));
     item.append(person, el('strong', 'ranking-xp', `${confirmedSales} ventas`));
     list.append(item);
@@ -987,6 +1075,35 @@ async function deleteAdvisorClients(advisor, clientCount) {
     return;
   }
   await refresh('Clientes de ' + advisor.full_name + ' eliminados y puntos reiniciados.');
+}
+// Demo: asigna un cliente inventado a Santiago Guzmán, la cuenta de asesor compartida para la presentación.
+const DEMO_ADVISOR = 'santiago guzman';
+async function assignDemoClient() {
+  const plain = text => String(text || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+  const advisor = advisors.find(item => plain(item.full_name).includes(DEMO_ADVISOR));
+  if (!advisor) { notice('No encontré al asesor Santiago Guzmán.', true); return; }
+  const pick = list => list[Math.floor(Math.random() * list.length)];
+  const [type, prefix] = pick([['Ferretería', 'Ferretería'], ['Constructora', 'Constructora'], ['Distribuidor', 'Distribuidora']]);
+  const name = `${prefix} ${pick(['Andina', 'El Roble', 'La Esperanza', 'San José', 'Los Pinos', 'El Faro', 'Monteverde', 'La Cumbre', 'Del Valle', 'El Puente'])}`;
+  const department = pick(['Antioquia', 'Atlántico', 'Bolívar', 'Boyacá', 'Caldas', 'Cundinamarca', 'Huila', 'Meta', 'Nariño', 'Santander', 'Tolima', 'Valle del Cauca']);
+  const location = normalizeClientLocation(citiesForDepartment(department)[0], department);
+  if (!location) { notice('No pude ubicar el cliente de prueba. Intenta de nuevo.', true); return; }
+  const tons = 15;
+  const result = await db.rpc('assign_mvp_client', { client_name: name, client_type: type, target_advisor: advisor.user_id, target_department: location.department, target_city: location.city, requested_tons: tons });
+  if (result.error) { notice(result.error.message, true); return; }
+  await refresh(`${name} (${location.city}, ${tons} t) asignado a ${advisor.full_name}.`);
+}
+// Borra un solo cliente con sus tareas y su venta; al asesor se le descuentan los puntos de ese cliente.
+async function deleteClient(client) {
+  const sold = sales.some(sale => sale.client_id === client.id && sale.confirmed);
+  const confirmed = window.confirm('¿Borrar el cliente ' + client.name + '? También se eliminarán sus tareas' + (sold ? ' y su venta confirmada, y al asesor se le descontarán esos puntos' : '') + '. Esta acción no se puede deshacer.');
+  if (!confirmed) return;
+  const result = await db.rpc('delete_mvp_client', { target_client: client.id });
+  if (result.error) {
+    notice(/delete_mvp_client/.test(result.error.message || '') ? 'Falta aplicar la migración para borrar clientes uno por uno.' : result.error.message, true);
+    return;
+  }
+  await refresh('Cliente ' + client.name + ' eliminado.');
 }
 async function resetAdvisorProgress(advisor) {
   const confirmed = window.confirm('¿Reiniciar los puntos de ' + advisor.full_name + '? Su nivel volverá a 1 y sus ventas acumuladas a 0. Los clientes y las comisiones se conservan. Esta acción no se puede deshacer.');
@@ -1055,7 +1172,7 @@ function adminManagementPage(page) {
   const tasks = clients.flatMap(client => client.tasks);
   page.className = 'admin-page admin-prd admin-manage';
   const head = el('header', 'admin-head'), headCopy = el('div');
-  headCopy.append(el('h1', '', 'Gestión'), el('p', '', 'Asigna clientes nuevos, revisa qué le falta a cada asesor y administra sus cuentas.'));
+  headCopy.append(el('h1', '', 'Gestión'), el('p', '', 'Asigna clientes nuevos, revisa qué le falta a cada asesor y administra sus cuentas.'), adminGuideBar('manage', { label: 'Asignar cliente de prueba a Santiago Guzmán', run: assignDemoClient }));
   head.append(headCopy); page.append(head);
   const stats = el('dl', 'admin-card admin-figures admin-figures-live');
   for (const [label, value] of [['Asesores', advisors.length], ['Clientes', clients.length], ['Tareas pendientes', tasks.filter(task => !task.completed).length], ['Ventas confirmadas', sales.filter(sale => sale.confirmed).length]]) {
@@ -1092,7 +1209,11 @@ function adminManagementPage(page) {
       const item = el('li'), copy = el('div');
       copy.append(el('strong', '', client.name), el('span', '', [client.type, client.city && client.department ? `${client.city}, ${client.department}` : ''].filter(Boolean).join(' · ')));
       const progress = el('span', `manage-chip ${open.length ? 'manage-chip-pending' : 'manage-chip-done'}`, open.length ? `${client.tasks.length - open.length}/${client.tasks.length} tareas` : 'Completado');
-      item.append(copy, progress);
+      const remove = button('', 'manage-client-delete', () => deleteClient(client));
+      remove.innerHTML = advisorIcon('trash');
+      remove.setAttribute('aria-label', `Borrar el cliente ${client.name}`);
+      remove.title = 'Borrar este cliente';
+      item.append(copy, progress, remove);
       if (open.length) {
         const taskList = el('ul', 'manage-tasks');
         open.forEach(task => taskList.append(el('li', '', task.title)));
@@ -1175,6 +1296,7 @@ function adminManagementPage(page) {
     notice('Cliente guardado. 🐧 Topitín ya avisó al asesor y dejó su nueva misión lista en el sistema.');
   });
   manage.append(form, halloweenControl()); layout.append(manage, overview); page.append(layout);
+  playAdminEntrance(page, 'manage');
 }
 // El admin usa el mismo mapa con los clientes y ventas de todos los asesores, sin zonas bloqueadas.
 function advisorMapPage(page) {
@@ -1190,12 +1312,18 @@ function advisorMapPage(page) {
   const pendingTons = ownClients.filter(client => !soldIds.has(client.id)).reduce((total, client) => total + Number(client.tons_requested || 0), 0);
   const zonesCount = new Set(ownClients.map(client => client.department).filter(Boolean)).size;
   const chips = el('div', 'map-welcome-chips');
-  for (const [className, text] of [
-    ['map-chip-zones', admin ? `${zonesCount} ${zonesCount === 1 ? 'zona con clientes' : 'zonas con clientes'}` : `${zonesCount} ${zonesCount === 1 ? 'zona explorada' : 'zonas exploradas'}`],
-    ['map-chip-sold', `${soldTons.toLocaleString('es-CO')} t vendidas`],
-    ['map-chip-pending', `${pendingTons.toLocaleString('es-CO')} t por vender`],
-  ]) chips.append(el('span', `map-chip ${className}`, text));
+  // Cifra y texto por separado: en móvil cada pastilla se vuelve un mosaico con la cifra arriba.
+  for (const [className, value, label] of [
+    ['map-chip-zones', zonesCount, admin ? (zonesCount === 1 ? 'zona con clientes' : 'zonas con clientes') : (zonesCount === 1 ? 'zona explorada' : 'zonas exploradas')],
+    ['map-chip-sold', `${soldTons.toLocaleString('es-CO')} t`, 'vendidas'],
+    ['map-chip-pending', `${pendingTons.toLocaleString('es-CO')} t`, 'por vender'],
+  ]) {
+    const chip = el('span', `map-chip ${className}`);
+    chip.append(el('strong', '', String(value)), el('span', '', label));
+    chips.append(chip);
+  }
   welcomeCopy.append(el('h1', '', admin ? 'Mapa de ventas' : 'Mapa clientela'), el('p', '', admin ? 'Ventas de todos los asesores por zona: lo vendido y lo que queda por cerrar.' : 'Dónde ya vendiste y dónde quedan toneladas por ganar.'), chips);
+  welcomeCopy.append(admin ? adminGuideBar('map') : screenGuideButton(() => showScreenGuide('map', { mascot: skinHappyImage() })));
   welcome.append(welcomeCopy, advisorCalendar());
   const section = el('section', 'advisor-map-panel');
   const status = el('p', 'advisor-map-status', 'Cargando mapa…');
@@ -1255,6 +1383,19 @@ function destroyProgressWorld() {
   progressWorld?.destroy();
   progressWorld = null;
 }
+// Cartera avisa mientras haya comisiones por reclamar; Progreso, solo si subió de nivel y aún no lo vio.
+function navBadges() {
+  const badges = {};
+  if (sales.some(sale => sale.advisor_id === user?.id && sale.confirmed && sale.commission_status === 'available')) badges.commissions = 'tienes comisiones por reclamar';
+  const seenKey = `ultracem-progress-level-${user?.id}`;
+  const level = Number(profile?.level || 1);
+  if (!readSeenLevel(seenKey)) storeSeenLevel(seenKey, level);
+  else if (level > readSeenLevel(seenKey)) badges.progress = 'subiste de nivel';
+  return badges;
+}
+function clearProgressBadge() {
+  document.querySelectorAll('[data-nav-badge="progress"]').forEach(badge => badge.remove());
+}
 function readSeenLevel(key) {
   try { return Number(localStorage.getItem(key)) || 0; } catch { return 0; }
 }
@@ -1286,6 +1427,7 @@ function advisorProgressPage(page) {
     onClients: () => { advisorView = 'dashboard'; render(); window.scrollTo(0, 0); },
     onReplay: () => celebrate(model.level - 1, model.level),
     onGuide: () => showProgressGuide({ mascot: skinHappyImage() }),
+    guideMascot: skinHappyImage(),
   });
   playProgressEntrance(page);
   // La guía sale sola solo la primera vez; luego queda en «Repetir instrucciones».
@@ -1298,6 +1440,10 @@ function advisorProgressPage(page) {
     view.status.textContent = '';
     progressWorld.attach(view.stage, view.labels, select);
     progressWorld.setLevel(model.level);
+    const seen = readSeenLevel(seenKey) || model.level;
+    storeSeenLevel(seenKey, model.level);
+    clearProgressBadge();
+    if (model.level > seen) void celebrate(seen, model.level);
     return;
   }
   const request = ++progressWorldRequest;
@@ -1310,6 +1456,7 @@ function advisorProgressPage(page) {
       // First visit stores the level; later visits celebrate every level gained since then.
       const seen = readSeenLevel(seenKey) || model.level;
       storeSeenLevel(seenKey, model.level);
+      clearProgressBadge();
       if (model.level > seen) void celebrate(seen, model.level);
     })
     .catch(error => {
@@ -1389,7 +1536,7 @@ function advisorCommissionsPage(page) {
   const stats = commissionStats(ownSales);
   const welcome = el('header', 'advisor-welcome');
   const welcomeCopy = el('div');
-  welcomeCopy.append(el('h1', '', 'Cartera de comisiones'), el('p', '', 'Revisa lo que tienes disponible y lo que ya canjeaste.'));
+  welcomeCopy.append(el('h1', '', 'Cartera de comisiones'), el('p', '', 'Revisa lo que tienes disponible y lo que ya canjeaste.'), screenGuideButton(() => showScreenGuide('commissions', { mascot: skinHappyImage() })));
   welcome.classList.add('commission-welcome');
   welcome.append(welcomeCopy, advisorCalendar());
   const overview = el('section', 'commission-overview');
@@ -1528,13 +1675,14 @@ function advisorPage(page) {
   const levelStat = el('div', 'hero-highlight hero-level-highlight');
   const levelIcon = el('span', 'hero-highlight-icon'); levelIcon.innerHTML = advisorIcon('trophy');
   levelStat.append(levelIcon, el('span', '', levelProgress.target ? `${levelProgress.sales}/${levelProgress.target} ventas para Nivel ${levelProgress.level + 1}` : 'Nivel máximo'), el('strong', '', `Nivel ${levelProgress.level}`));
-  const streakStat = el('div', 'hero-highlight');
+  // Héroe: nivel, puntos y racha (las ventas confirmadas ya están en las métricas de abajo).
+  const pointsStat = el('div', 'hero-highlight hero-points-highlight');
+  const pointsIcon = el('span', 'hero-highlight-icon'); pointsIcon.innerHTML = advisorIcon('sparkles');
+  pointsStat.append(pointsIcon, el('span', '', 'Puntos para canjear'), el('strong', '', Number(profile?.points || 0).toLocaleString('es-CO')));
+  const streakStat = el('div', 'hero-highlight hero-streak-highlight');
   const flame = el('span', 'hero-highlight-icon'); flame.innerHTML = advisorIcon('flame');
   streakStat.append(flame, el('span', '', 'Racha actual'), el('strong', '', `${streak} ${streak === 1 ? 'día' : 'días'}`));
-  const salesStat = el('div', 'hero-highlight');
-  const salesIcon = el('span', 'hero-highlight-icon'); salesIcon.innerHTML = advisorIcon('sales');
-  salesStat.append(salesIcon, el('span', '', 'Ventas confirmadas'), el('strong', '', String(ownConfirmedSales.length)));
-  heroStats.append(levelStat, streakStat, salesStat);
+  heroStats.append(levelStat, pointsStat, streakStat);
   heroCopy.append(heroStats, button('Ver mis tareas hoy', 'hero-cta', () => document.querySelector('#advisor-actions')?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' })));
   const mascot = el('div', 'mascot advisor-hero-mascot');
   const mascotImage = el('img', 'mascot-image');
@@ -1641,7 +1789,7 @@ function advisorPage(page) {
           setCompleted(true, 5);
           // El panel muestra su propio resumen de "todo listo"; no hace falta un aviso aparte.
           saleNotice = '';
-          if (selectedId === activeClient.id) celebrate(() => { celebrateTask(origin); showMascotFeedback('task', progressBefore.completed + 1); });
+          if (selectedId === activeClient.id) celebrate(() => { celebrateTask(origin); showMascotFeedback('task', progressBefore.completed + 1); popPoints(5); });
         },
         revert: () => { setCompleted(false, -5); saleNotice = ''; },
         write: async () => {
@@ -1763,10 +1911,7 @@ function advisorWelcome() {
   name.append(nameLine);
   title.append('¡Vamos con toda hoy, ', name, '!');
   // Guía de Topitín sobre cómo funciona el panel de ventas.
-  const guide = button('¿Cómo funciona esta pantalla?', 'advisor-guide-button', () => showDashboardGuide({ mascot: skinHappyImage() }));
-  const guideMascot = el('img', 'advisor-guide-mascot');
-  guideMascot.src = skinHappyImage(); guideMascot.alt = ''; guideMascot.width = 26; guideMascot.height = 26;
-  guide.prepend(guideMascot);
+  const guide = screenGuideButton(() => showDashboardGuide({ mascot: skinHappyImage() }));
   const copy = el('div', 'advisor-welcome-copy');
   copy.append(title, guide);
   welcome.append(copy, advisorCalendar());
@@ -1805,6 +1950,7 @@ async function confirmSale(client) {
   // Amount and commission come from server settings; the background reload fills them in.
   const optimisticSale = { commission_status: null, commission_amount: null, ...previousSale, id: previousSale?.id ?? `pending-${client.id}`, client_id: client.id, advisor_id: user.id, confirmed: true, tons_sold: tons, completed_at: previousSale?.completed_at ?? now, confirmed_at: now };
   const previousNotice = saleNotice;
+  const previousLevel = Number(profile.level || 1);
   await optimisticWrite({
     label: 'confirmar venta',
     apply: () => {
@@ -1812,13 +1958,25 @@ async function confirmSale(client) {
       // Mirrors the base +100 points of confirm_mvp_sale; level and its bonus arrive with the reload.
       adjustOwnStats({ points: 100, sales: 1, tons });
       profile.progression_sales = Number(profile.progression_sales || 0) + 1;
+      const nextLevel = getLevelProgress(previousLevel, profile.progression_sales).level;
+      profile.level = nextLevel;
       saleNotice = '';
-      celebrate(() => { celebrateSale(); showMascotFeedback('sale'); });
+      // Topitín celebra y, enseguida, cuenta a dónde ir: Cartera para cobrar y Progreso para ver el avance.
+      const nextStep = nextLevel > previousLevel
+        ? `¡Subiste al nivel ${nextLevel}! Cobra en Cartera y mira tu isla en Progreso.`
+        : 'Cobra tu comisión en Cartera y mira tu avance en Progreso.';
+      celebrate(() => {
+        celebrateSale();
+        showMascotFeedback('sale');
+        popPoints(100);
+        window.setTimeout(() => showTopitinToast({ mascot: skinHappyImage(), title: '¡Venta confirmada! +100 puntos', body: nextStep, duration: 8000 }), 1400);
+      });
     },
     revert: () => {
       sales = previousSale ? sales.map(sale => sale === optimisticSale ? previousSale : sale) : sales.filter(sale => sale !== optimisticSale);
       adjustOwnStats({ points: -100, sales: -1, tons: -tons });
       profile.progression_sales = Number(profile.progression_sales || 0) - 1;
+      profile.level = previousLevel;
       saleNotice = previousNotice;
     },
     write: () => db.rpc('confirm_mvp_sale', { target_client: client.id }),
@@ -1863,20 +2021,23 @@ function render() {
   clearProfileEntrance(!profile || profile.role !== 'advisor' || advisorView !== 'profile');
   if (!profile || profile.role !== 'advisor' || advisorView !== 'commissions') resetCommissionEntrance();
   if (!profile || (profile.role === 'admin' ? adminView : advisorView) !== 'map') resetMapEntrance();
+  if (!profile || profile.role !== 'admin' || adminView === 'map') resetAdminEntrance();
   if (!profile || profile.role !== 'advisor' || advisorView !== 'dashboard') resetAdvisorEntrance();
   const storeView = profile?.role !== 'admin' && ['shop', 'rewards'].includes(advisorView) ? advisorView : null;
   if (!profile || !storeView) resetStoreEntrance();
+  if (profile?.role !== 'advisor') resetGuideEntrance();
   shell();
   const page = document.querySelector('#page');
   if (!db) page.replaceChildren(el('p', 'empty-state', 'Falta configurar Supabase en .env.local.'));
   else if (!profile) authPage();
   else if (profile.role === 'admin' && adminView === 'manage') adminManagementPage(page);
+  else if (profile.role === 'admin' && adminView === 'profile') adminProfilePage(page);
   else if (profile.role === 'admin' && adminView === 'map') advisorMapPage(page);
   else if (profile.role === 'admin') adminPage(page);
-  else if (advisorView === 'shop') { renderShop(page, sales.filter(sale => sale.advisor_id === user?.id && sale.confirmed).length, halloweenReady && halloweenEnabled, profile.equipped_skin, equipSkin, profile.points); playStoreEntrance(page, 'shop'); }
-  else if (advisorView === 'rewards') { renderRewards(page, profile.points, new Date(), halloweenReady && halloweenEnabled); playStoreEntrance(page, 'rewards'); }
+  else if (advisorView === 'shop') { bindAdvisorHover(); renderShop(page, sales.filter(sale => sale.advisor_id === user?.id && sale.confirmed).length, halloweenReady && halloweenEnabled, profile.equipped_skin, equipSkin, profile.points); page.querySelector('.shop-heading-copy h1')?.nextElementSibling?.after(screenGuideButton(() => showScreenGuide('shop', { mascot: skinHappyImage() }))); playStoreEntrance(page, 'shop'); }
+  else if (advisorView === 'rewards') { bindAdvisorHover(); renderRewards(page, profile.points, new Date(), halloweenReady && halloweenEnabled); page.querySelector('.rewards-heading-copy')?.append(screenGuideButton(() => showScreenGuide('rewards', { mascot: skinHappyImage() }))); playStoreEntrance(page, 'rewards'); }
   else if (advisorView === 'history') advisorHistoryPage(page);
-  else if (advisorView === 'commissions') advisorCommissionsPage(page);
+  else if (advisorView === 'commissions') { advisorCommissionsPage(page); bindAdvisorHover(); }
   else if (advisorView === 'map') advisorMapPage(page);
   else if (advisorView === 'progress') advisorProgressPage(page);
   else if (advisorView === 'profile') advisorProfilePage(page);
@@ -1885,6 +2046,7 @@ function render() {
     playAdvisorEntrance(root);
     bindAdvisorHover();
   }
+  if (profile?.role === 'advisor') playGuideEntrance(page, advisorView);
   paintHalloween();
   if (profilePhotoPromptPending && profile?.role === 'advisor') openProfilePanel(true);
 }

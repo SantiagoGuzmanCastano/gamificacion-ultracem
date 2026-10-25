@@ -22,7 +22,7 @@ test('progress guide opens once per advisor and can be reopened from the heading
   assert.match(guide, /dialog\.showModal\(\)/);
   assert.match(guide, /from 'gsap'/);
   const page = readFileSync(new URL('../src/progress-page.js', import.meta.url), 'utf8');
-  assert.ok(page.includes("'Repetir instrucciones'"));
+  assert.ok(page.includes("'¿Cómo funciona esta pantalla?'"));
 });
 
 test('each advisor task opens a Topitín guide and the sidebar card drops the level chip', () => {
@@ -64,7 +64,9 @@ test('only the next level label shows the missing sales, and Progreso has a GSAP
 });
 
 test('Inicio has a Topitín guide button under the welcome title', () => {
-  assert.match(main, /'¿Cómo funciona esta pantalla\?', 'advisor-guide-button', \(\) => showDashboardGuide/);
+  assert.match(main, /button\('¿Cómo funciona esta pantalla\?', 'advisor-guide-button', open\)/);
+  assert.match(main, /screenGuideButton\(\(\) => showDashboardGuide/);
+  for (const view of ['commissions', 'map', 'shop', 'rewards']) assert.ok(main.includes(`showScreenGuide('${view}'`));
   const guide = readFileSync(new URL('../src/progress-guide.js', import.meta.url), 'utf8');
   assert.match(guide, /export function showDashboardGuide\(\{ mascot \}\)/);
   for (const title of ['¡Hola, soy Topitín!', 'Tus clientes asignados', '4 tareas = 1 venta', 'Confirma la venta', 'Tu avance de un vistazo', 'Ranking y meta del mes', 'Siempre estoy contigo']) assert.ok(guide.includes(`'${title}'`));
