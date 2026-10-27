@@ -233,10 +233,11 @@
 .admin-signout:focus-visible { outline: 2px solid #e0566f; outline-offset: 2px; }
 
 /* Tarjeta del admin en la barra lateral: rol arriba, nombre abajo en pequeño y la flecha con aire. */
-.admin-profile-card .profile-card-button { gap: 10px; padding-right: 14px; }
-.admin-profile-card .profile-card-name { font-size: .86rem; }
+.admin-profile-card .profile-card-button { gap: 6px; padding: 10px 10px 10px 8px; }
+/* «Administrador» en una sola línea: sin cortes a mitad de palabra. */
+.admin-profile-card .profile-card-name { display: block; overflow: hidden; font-size: .8rem; letter-spacing: -.01em; overflow-wrap: normal; text-overflow: ellipsis; white-space: nowrap; }
 .admin-profile-card .admin-card-name { display: block; overflow: hidden; color: #b5cce1; font-size: .74rem; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
-.admin-profile-card .profile-card-arrow { margin-left: 6px; }
+.admin-profile-card .profile-card-arrow { width: 14px; height: 14px; margin-left: 2px; }
 
 /* Gestión: botón de demo junto a «¿Cómo funciona?», dorado suave para distinguirlo. */
 .admin-demo-button { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 3px 12px 3px 8px; border: 1px solid color-mix(in srgb, #ffd124 45%, var(--line)); border-radius: 999px; background: color-mix(in srgb, #ffd124 8%, transparent); color: var(--ink); font: inherit; font-size: .74rem; font-weight: 700; cursor: pointer; transition: border-color 180ms ease, background-color 180ms ease, translate 200ms cubic-bezier(.23, 1, .32, 1); }
@@ -244,3 +245,6 @@
 .admin-demo-button:hover:not(:disabled) { border-color: #ffd124; background: color-mix(in srgb, #ffd124 16%, transparent); translate: 0 -1px; }
 .admin-demo-button:disabled { opacity: .6; cursor: wait; }
 .admin-demo-button:focus-visible { outline: 2px solid #ffd124; outline-offset: 2px; }
+/* En el detalle oscuro de ciudad, «Cerrar» va claro para leerse sobre el vidrio. */
+.admin-shell .advisor-map-container .map-detail-popup .maplibregl-popup-close-button { color: #b5cce1; }
+.admin-shell .advisor-map-container .map-detail-popup .maplibregl-popup-close-button:hover { background: rgb(255 255 255 / 10%); color: #fff; }

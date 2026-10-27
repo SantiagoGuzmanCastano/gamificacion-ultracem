@@ -95,7 +95,9 @@ function makeWater(islands) {
       sea = mix(sea, shallow, 1. - smoothstep(0., 3.2, shore + wobble));
       float foam = 1. - smoothstep(.0, .3, abs(shore - .12 - .1 * sin(uTime * 1.4) + wobble));
       float ripple = smoothstep(.9, 1., fract(shore * .55 - uTime * .22)) * (1. - smoothstep(.4, 2.6, shore)) * .55;
-      float sparkle = step(.998, waterHash(floor(vWaterWorld * 4.) + floor(uTime * 1.2))) * (1. - smoothstep(8., 30., length(vWaterWorld))) * .35;
+      vec2 cell = floor(vWaterWorld * 4.);
+      float twinkle = pow(max(0., sin(uTime * 1.6 + waterHash(cell + 7.1) * 6.2832)), 24.);
+      float sparkle = step(.994, waterHash(cell)) * twinkle * (1. - smoothstep(8., 30., length(vWaterWorld))) * .35;
       diffuseColor.rgb = mix(sea, vec3(.75, .88, .92), clamp(foam + ripple + sparkle, 0., 1.));`);
   };
   material.customProgramCacheKey = () => 'progress-water';
@@ -140,9 +142,13 @@ function makeRoad(curve, islands) {
 
 export async function createProgressScene(container, { level = 1, skinImage = '/mascot/pinguino-feliz.png', labels = new Map(), onSelect = () => {}, reducedMotion = false } = {}) {
   const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.shadowMap.type = THREE.PCFShadowMap;
+  // Las sombras solo se recalculan mientras algo con sombra se mueve (islas, utilería); el resto del tiempo se reusan.
+  renderer.shadowMap.autoUpdate = false;
+  let shadowsUntil = 0;
+  const refreshShadows = (ms = 600) => { shadowsUntil = Math.max(shadowsUntil, performance.now() + ms); };
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.domElement.className = 'progress-canvas';
   container.append(renderer.domElement);
@@ -290,6 +296,7 @@ export async function createProgressScene(container, { level = 1, skinImage = '/
   }
   function applyLevel(levelNumber) {
     current = levelNumber;
+    refreshShadows();
     for (const island of islands) {
       const locked = island.level > current;
       island.grey.value = locked ? 1 : 0;
@@ -346,6 +353,7 @@ export async function createProgressScene(container, { level = 1, skinImage = '/
   }
   async function playCelebration(from, to) {
     idle.forEach(tween => tween.kill());
+    refreshShadows(9000);
     applyLevel(from);
     const target = islandAt(to);
     if (reducedMotion) { applyLevel(to); focus(to, true); return; }
@@ -407,6 +415,7 @@ export async function createProgressScene(container, { level = 1, skinImage = '/
     const island = pick(event);
     if (island === hovered) return;
     if (hovered) gsap.to(hovered.group.position, { y: 0, duration: .25 });
+    refreshShadows();
     hovered = island;
     renderer.domElement.style.cursor = island ? 'pointer' : '';
     if (island && !reducedMotion) gsap.to(island.group.position, { y: .18, duration: .25, ease: 'back.out(2)' });
@@ -448,20 +457,28 @@ export async function createProgressScene(container, { level = 1, skinImage = '/
   resizeObserver.observe(container);
   resize();
 
-  let visible = true, clock = new THREE.Clock();
+  let visible = true;
+  const timer = new THREE.Timer();
   const visibility = new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; });
   visibility.observe(container);
-  renderer.setAnimationLoop(() => {
-    if (!visible || document.hidden) return;
-    const time = clock.getElapsedTime();
-    if (!reducedMotion) water.userData.uniforms.uTime.value = time;
-    controls.update();
-    renderer.render(scene, camera);
-    placeLabels();
-  });
 
   applyLevel(level);
   if (camera.aspect < .9) focus(level, true); else overview(true);
+  // Compila los shaders antes del primer cuadro: así la entrada no da un tirón.
+  await renderer.compileAsync(scene, camera).catch(() => {});
+  const markReady = () => container.closest('.progress-world')?.classList.add('is-ready');
+  let first = true;
+  renderer.setAnimationLoop(() => {
+    if (!visible || document.hidden) return;
+    timer.update();
+    if (!reducedMotion) water.userData.uniforms.uTime.value = timer.getElapsed();
+    if (first || performance.now() < shadowsUntil) renderer.shadowMap.needsUpdate = true;
+    controls.update();
+    renderer.render(scene, camera);
+    placeLabels();
+    // El lienzo y las etiquetas aparecen juntos, con un fundido, cuando ya hay un cuadro listo.
+    if (first) { first = false; markReady(); }
+  });
   startIdle();
 
   return {
@@ -476,6 +493,8 @@ export async function createProgressScene(container, { level = 1, skinImage = '/
       visibility.disconnect();
       visibility.observe(nextContainer);
       resize();
+      refreshShadows();
+      nextContainer.closest('.progress-world')?.classList.add('is-ready');
     },
     setLevel(levelNumber) { if (!celebrating && levelNumber !== current) applyLevel(levelNumber); },
     focus,

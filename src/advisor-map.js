@@ -804,23 +804,9 @@ export async function renderAdvisorClientMap(container, clients = [], onStatus =
         tweenPaint('locked-flash', 'line-opacity', 1, 0, reduced ? 0 : 900);
       }
     } else {
-      const title = document.createElement('strong');
-      title.textContent = state.name;
-      const list = document.createElement('ul');
-      const cities = new Map();
-      for (const client of state.clients) {
-        const city = client.city || 'Sin ciudad';
-        if (!cities.has(city)) cities.set(city, []);
-        cities.get(city).push([client.name, client.type, advisorName?.(client.advisor_id)].filter(Boolean).join(' · '));
-      }
-      for (const [city, names] of cities) {
-        const item = document.createElement('li');
-        item.textContent = `${city}: ${names.join(', ')}`;
-        list.append(item);
-      }
-      content.append(title, list);
+      content.append(cityCard(state.name, 'Clientes en el departamento', state.clients, { showCity: true }));
     }
-    detailPopup = new Popup().setLngLat(event.lngLat).setDOMContent(content).addTo(map);
+    detailPopup = new Popup({ maxWidth: '320px', className: 'map-detail-popup' }).setLngLat(event.lngLat).setDOMContent(content).addTo(map);
   });
 
   for (const label of GEO_LABELS) {
@@ -850,23 +836,45 @@ export async function renderAdvisorClientMap(container, clients = [], onStatus =
       markers.push(new Marker({ element: star }).setLngLat(at).addTo(map));
     }
   }
+  // Detalle de clientes con el mismo vidrio oscuro de los demás tooltips: nombre, tipo y asesor,
+  // y a la derecha las toneladas en dorado si ya se vendieron o en azul si siguen por vender.
+  function cityCard(title, subtitle, list, { showCity = false } = {}) {
+    const card = document.createElement('div');
+    card.className = 'map-city-card';
+    const head = document.createElement('div');
+    head.className = 'map-city-head';
+    const name = document.createElement('strong');
+    name.textContent = title;
+    const sub = document.createElement('span');
+    sub.textContent = `${subtitle} · ${list.length} ${list.length === 1 ? 'cliente' : 'clientes'}`;
+    head.append(name, sub);
+    const rows = document.createElement('ul');
+    rows.className = 'map-city-list';
+    for (const client of list) {
+      const sale = confirmedSales.get(client.id);
+      const tons = Number(sale?.tons_sold || client.tons_requested || 0);
+      const item = document.createElement('li');
+      const copy = document.createElement('span');
+      copy.className = 'map-city-client';
+      const clientName = document.createElement('b');
+      clientName.textContent = client.name;
+      const meta = document.createElement('small');
+      meta.textContent = [client.type, showCity ? client.city : '', advisorName?.(client.advisor_id)].filter(Boolean).join(' · ');
+      copy.append(clientName, meta);
+      const amount = document.createElement('span');
+      amount.className = `map-city-tons${sale ? ' is-sold' : ''}`;
+      amount.innerHTML = `<b>${tons.toLocaleString('es-CO')} t</b><small>${sale ? 'vendidas' : 'por vender'}</small>`;
+      item.append(copy, amount);
+      rows.append(item);
+    }
+    card.append(head, rows);
+    return card;
+  }
   function showCityDetail(group) {
     hoverPopup.remove();
     detailPopup?.remove();
-    const content = document.createElement('div');
-    const title = document.createElement('strong');
-    title.textContent = `${group.city}, ${group.department}`;
-    const list = document.createElement('ul');
-    for (const client of group.clients) {
-      const item = document.createElement('li');
-      const sale = confirmedSales.get(client.id);
-      const tons = Number(sale?.tons_sold || client.tons_requested || 0);
-      const owner = advisorName?.(client.advisor_id);
-      item.textContent = `${client.name} · ${client.type} · ${tons.toLocaleString('es-CO')} t ${sale ? 'vendidas' : 'por vender'}${owner ? ` · ${owner}` : ''}`;
-      list.append(item);
-    }
-    content.append(title, list);
-    detailPopup = new Popup().setLngLat(group.coordinates).setDOMContent(content).addTo(map);
+    const card = cityCard(`${group.city}, ${group.department}`, 'Clientes en la ciudad', group.clients);
+    detailPopup = new Popup({ maxWidth: '320px', className: 'map-detail-popup' }).setLngLat(group.coordinates).setDOMContent(card).addTo(map);
   }
   const pins = [];
   for (const group of groups) {

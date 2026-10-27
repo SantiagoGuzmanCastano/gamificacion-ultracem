@@ -1,3 +1,4 @@
+import { gsap } from 'gsap';
 import { revealCards, swapStageArt } from './store-entrance.js';
 import { eventCountdown } from './rewards.js';
 
@@ -190,15 +191,55 @@ function appendCards(grid, collection, equippedSkin, sales, onEquip, points = 0)
     const unlocked = skeleton && Number(points) >= displayPrice;
     const canEquip = classic && !equipped || skeleton && unlocked && !equipped;
     const affordable = !equipped && Number.isFinite(Number(points)) && Number(points) >= displayPrice;
+    // Los atuendos que aún no tienen skin abren el aviso «Próximamente» con ese pingüino.
+    const soon = !classic && !skeleton;
     const card = document.createElement('li');
     card.className = `shop-card shop-card-${outfit.id}${classic ? ' shop-card-classic' : ''}${outfit.id === 'zombie' || outfit.id === 'esqueleto' ? ' shop-card-halloween' : ''}${equipped ? ' shop-card-equipped' : ''}`;
     card.innerHTML = `
       <span class="shop-card-frame" style="--frame-image: url('${outfit.frame}')" aria-hidden="true"></span>
       ${tryOnButton(outfitStage(outfit), outfit.name, 'eager')}
       <div class="shop-card-details"><h3>${outfit.name}</h3>
-        <button type="button" class="shop-card-action${canEquip ? ' shop-card-action-ready' : ''}${equipped ? ' shop-card-action-equipped' : ''}${affordable ? ' shop-card-action-available' : ''}" aria-pressed="${equipped}" ${canEquip || equipped ? '' : 'disabled'}>${shopActionContent(equipped ? 'Equipado' : canEquip ? 'Equipar' : affordable ? 'Disponible' : 'Desbloquear', displayPrice, equipped || canEquip || affordable ? 'check' : 'lock')}</button>
+        <button type="button" class="shop-card-action${canEquip ? ' shop-card-action-ready' : ''}${equipped ? ' shop-card-action-equipped' : ''}${affordable ? ' shop-card-action-available' : ''}${soon ? ' shop-card-action-soon' : ''}" aria-pressed="${equipped}"${soon ? ' aria-haspopup="dialog"' : ''} ${canEquip || equipped || soon ? '' : 'disabled'}>${shopActionContent(equipped ? 'Equipado' : canEquip ? 'Equipar' : affordable ? 'Disponible' : 'Desbloquear', displayPrice, equipped || canEquip || affordable ? 'check' : 'lock')}</button>
       </div>`;
     if (canEquip) card.querySelector('.shop-card-action').addEventListener('click', () => onEquip(classic ? 'classic' : 'skeleton'));
+    if (soon) card.querySelector('.shop-card-action').addEventListener('click', event => showComingSoon(outfit, event?.currentTarget));
     grid.append(card);
+  }
+}
+
+// Aviso «Próximamente»: el pingüino elegido sobre su fondo, con una entrada suave de GSAP.
+export function showComingSoon(outfit, trigger) {
+  if (!document.body) return;
+  document.querySelector('.shop-soon-dialog')?.close();
+  const stage = outfitStage(outfit);
+  const dialog = document.createElement('dialog');
+  if (typeof dialog.showModal !== 'function') return;
+  dialog.className = 'rewards-dialog shop-soon-dialog';
+  dialog.setAttribute('aria-labelledby', 'shop-soon-title');
+  dialog.setAttribute('aria-describedby', 'shop-soon-message');
+  // Arriba el pingüino sobre su fondo tenue (como en la tarjeta); abajo etiqueta, nombre, mensaje y botón.
+  dialog.innerHTML = `
+    <div class="shop-soon-art" style="--skin-bg: url('${stage.background}')"><img src="${stage.art}" alt="${outfit.name}" width="240" height="240" decoding="async"></div>
+    <div class="shop-soon-body">
+      <p class="shop-soon-badge">Próximamente</p>
+      <h2 id="shop-soon-title">${outfit.name}</h2>
+      <p id="shop-soon-message">Llegará muy pronto a la tienda. Sigue sumando puntos para estrenarlo apenas esté disponible.</p>
+      <button type="button" class="rewards-action" autofocus>Entendido</button>
+    </div>`;
+  const close = () => dialog.close();
+  dialog.querySelector('button').addEventListener('click', close);
+  dialog.addEventListener('click', event => {
+    const bounds = dialog.getBoundingClientRect();
+    if (event.target === dialog && (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom)) close();
+  });
+  dialog.addEventListener('close', () => { dialog.remove(); trigger?.focus(); }, { once: true });
+  document.body.append(dialog);
+  dialog.showModal();
+  // Entrada suave, sin rebotes: la tarjeta sube apenas, el pingüino se asienta y el texto aparece en cascada.
+  if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    gsap.timeline({ defaults: { ease: 'power2.out', clearProps: 'transform,opacity' } })
+      .from(dialog, { opacity: 0, y: 14, duration: .45 })
+      .from(dialog.querySelector('.shop-soon-art img'), { opacity: 0, y: 10, scale: .97, duration: .7 }, .1)
+      .from(dialog.querySelectorAll('.shop-soon-body > *'), { opacity: 0, y: 6, duration: .45, stagger: .07 }, .25);
   }
 }
