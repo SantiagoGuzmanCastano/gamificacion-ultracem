@@ -16,7 +16,8 @@ import { advisorIcon } from './advisor-icons.js';
 import { createZoneList, getZoneOpportunities, loadZoneMarket } from './zone-opportunity.js';
 import { goalTons } from './admin/admin-model.js';
 import './admin/admin.css';
-import { clearMascotFeedback, showMascotFeedback, showMascotLine } from './mascot-feedback.js';
+import { clearMascotFeedback, showMascotAside, showMascotFeedback, showMascotHint, showMascotLine } from './mascot-feedback.js';
+import { nextAmbientLine } from './topitin-ambient.js';
 import { clearAdvisorEntrance, playAdvisorEntrance, resetAdvisorEntrance } from './advisor-entrance.js';
 import { animateSidebar, resetSidebarMotion } from './advisor-sidebar.js';
 import { bindAdvisorHover } from './advisor-hover.js';
@@ -33,7 +34,10 @@ import { getProgressModel, playProgressEntrance, renderProgressPage, resetProgre
 import { showDashboardGuide, showProgressGuide, showScreenGuide } from './progress-guide.js';
 import { adminGuideBar } from './admin/admin-guide.js';
 import { playGuideEntrance, resetGuideEntrance } from './guide-entrance.js';
+import { isDashboardDragging, mountDashboardCards } from './dashboard-drag.js';
+import { fillerMessages } from './dashboard-filler.js';
 import { playAdminEntrance, resetAdminEntrance } from './admin/admin-entrance.js';
+import { playNoticeIn, playNoticeOut } from './notice-motion.js';
 import { celebrateCommissionClaim, celebrateCommissionClaimed, commissionGoals, commissionMilestones, commissionStats, commissionTakeHome, playCommissionEntrance, resetCommissionEntrance } from './commission-gamification.js';
 
 const SUPABASE_TIMEOUT_MS = 15000;
@@ -300,6 +304,7 @@ function adminProfilePage(page) {
 function notice(text, error = false) {
   const node = document.querySelector('#notice');
   window.clearTimeout(noticeTimer);
+  const wasHidden = node.hidden;
   node.textContent = text;
   node.hidden = !text;
   node.classList.toggle('error-notice', error);
@@ -307,7 +312,12 @@ function notice(text, error = false) {
   const validationToast = error && text === 'Selecciona una imagen JPG, PNG o WebP de máximo 5 MB.';
   node.classList.toggle('success-notice', successToast);
   node.classList.toggle('validation-notice', validationToast);
-  if (successToast || validationToast) noticeTimer = window.setTimeout(() => { node.hidden = true; }, validationToast ? 6000 : 3200);
+  // Entrada y salida con GSAP (notice-motion.js); sin ese módulo, se muestra y se oculta directo.
+  const motion = typeof playNoticeIn === 'function';
+  if (text && wasHidden && motion) playNoticeIn(node);
+  // Los avisos informativos (como los del admin) también se van solos; los de carga («…») y los errores se quedan.
+  const infoToast = !error && !successToast && Boolean(text) && !text.endsWith('…');
+  if (successToast || validationToast || infoToast) noticeTimer = window.setTimeout(() => { if (motion) playNoticeOut(node); else node.hidden = true; }, validationToast ? 6000 : infoToast ? 4500 : 3200);
 }
 function authError(cause) {
   if (cause.code === 'invalid_credentials') return 'Correo o contraseña incorrectos.';
@@ -338,9 +348,37 @@ function withLocalNotifications(list) {
   return [...local, ...list.filter(item => !String(item.id).startsWith(LOCAL_NOTIFICATION))].sort((a, b) => String(b.created_at).localeCompare(String(a.created_at))).slice(0, 20);
 }
 // Cada toque a Topitín trae una frase distinta; muchos toques seguidos le dan cosquillas.
-let pokeTurn = 0, pokeTimes = [], weeklyChartMode = 'sales';
+let pokeTurn = 0, pokeTimes = [], weeklyChartMode = 'sales', tapHintPending = true;
 const metricBackFaces = new Set();
+// Topitín habla solo en Inicio: por qué está triste o serio, lo pendiente (comisiones, nivel
+// nuevo) y que revises las notificaciones. Al entrar dice una de inmediato (después del
+// «¡Tócame!» si nunca lo han tocado) y luego otra cada 30 s.
+let ambientTimer = 0, ambientContext = null, lastAmbient = '';
+function scheduleTopitinAmbient(delay, first = false) {
+  window.clearTimeout(ambientTimer);
+  ambientTimer = window.setTimeout(() => {
+    if (profile?.role !== 'advisor' || advisorView !== 'dashboard' || !ambientContext) return;
+    const line = nextAmbientLine(ambientContext, lastAmbient, Math.random, { always: first });
+    if (line && !document.hidden) { lastAmbient = line; showMascotAside(line); }
+    scheduleTopitinAmbient(30000);
+  }, delay);
+}
+function stopTopitinAmbient() {
+  window.clearTimeout(ambientTimer);
+  ambientTimer = 0;
+}
+// El primer toque de la vida siempre revela el secreto de las notificaciones; luego rota.
+const pokedKey = () => `ultracem-topitin-poked-${user?.id}`;
+function hasPokedTopitin() {
+  try { return Boolean(localStorage.getItem(pokedKey())); } catch { return true; }
+}
 function pokeTopitin(client, progress, portfolio, stats) {
+  if (!hasPokedTopitin()) {
+    try { localStorage.setItem(pokedKey(), '1'); } catch { /* sin almacenamiento: el secreto puede repetirse */ }
+    showMascotLine('Psst… tengo un secreto. Revisa tus notificaciones.');
+    revealCommissionSecret();
+    return;
+  }
   const now = performance.now();
   pokeTimes = [...pokeTimes.filter(time => now - time < 1200), now];
   if (pokeTimes.length >= 4) { pokeTimes = []; showMascotLine('¡Jajaja, me haces cosquillas! Ya, ya… ¡a vender!', 'tickle'); return; }
@@ -1125,21 +1163,6 @@ async function deleteAdvisor(advisor) {
   }
   await refresh('Asesor ' + advisor.full_name + ' eliminado.');
 }
-async function clearCompletedTasks(client) {
-  const confirmed = window.confirm('¿Limpiar las tareas completadas de ' + client.name + '? La venta y las métricas se conservarán.');
-  if (!confirmed) return;
-  const previous = clients.find(item => item.id === client.id);
-  if (!previous) return;
-  const replace = next => { clients = clients.map(item => item.id === client.id ? next : item); };
-  const result = await optimisticWrite({
-    label: 'limpiar tareas',
-    apply: () => replace({ ...previous, tasks: previous.tasks.filter(task => !task.completed) }),
-    revert: () => replace(previous),
-    write: () => db.rpc('clear_mvp_completed_tasks', { target_client: client.id }),
-    reload: ['clients'],
-  });
-  if (result) notice('Tareas completadas de ' + client.name + ' limpiadas. Las métricas se conservaron.');
-}
 // Idea de la IA solo para una tarea, reutilizando la función recommend-client.
 async function askTaskIdea(client, task) {
   const progress = getProgress(client.tasks);
@@ -1695,6 +1718,21 @@ function advisorPage(page) {
   mascot.append(poke);
   hero.append(ring, heroCopy, mascot);
   page.append(hero);
+  // Lo que Topitín puede comentar solo (topitin-ambient.js); se actualiza en cada repintado.
+  const claimableSales = sales.filter(sale => sale.advisor_id === user?.id && sale.confirmed && sale.commission_status === 'available');
+  const seenLevel = readSeenLevel(`ultracem-progress-level-${user?.id}`);
+  ambientContext = {
+    mood: mascotMood, completed: activeProgress.completed, total: activeProgress.total, client: activeClient?.name ?? '',
+    claimable: claimableSales.length, claimableAmount: claimableSales.reduce((total, sale) => total + Number(sale.commission_amount || 0), 0),
+    newLevel: Boolean(seenLevel) && Number(profile.level || 1) > seenLevel,
+    unread: notifications.filter(item => !item.read_at).length,
+  };
+  if (!ambientTimer) scheduleTopitinAmbient(hasPokedTopitin() ? 1800 : 7000, true);
+  // Si nunca lo han tocado, Topitín pide un toque una vez por visita a Inicio, unos segundos.
+  if (tapHintPending && !hasPokedTopitin()) {
+    tapHintPending = false;
+    window.setTimeout(() => { if (advisorView === 'dashboard' && !hasPokedTopitin()) showMascotHint('¡Tócame!'); }, 2200);
+  }
 
   const totalClients = clients.filter(client => client.advisor_id === user?.id).length;
   const tonsUnit = value => value === 1 ? 'Tonelada' : 'Toneladas';
@@ -1815,10 +1853,12 @@ function advisorPage(page) {
       el('strong', '', confirmed ? 'Venta confirmada' : 'Todo listo para confirmar la venta'),
       el('span', '', confirmed ? `${tons} registradas. Tu comisión ya está en la cartera.` : `${tons} · al confirmar sumas 100 puntos y se calcula tu comisión.`),
     );
-    const saleActions = el('div', 'sale-actions');
-    if (!confirmed) saleActions.append(button('Confirmar venta', 'primary confirm-sale-button', () => confirmSale(activeClient)));
-    saleActions.append(button('Limpiar tareas', 'text-button clear-tasks-button', () => clearCompletedTasks(activeClient)));
-    ready.append(readyIcon, readyCopy, saleActions);
+    ready.append(readyIcon, readyCopy);
+    if (!confirmed) {
+      const saleActions = el('div', 'sale-actions');
+      saleActions.append(button('Confirmar venta', 'primary confirm-sale-button', () => confirmSale(activeClient)));
+      ready.append(saleActions);
+    }
     const doneTasks = el('details', 'sale-ready-tasks');
     doneTasks.append(el('summary', '', 'Ver las 4 tareas completadas'), taskList);
     detail.append(ready, doneTasks);
@@ -1896,9 +1936,19 @@ function advisorPage(page) {
   weeklyCard.append(weeklyHead, weeklyNote, chart, weeklyTotal);
   paintWeekly(false);
   leftColumn.append(goalCard, portfolioCard); rightColumn.append(weeklyCard);
-  for (const [card, name] of [[leftColumn.firstChild, 'trophy'], [panel, 'tasks'], [goalCard, 'target'], [portfolioCard, 'clients'], [weeklyCard, 'sales']]) {
+  const rankingCard = leftColumn.firstChild;
+  for (const [card, name] of [[rankingCard, 'trophy'], [panel, 'tasks'], [goalCard, 'target'], [portfolioCard, 'clients'], [weeklyCard, 'sales']]) {
     const icon = el('span', 'dashboard-heading-icon'); icon.innerHTML = advisorIcon(name); card.querySelector('h2').prepend(icon);
   }
+  // Tarjetas movibles: el asesor las reacomoda desde el gancho y el orden se guarda (dashboard-drag.js).
+  mountDashboardCards({
+    overview, columns: [leftColumn, rightColumn],
+    cards: { ranking: rankingCard, clients: panel, goal: goalCard, portfolio: portfolioCard, weekly: weeklyCard },
+    titles: { ranking: 'Ranking de asesores', clients: 'Clientes actuales pendientes', goal: 'Meta mensual de toneladas', portfolio: 'Avance de tu cartera', weekly: 'Ventas de la semana' },
+    storageKey: `ultracem-home-layout-${user.id}`,
+    filler: { messages: fillerMessages(), mascot: skinHappyImage() },
+    onSettle: flushDeferredRender,
+  });
 }
 
 // Saludo de Inicio: una frase corta con el nombre destacado y la fecha de hoy.
@@ -2015,14 +2065,22 @@ async function refresh(text, resources = ['advisors', 'clients', 'sales', 'ranki
   catch (cause) { notice(`El cambio se guardó, pero no se pudo actualizar la vista: ${cause.message}`, true); }
   finally { measureAction(`refresh ${resources.join('+')}`, started); }
 }
+// Mientras se arrastra una tarjeta de Inicio, los refrescos esperan para no quitársela de la mano.
+let renderDeferred = false;
+function flushDeferredRender() {
+  if (!renderDeferred) return;
+  renderDeferred = false;
+  render();
+}
 function render() {
+  if (isDashboardDragging()) { renderDeferred = true; return; }
   advisorMapModule?.destroyAdvisorClientMap();
   if (!profile || profile.role !== 'advisor' || advisorView !== 'progress') { destroyProgressWorld(); resetProgressEntrance(); }
   clearProfileEntrance(!profile || profile.role !== 'advisor' || advisorView !== 'profile');
   if (!profile || profile.role !== 'advisor' || advisorView !== 'commissions') resetCommissionEntrance();
   if (!profile || (profile.role === 'admin' ? adminView : advisorView) !== 'map') resetMapEntrance();
   if (!profile || profile.role !== 'admin' || adminView === 'map') resetAdminEntrance();
-  if (!profile || profile.role !== 'advisor' || advisorView !== 'dashboard') resetAdvisorEntrance();
+  if (!profile || profile.role !== 'advisor' || advisorView !== 'dashboard') { resetAdvisorEntrance(); tapHintPending = true; stopTopitinAmbient(); }
   const storeView = profile?.role !== 'admin' && ['shop', 'rewards'].includes(advisorView) ? advisorView : null;
   if (!profile || !storeView) resetStoreEntrance();
   if (profile?.role !== 'advisor') resetGuideEntrance();

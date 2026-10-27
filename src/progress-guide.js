@@ -320,6 +320,35 @@ const dashboardSteps = [
       return box;
     },
   },
+  {
+    title: 'Acomoda tu Inicio',
+    say: 'Esta pantalla es tuya: agarra el ganchito de arriba de cada tarjeta y suéltala sobre otra para intercambiarlas. ¡Prueba aquí!',
+    done: 'Tu orden se guarda solo. Si quieres volver al original, toca «Restablecer orden».',
+    demo: (react) => {
+      const box = make('div', 'pg-demo pg-demo-arrange');
+      let swapped = false;
+      for (const [name, text] of [['trophy', 'Ranking'], ['tasks', 'Clientes']]) {
+        const card = make('button', 'pg-arrange-card');
+        card.type = 'button';
+        card.setAttribute('aria-label', `Intercambiar ${text}`);
+        card.innerHTML = '<span class="pg-arrange-hook" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="4.5" r="2.4"/><path d="M12 6.9v3.6M4 19.5 12 10.5l8 9Z"/></svg></span>';
+        card.append(icon(name, 'pg-island-icon'), make('span', '', text));
+        card.addEventListener('click', () => {
+          const [first, second] = box.children;
+          const shift = second.offsetLeft - first.offsetLeft;
+          box.append(first);
+          if (!reducedMotion()) {
+            gsap.fromTo(first, { x: -shift, rotation: 8 }, { x: 0, rotation: 0, duration: .7, ease: 'elastic.out(1, .5)', transformOrigin: '80% 0' });
+            gsap.fromTo(second, { x: shift }, { x: 0, duration: .45, ease: 'power3.out' });
+          }
+          react(swapped ? 'hop' : 'done');
+          swapped = true;
+        });
+        box.append(card);
+      }
+      return box;
+    },
+  },
 ];
 
 // Tarjetas de temas: cada una explica una pieza al tocarla; al verlas todas, Topitín celebra.

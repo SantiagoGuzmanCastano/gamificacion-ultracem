@@ -9,6 +9,10 @@
 .progress-world { position: relative; overflow: hidden; height: min(72vh, 680px); min-height: 460px; border: 1px solid #12465e; border-radius: 22px; background: var(--progress-world); }
 .progress-stage, .progress-canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
 .progress-canvas { display: block; touch-action: none; }
+/* Carga suave: el mundo 3D y sus etiquetas aparecen con un fundido cuando ya hay un cuadro listo. */
+.progress-world .progress-canvas, .progress-world .progress-labels { opacity: 0; transition: opacity 600ms ease; }
+.progress-world.is-ready .progress-canvas, .progress-world.is-ready .progress-labels { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .progress-world .progress-canvas, .progress-world .progress-labels { transition: none; } }
 .progress-labels { position: absolute; inset: 0; pointer-events: none; }
 .progress-label { position: absolute; top: 0; left: 0; display: inline-flex; align-items: center; gap: 7px; padding: 7px 13px 7px 8px; border: 2px solid #5b7384; border-radius: 999px; background: #0d2434e6; color: #c9d7e1; font-size: .8rem; font-weight: 800; white-space: nowrap; pointer-events: auto; cursor: pointer; visibility: hidden; transition: border-color 160ms ease, background-color 160ms ease, scale 160ms cubic-bezier(.23, 1, .32, 1); }
 .progress-label-icon { display: grid; place-items: center; width: 22px; height: 22px; padding: 4px; border-radius: 50%; background: #2a3e4d; }
@@ -287,3 +291,12 @@
 .progress-replay-small .progress-replay-icon { width: 15px; height: 15px; color: #ffd124; }
 .progress-replay-small:hover { border-color: #ffd124; color: var(--dashboard-ink); translate: 0 -1px; }
 .progress-replay-small:focus-visible { outline: 2px solid var(--dashboard-blue); outline-offset: 2px; }
+
+/* Guía de Inicio: dos mini tarjetas colgadas de su gancho que se intercambian al tocarlas. */
+.pg-demo-arrange { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding-top: 22px; }
+.pg-arrange-card { position: relative; display: grid; justify-items: center; gap: 6px; width: 100%; padding: 16px 8px 12px; border: 2px solid var(--guide-line); border-radius: 12px; background: var(--guide-bg); color: var(--guide-ink); font: inherit; font-size: .76rem; font-weight: 600; cursor: grab; }
+.pg-arrange-card .pg-island-icon { background: #25d5e3; color: #00313b; }
+.pg-arrange-hook { position: absolute; top: -13px; right: 14px; display: grid; place-items: center; width: 24px; height: 24px; padding: 4px; border: 1px solid var(--guide-line); border-radius: 50%; background: var(--guide-bg); color: var(--guide-accent); }
+.pg-arrange-hook svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.pg-arrange-card:hover .pg-arrange-hook { border-color: #ffd124; color: #b07a00; }
+:root[data-theme="dark"] .pg-arrange-card:hover .pg-arrange-hook { color: #ffd124; }

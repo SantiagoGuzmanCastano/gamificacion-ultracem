@@ -55,13 +55,25 @@ export function showMascotLine(text, variant = 'talk') {
   play(text, variant);
 }
 
+// Globito «¡Tócame!»: solo si no hay otro globo de Topitín a la vista; nunca se montan dos.
+export function showMascotHint(text) {
+  if (bubble) return;
+  play(text, 'hint');
+}
+
+// Comentario espontáneo (ánimo, pendientes, notificaciones): igual, solo si no hay otro globo.
+export function showMascotAside(text) {
+  if (bubble) return;
+  play(text, 'talk');
+}
+
 function play(text, variant) {
   clearMascotFeedback();
   const mascot = document.querySelector('.advisor-hero-mascot');
   if (!mascot) return;
   const sale = variant === 'sale';
   bubble = document.createElement('span');
-  bubble.className = `mascot-feedback${sale ? ' mascot-feedback-sale' : ''}`;
+  bubble.className = `mascot-feedback${sale ? ' mascot-feedback-sale' : ''}${variant === 'hint' ? ' mascot-feedback-hint' : ''}`;
   bubble.textContent = text;
   bubble.setAttribute('role', 'status');
   bubble.setAttribute('aria-live', 'polite');
@@ -81,7 +93,7 @@ function play(text, variant) {
         body.to(image, { scaleY: .95, scaleX: 1.04, duration: .1, ease: 'power2.out' }, 0)
           .to(image, { rotation: -7, x: -4, duration: .07, ease: 'sine.inOut', repeat: 7, yoyo: true }, .08)
           .to(image, { rotation: 0, x: 0, scaleX: 1, scaleY: 1, duration: .25, ease: 'power3.out' }, .65);
-      } else hop(body, image, shadow, 0, sale ? 24 : variant === 'task' ? 16 : 10);
+      } else hop(body, image, shadow, 0, sale ? 24 : variant === 'task' ? 16 : variant === 'hint' ? 6 : 10);
       if (sale) {
         hop(body, image, shadow, .95, 14);
         body.to(image, { rotation: -4, duration: .14, ease: 'sine.inOut' }, 1.95)

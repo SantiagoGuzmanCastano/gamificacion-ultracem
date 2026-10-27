@@ -679,6 +679,27 @@
 .map-locked-popup p { margin: 6px 0 0; color: #c9dcef; font-size: .84rem; line-height: 1.45; }
 .map-locked-popup .map-locked-reward { color: #ffd76a; font-weight: 700; }
 .advisor-map-container .maplibregl-popup-content { color: #102f49; }
+/* Detalle de ciudad o departamento: mismo vidrio oscuro que el tooltip al pasar el puntero. */
+.advisor-map-container .map-detail-popup .maplibregl-popup-content { padding: 12px 14px 10px; border: 1px solid #1f4a6d; border-radius: 14px; background: rgb(3 18 34 / 92%); color: #e8f3ff; box-shadow: 0 10px 28px rgb(0 0 0 / 45%), 0 0 16px rgb(31 182 255 / 14%); backdrop-filter: blur(6px); }
+.advisor-map-container .map-detail-popup.maplibregl-popup-anchor-bottom .maplibregl-popup-tip { border-top-color: rgb(3 18 34 / 92%); }
+.advisor-map-container .map-detail-popup.maplibregl-popup-anchor-top .maplibregl-popup-tip { border-bottom-color: rgb(3 18 34 / 92%); }
+.advisor-map-container .map-detail-popup.maplibregl-popup-anchor-left .maplibregl-popup-tip { border-right-color: rgb(3 18 34 / 92%); }
+.advisor-map-container .map-detail-popup.maplibregl-popup-anchor-right .maplibregl-popup-tip { border-left-color: rgb(3 18 34 / 92%); }
+.advisor-map-container .map-detail-popup .maplibregl-popup-close-button { color: #a9c1d6; }
+.advisor-map-container .map-detail-popup .maplibregl-popup-close-button:hover { background: rgb(255 255 255 / 10%); color: #fff; }
+.map-city-card { display: grid; gap: 8px; min-width: 230px; }
+.map-city-head { display: grid; gap: 1px; padding-right: 18px; }
+.admin-shell .map-city-head { padding: 26px 0 0; }
+.map-city-head strong { font-size: .95rem; font-weight: 750; }
+.map-city-head span { color: #a9c1d6; font-size: .74rem; }
+.map-city-list { display: grid; gap: 2px; max-height: 220px; margin: 0; padding: 0; overflow-y: auto; list-style: none; scrollbar-width: thin; }
+.map-city-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 7px 0; border-top: 1px solid rgb(31 74 109 / 70%); }
+.map-city-client { display: grid; gap: 1px; min-width: 0; }
+.map-city-client b { overflow: hidden; font-size: .84rem; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.map-city-client small, .map-city-tons small { color: #a9c1d6; font-size: .7rem; }
+.map-city-tons { display: grid; flex: 0 0 auto; justify-items: end; gap: 1px; }
+.map-city-tons b { color: #79e5f4; font-size: .84rem; font-weight: 750; font-variant-numeric: tabular-nums; }
+.map-city-tons.is-sold b { color: #ffd76a; }
 .advisor-map-container .maplibregl-popup-close-button { color: #102f49; }
 .client-history-list { display: grid; gap: 12px; }
 .client-history-item { padding: 16px; border: 1px solid var(--dashboard-line); border-radius: 12px; background: var(--dashboard-panel); }
@@ -814,7 +835,6 @@
 .sale-ready-copy span { color: var(--dashboard-muted, inherit); font-size: .8rem; line-height: 1.45; }
 .advisor-shell .sale-ready .sale-actions { grid-column: 1 / -1; align-items: center; gap: 14px; margin-top: 8px; }
 .advisor-shell .sale-ready .confirm-sale-button { min-height: 40px; padding: 10px 20px; font-size: .85rem; }
-.advisor-shell .sale-ready .clear-tasks-button { margin: 0; padding: 6px 2px; border: 0; background: none; color: var(--dashboard-muted, inherit); font-size: .78rem; text-decoration: underline; text-underline-offset: 3px; }
 .sale-ready-tasks { margin-top: 10px; }
 .sale-ready-tasks > summary { width: fit-content; padding: 6px 2px; color: var(--dashboard-muted, inherit); font-size: .8rem; font-weight: 650; cursor: pointer; }
 .sale-ready-tasks[open] > summary { margin-bottom: 8px; }
@@ -1091,10 +1111,77 @@
 
 /* Puntos ganados en el héroe: etiqueta «+5 puntos» que sube y la cifra encendida en amarillo. */
 .advisor-hero .hero-points-highlight { position: relative; }
-.hero-points-gain { position: absolute; left: 56px; top: -14px; padding: 2px 9px; border: 1px solid #ffd12477; border-radius: 999px; background: #3b2a00e6; color: #ffd76a; font-size: .76rem; font-weight: 800; white-space: nowrap; box-shadow: 0 0 14px #ffd12455; pointer-events: none; }
+.hero-points-gain { position: absolute; grid-area: auto; left: 64px; top: 12px; translate: 0 -50%; padding: 1px 8px; border-radius: 999px; background: rgb(255 209 36 / 14%); color: #ffd76a; font-size: .74rem; font-weight: 700; line-height: 1.5; white-space: nowrap; pointer-events: none; }
 .advisor-hero .hero-points-highlight.is-gaining strong { color: #ffd76a; text-shadow: 0 0 14px #ffd12466; }
 .advisor-hero .hero-points-highlight.is-gaining .hero-highlight-icon { color: #ffd124; filter: drop-shadow(0 0 9px #ffd12499); }
-@media (max-width: 780px) { .hero-points-gain { left: 6px; top: -12px; font-size: .68rem; } }
+@media (max-width: 780px) { .hero-points-gain { font-size: .66rem; padding: 0 6px; } }
 
 /* El botón de guía fuera de Inicio: un poco de aire bajo la descripción. */
 .advisor-shell :is(.commission-welcome, .map-welcome-copy, .progress-heading, .shop-heading-copy, .rewards-heading-copy) .advisor-guide-button { margin-top: 10px; }
+
+/* Inicio reacomodable: cada tarjeta cuelga de un gancho de percha arriba a la derecha.
+   Al agarrarlo se levanta y se balancea como colgada; al soltarla sobre otra se intercambian. */
+.advisor-shell .advisor-overview .advisor-dashboard-column > section { position: relative; }
+.advisor-shell .advisor-overview .advisor-ranking { min-height: 280px; }
+.advisor-shell .advisor-overview .advisor-client-panel { min-height: 360px; }
+.advisor-shell .advisor-overview .weekly-sales-card { min-height: 300px; }
+.advisor-shell .advisor-overview .tonnage-goal-card, .advisor-shell .advisor-overview .portfolio-card { min-height: 200px; }
+.advisor-shell .advisor-client-panel .customer-list { max-height: 260px; overflow-y: auto; scrollbar-width: thin; }
+.advisor-overview.is-measuring .advisor-dashboard-column > section { flex: none !important; }
+/* En una sola columna manda el orden intercalado que guarda dashboard-drag.js. */
+@media (max-width: 1000px) { .advisor-shell .advisor-overview [data-card] { order: var(--stack-order, 0); } }
+
+.advisor-shell .dashboard-hook { position: absolute; z-index: 4; top: -15px; right: 22px; display: grid; place-items: center; width: 30px; height: 30px; padding: 6px; border: 1px solid var(--dashboard-line); border-radius: 50%; background: var(--dashboard-panel); color: var(--dashboard-muted); box-shadow: 0 4px 10px #00142522; cursor: grab; touch-action: none; transform-origin: 50% 0; transition: color 160ms ease, border-color 160ms ease; }
+.advisor-shell .dashboard-hook svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.advisor-shell .dashboard-hook:hover { scale: 1; border-color: #ffd124; color: #ffd124; box-shadow: 0 4px 10px #00142522; }
+.advisor-shell .dashboard-hook:focus-visible { outline: 2px solid #ffd124; outline-offset: 2px; }
+.advisor-shell .dashboard-hook[aria-pressed="true"] { border-color: #ffd124; background: #ffd124; color: #002338; }
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .advisor-shell .dashboard-hook:hover { animation: dashboard-hook-sway 1.2s ease-in-out infinite; }
+}
+@keyframes dashboard-hook-sway { 25% { rotate: -9deg; } 75% { rotate: 9deg; } }
+
+/* Mientras cuelga: sombra profunda, sin el hover normal, por encima de todo. */
+.advisor-shell .advisor-overview .advisor-dashboard-column > section.is-dragging { z-index: 30; translate: none; cursor: grabbing; border-color: #ffd124; box-shadow: 0 28px 60px -18px #00142588, 0 0 0 1px #ffd12455; transition: none; }
+.advisor-shell .advisor-overview .advisor-dashboard-column > section.is-dragging .dashboard-hook { background: #ffd124; border-color: #ffd124; color: #002338; cursor: grabbing; animation: none; }
+.advisor-shell .advisor-overview.is-sorting .advisor-dashboard-column > section:not(.is-dragging):hover { translate: none; }
+.advisor-shell .advisor-overview .advisor-dashboard-column > section.is-drop-target { outline: 2px dashed #ffd124; outline-offset: 4px; background: color-mix(in srgb, #ffd124 6%, var(--dashboard-panel)); }
+.advisor-shell .advisor-overview .advisor-dashboard-column > section.is-grabbed { outline: 2px dashed #ffd124; outline-offset: 4px; }
+
+/* Encima o debajo: una línea dorada. */
+.dashboard-drop-marker { position: absolute; z-index: 5; left: 16px; right: 16px; height: 4px; border-radius: 999px; background: #ffd124; box-shadow: 0 0 12px #ffd124aa; pointer-events: none; }
+.dashboard-drop-marker.is-above { top: -12px; }
+.dashboard-drop-marker.is-below { bottom: -12px; }
+
+/* «Restablecer orden»: solo aparece si moviste algo. */
+.dashboard-layout-bar { display: flex; justify-content: flex-end; margin: -6px 0 10px; }
+.dashboard-layout-bar[hidden] { display: none; }
+.advisor-shell .dashboard-reset { min-height: 28px; padding: 3px 12px; border: 1px solid color-mix(in srgb, var(--dashboard-line) 70%, transparent); border-radius: 999px; background: transparent; color: var(--dashboard-muted); font-size: .74rem; font-weight: 600; box-shadow: none; cursor: pointer; }
+.advisor-shell .dashboard-reset:hover { scale: 1; border-color: var(--dashboard-blue); color: var(--dashboard-ink); box-shadow: none; }
+.dashboard-live { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* Ventas de la semana estirada: el gráfico crece con la tarjeta en vez de dejar espacio vacío. */
+@media (min-width: 1001px) {
+  .advisor-shell .advisor-overview .weekly-sales-card { display: flex; flex-direction: column; }
+  .advisor-shell .advisor-overview .weekly-sales-card .weekly-chart { flex: 1 1 auto; height: auto; min-height: 176px; max-height: 460px; }
+  .advisor-shell .advisor-overview .weekly-sales-card .weekly-chart-bar { max-height: calc(100% - 44px); }
+}
+
+/* Relleno del espacio vacío (dashboard-filler.js): sin caja propia, centrado en el hueco,
+   letra suave; con mucho espacio aparece Topitín pequeño y la frase crece. */
+.dashboard-filler { position: absolute; z-index: 1; right: 22px; bottom: 18px; left: 22px; display: grid; align-content: center; justify-items: center; gap: 10px; padding: 14px 8px; border-top: 1px dashed color-mix(in srgb, var(--dashboard-line) 80%, transparent); text-align: center; pointer-events: auto; overflow: hidden; }
+.filler-head { display: inline-flex; align-items: center; gap: 8px; }
+.filler-mascot { display: none; width: 40px; height: 40px; object-fit: contain; opacity: .55; filter: grayscale(.4); }
+.dashboard-filler.is-roomy .filler-mascot { display: block; }
+/* Todo en gris apagado: acompaña sin robar la atención. */
+.filler-label { color: var(--dashboard-muted); font-size: .74rem; font-weight: 600; opacity: .6; }
+.filler-quote { max-width: 48ch; margin: 0; color: var(--dashboard-muted); font-size: .96rem; font-weight: 500; line-height: 1.55; text-wrap: balance; opacity: .62; }
+.dashboard-filler.is-roomy .filler-quote { font-size: 1.08rem; }
+.filler-body { display: grid; gap: 8px; justify-items: center; }
+.filler-word { display: inline-block; white-space: nowrap; }
+.filler-char { display: inline-block; will-change: transform, opacity, filter; }
+/* El autor va abajo, como la firma de una cita. */
+.filler-author { font-size: .8rem; font-style: italic; font-weight: 500; }
+
+/* Globito «¡Tócame!»: más pequeño y suave que los de logros. */
+.advisor-hero-mascot .mascot-feedback.mascot-feedback-hint { padding: 7px 12px; font-size: .8rem; font-weight: 700; }

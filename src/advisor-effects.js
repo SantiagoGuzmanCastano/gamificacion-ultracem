@@ -112,20 +112,27 @@ export function popPoints(amount) {
   const value = stat?.querySelector('strong');
   if (!value || !amount) return;
   const total = Number(value.textContent.replace(/\D/g, '')) || 0;
-  const chip = document.createElement('span');
+  // <b> y no <span>: las reglas de los <span> del logro lo meterían en una celda de la grilla.
+  const chip = document.createElement('b');
   chip.className = 'hero-points-gain';
   chip.setAttribute('aria-hidden', 'true');
   chip.textContent = `+${amount} puntos`;
   stat.append(chip);
+  // Al lado de la cifra y centrado con ella: se mide el texto, no la celda completa.
+  const range = document.createRange();
+  range.selectNodeContents(value);
+  const text = range.getBoundingClientRect(), box = stat.getBoundingClientRect();
+  chip.style.left = `${text.right - box.left + 10}px`;
+  chip.style.top = `${text.top - box.top + text.height / 2}px`;
   stat.classList.add('is-gaining');
   const done = () => { chip.remove(); stat.classList.remove('is-gaining'); value.textContent = total.toLocaleString('es-CO'); };
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { setTimeout(done, 1600); return; }
   const counter = { value: Math.max(0, total - amount) };
   gsap.timeline({ onComplete: done })
-    .fromTo(chip, { autoAlpha: 0, y: 6, scale: .8 }, { autoAlpha: 1, y: -6, scale: 1, duration: .35, ease: 'back.out(2.2)' }, 0)
+    .fromTo(chip, { autoAlpha: 0, y: 8 }, { autoAlpha: 1, y: 0, duration: .4, ease: 'power3.out' }, 0)
     .to(counter, { value: total, duration: .8, ease: 'power2.out', onUpdate: () => { value.textContent = Math.round(counter.value).toLocaleString('es-CO'); } }, .1)
     .fromTo(value, { scale: 1 }, { scale: 1.12, duration: .18, yoyo: true, repeat: 1, ease: 'power2.out', transformOrigin: 'left center' }, .75)
-    .to(chip, { autoAlpha: 0, y: -26, duration: .5, ease: 'power2.in' }, 1.25);
+    .to(chip, { autoAlpha: 0, y: -12, duration: .5, ease: 'power2.in' }, 1.35);
 }
 
 // La campana se sacude para señalar que llegó una notificación nueva.
