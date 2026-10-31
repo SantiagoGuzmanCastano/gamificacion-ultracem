@@ -44,3 +44,12 @@ test('la escena usa solo modelos copiados a public/progress', () => {
   for (const name of names) assert.ok(existsSync(new URL(`../public/progress/${name}.glb`, import.meta.url)), name);
   for (const pack of ['industrial', 'platformer', 'car']) assert.ok(existsSync(new URL(`../public/progress/${pack}/Textures/colormap.png`, import.meta.url)), pack);
 });
+
+test('al entrar a Progreso tras una venta nueva sale «+1 venta» junto al nivel actual', () => {
+  assert.match(main, /const seenSales = readStoredCount\(salesKey\);/);
+  assert.match(main, /if \(seenSales !== null && saleCount > seenSales\) progressSaleGain = \{ count: saleCount - seenSales, at: performance\.now\(\) \};/);
+  assert.match(main, /if \(gainAge < 2\.5\) showSaleGain\(page, progressSaleGain\.count, reducedMotion, Math\.max\(0, 1 - gainAge\)\);/);
+  assert.match(main, /storeSeenLevel\(salesKey, saleCount\)/);
+  const page = readFileSync(new URL('../src/progress-page.js', import.meta.url), 'utf8');
+  assert.match(page, /`\+\$\{plural\(gained, 'venta', 'ventas'\)\}`/);
+});

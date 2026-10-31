@@ -36,6 +36,8 @@
 .progress-side { display: grid; gap: 14px; }
 .progress-card { padding: 18px 20px; border: 1px solid var(--dashboard-line); border-radius: 18px; background: var(--dashboard-panel); color: var(--dashboard-ink); }
 .progress-eyebrow, .progress-card-title { display: block; margin: 0 0 4px; color: var(--dashboard-muted); font-size: .78rem; font-weight: 800; }
+.progress-current { position: relative; }
+.progress-sale-gain { position: absolute; top: 14px; right: 92px; padding: 5px 11px; border-radius: 999px; background: var(--progress-gold); color: #2c1f00; font-size: .85rem; font-weight: 850; box-shadow: 0 6px 18px #ffd12466; pointer-events: none; }
 .progress-current-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .progress-current h2 { margin: 0; font-size: 2rem; letter-spacing: -.03em; }
 .progress-current-name { margin: 2px 0 0; color: var(--dashboard-muted); font-size: .9rem; }
