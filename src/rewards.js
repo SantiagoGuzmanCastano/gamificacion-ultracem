@@ -60,9 +60,14 @@ export function daysLeftInMonth(now = new Date()) {
   return { days: Math.floor(hours / 24), hours: hours % 24 };
 }
 
-// El evento de Halloween dura hasta el final de octubre.
+// El evento de Halloween se extendió hasta el final de noviembre para poder mostrarlo en la
+// revisión del proyecto; así se ve cómo queda la app en temporada de festividades.
+export const isHalloweenSeason = (now = new Date()) => now.getMonth() === 9 || now.getMonth() === 10;
+
 export function eventCountdown(now = new Date()) {
-  const { days, hours } = daysLeftInMonth(now);
+  const end = new Date(now.getFullYear(), 11, 1);
+  const total = Math.max(0, Math.floor((end - now) / 3600000));
+  const days = Math.floor(total / 24), hours = total % 24;
   if (!days) return `Quedan ${hours} h`;
   return `Quedan ${days} ${days === 1 ? 'día' : 'días'} y ${hours} h`;
 }
@@ -129,7 +134,7 @@ export function renderRewards(page, profilePoints, now = new Date(), halloweenEn
       </div>
       <div class="rewards-showcase">
         <ul class="rewards-grid rewards-grid-featured"></ul>
-        ${now.getMonth() === 9 ? '<div class="halloween-decoration" aria-hidden="true"><img class="halloween-mascot" src="/shop/halloween-topitin.webp" alt="" width="1389" height="1132" loading="lazy" decoding="async"></div>' : ''}
+        ${isHalloweenSeason(now) ? '<div class="halloween-decoration" aria-hidden="true"><img class="halloween-mascot" src="/shop/halloween-topitin.webp" alt="" width="1389" height="1132" loading="lazy" decoding="async"></div>' : ''}
       </div></div>
     </section>
 ` : ''}

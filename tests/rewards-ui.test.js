@@ -86,7 +86,7 @@ test('reward cards show affordability without enabling a transaction and retain 
     assert.match(page.innerHTML, /class="halloween-backdrop"/);
     assert.match(page.innerHTML, /class="halloween-content"/);
     assert.match(page.innerHTML, /Exclusivos de Halloween/);
-    assert.match(page.innerHTML, /Quedan 9 días y 0 h/);
+    assert.match(page.innerHTML, /Quedan 39 días y 0 h/);
     assert.doesNotMatch(page.innerHTML, /sincronizado/);
     for (const filter of page.querySelector('.rewards-filters').children) {
       assert.match(filter.innerHTML, /<svg/);
@@ -108,7 +108,9 @@ test('reward cards show affordability without enabling a transaction and retain 
     page.querySelector('.rewards-filters').children[1].click();
     assert.equal(page.querySelector('.rewards-grid-collection').children.length, 2);
     page.querySelector('.rewards-filters').children[0].click();
-    renderRewards(page, 0, new Date(2026, 10, 1));
+    renderRewards(page, 0, new Date(2026, 10, 15));
+    assert.match(page.innerHTML, /halloween-topitin\.webp/);
+    renderRewards(page, 0, new Date(2026, 11, 1));
     assert.doesNotMatch(page.innerHTML, /halloween-topitin\.webp/);
   } finally { globalThis.document = previous; }
 });
@@ -140,8 +142,9 @@ test('the goal rail places every regular reward by cost and names the next one',
   assert.equal(rail.reached, 2);
   assert.match(rail.status, /Te faltan 40 puntos para el Bono de restaurante\./);
   assert.equal(rewardRail(900).status, 'Te alcanza para todos los bonos de la colección.');
-  assert.equal(eventCountdown(new Date(2026, 9, 30, 12)), 'Quedan 1 día y 12 h');
-  assert.equal(eventCountdown(new Date(2026, 9, 31, 20)), 'Quedan 4 h');
+  assert.equal(eventCountdown(new Date(2026, 9, 31, 20)), 'Quedan 30 días y 4 h');
+  assert.equal(eventCountdown(new Date(2026, 10, 29, 12)), 'Quedan 1 día y 12 h');
+  assert.equal(eventCountdown(new Date(2026, 10, 30, 20)), 'Quedan 4 h');
 });
 
 test('Halloween rewards follow the admin toggle and disappear when it is off', () => {
