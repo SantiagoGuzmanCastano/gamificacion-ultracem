@@ -30,7 +30,7 @@ import { showLoadingScreen, clearLoadingScreen } from './loading-screen.js';
 import { attachRankingAvatars } from './ranking-avatars.js';
 import { COLOMBIA_DEPARTMENTS, citiesForDepartment, normalizeClientLocation } from './client-location.js';
 import { commissionSummary, getCommissionStatus } from './commission-wallet.js';
-import { getProgressModel, playProgressEntrance, renderProgressPage, resetProgressEntrance, showLevelBanner } from './progress-page.js';
+import { getProgressModel, playProgressEntrance, renderProgressPage, resetProgressEntrance, showLevelBanner, showSaleGain } from './progress-page.js';
 import { showDashboardGuide, showProgressGuide, showScreenGuide } from './progress-guide.js';
 import { adminGuideBar } from './admin/admin-guide.js';
 import { playGuideEntrance, resetGuideEntrance } from './guide-entrance.js';
@@ -1414,6 +1414,8 @@ function navBadges() {
   const level = Number(profile?.level || 1);
   if (!readSeenLevel(seenKey)) storeSeenLevel(seenKey, level);
   else if (level > readSeenLevel(seenKey)) badges.progress = 'subiste de nivel';
+  const salesKey = `ultracem-progress-sales-${user?.id}`;
+  if (profile && readStoredCount(salesKey) === null) storeSeenLevel(salesKey, Number(profile.progression_sales) || 0);
   return badges;
 }
 function clearProgressBadge() {
@@ -1422,9 +1424,13 @@ function clearProgressBadge() {
 function readSeenLevel(key) {
   try { return Number(localStorage.getItem(key)) || 0; } catch { return 0; }
 }
+function readStoredCount(key) {
+  try { const value = localStorage.getItem(key); return value === null ? null : Number(value) || 0; } catch { return null; }
+}
 function storeSeenLevel(key, level) {
   try { localStorage.setItem(key, String(level)); } catch { /* sin almacenamiento: se celebra de nuevo la próxima vez */ }
 }
+let progressSaleGain = null;
 function advisorProgressPage(page) {
   const model = getProgressModel(profile.level, profile.progression_sales, progressLevels);
   const seenKey = `ultracem-progress-level-${user.id}`;
@@ -1453,6 +1459,14 @@ function advisorProgressPage(page) {
     guideMascot: skinHappyImage(),
   });
   playProgressEntrance(page);
+  const salesKey = `ultracem-progress-sales-${user.id}`;
+  const saleCount = Number(profile.progression_sales) || 0;
+  const seenSales = readStoredCount(salesKey);
+  if (seenSales !== null && saleCount > seenSales) progressSaleGain = { count: saleCount - seenSales, at: performance.now() };
+  if (seenSales !== saleCount) storeSeenLevel(salesKey, saleCount);
+  const gainAge = progressSaleGain ? (performance.now() - progressSaleGain.at) / 1000 : Infinity;
+  if (gainAge < 2.5) showSaleGain(page, progressSaleGain.count, reducedMotion, Math.max(0, 1 - gainAge));
+  else progressSaleGain = null;
   // La guía sale sola solo la primera vez; luego queda en «Repetir instrucciones».
   const guideKey = `ultracem-progress-guide-${user.id}`;
   if (!readSeenLevel(guideKey) && !document.querySelector('.progress-guide')) {

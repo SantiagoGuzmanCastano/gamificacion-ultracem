@@ -31,6 +31,20 @@ export function showLevelBanner(world, level, reducedMotion = false) {
     .to(banner, { scale: 0, opacity: 0, duration: .3, delay: 2.4, ease: 'back.in(2)' });
 }
 
+export function showSaleGain(page, gained, reducedMotion = false, delay = 1) {
+  const card = page.querySelector('.progress-current');
+  if (!card || gained < 1) return;
+  const chip = element('span', 'progress-sale-gain', `+${plural(gained, 'venta', 'ventas')}`);
+  chip.setAttribute('role', 'status');
+  card.append(chip);
+  const fresh = [...card.querySelectorAll('.progress-segments span.is-filled')].slice(-gained);
+  if (reducedMotion) { setTimeout(() => chip.remove(), 2600); return; }
+  gsap.timeline({ delay, onComplete: () => chip.remove() })
+    .fromTo(chip, { opacity: 0, y: 14, scale: .6 }, { opacity: 1, y: 0, scale: 1, duration: .45, ease: 'back.out(2.4)' })
+    .fromTo(fresh, { scaleY: 1 }, { scaleY: 1.9, duration: .18, yoyo: true, repeat: 1, stagger: .08, ease: 'power2.out' }, '<.1')
+    .to(chip, { y: -18, opacity: 0, duration: .5, delay: 1.6, ease: 'power2.in' });
+}
+
 export function renderProgressPage(page, model, { selected = model.level, onSelect = () => {}, onClients = () => {}, onReplay = null, onGuide = null, guideMascot = '' } = {}) {
   page.className = 'advisor-page progress-page';
   const heading = element('header', 'progress-heading');
